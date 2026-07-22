@@ -50,7 +50,7 @@ fun MoreScreen(
 
     if (currentSubSection != MoreSubSection.MENU) {
         Column(modifier = modifier.fillMaxSize()) {
-            SmallTopAppBar(
+            TopAppBar(
                 title = {
                     Text(
                         when (currentSubSection) {
