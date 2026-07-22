@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ड्राइवकेयर</string>
+    <string name="tab_dashboard">डैशबोर्ड</string>
+    <string name="tab_garage">गैरेज</string>
+    <string name="tab_fuel">ईंधन विश्लेषण</string>
+    <string name="tab_service">सर्विस एडवाइजर</string>
+    <string name="tab_documents">दस्तावेज़</string>
+    <string name="tab_emergency">आपातकालीन सेवा</string>
+    <string name="tab_achievements">उपलब्धियां</string>
+    <string name="tab_settings">सेटिंग्स</string>
+    <string name="tab_reminders">रिमाइंडर</string>
+
+    <string name="total_vehicles">कुल वाहन</string>
+    <string name="upcoming_services">आगामी सर्विस</string>
+    <string name="active_insurance">सक्रिय बीमा</string>
+    <string name="monthly_fuel_cost">मासिक ईंधन खर्च</string>
+    <string name="total_fuel_entries">कुल ईंधन लॉग</string>
+    <string name="vehicle_health_score">वाहन स्वास्थ्य स्कोर</string>
+
+    <string name="health_excellent">उत्कृष्ट</string>
+    <string name="health_good">अच्छा</string>
+    <string name="health_fair">सामान्य</string>
+    <string name="health_poor">कमजोर</string>
+
+    <string name="add_vehicle">वाहन जोड़ें</string>
+    <string name="edit_vehicle">वाहन बदलें</string>
+    <string name="delete_vehicle">वाहन हटाएं</string>
+    <string name="no_vehicles_title">कोई वाहन नहीं जोड़ा गया</string>
+    <string name="no_vehicles_desc">अपना पहला वाहन जोड़ने के लिए नीचे दिए गए बटन पर टैप करें।</string>
+    <string name="vehicle_name">वाहन का नाम</string>
+    <string name="brand">ब्रांड</string>
+    <string name="model">मॉडल</string>
+    <string name="year">वर्ष</string>
+    <string name="plate_no">नंबर प्लेट</string>
+    <string name="fuel_type">ईंधन का प्रकार</string>
+    <string name="odometer">ओडोमीटर रीडिंग (किमी)</string>
+    <string name="type">वाहन का प्रकार</string>
+
+    <string name="log_fuel">ईंधन लॉग करें</string>
+    <string name="select_vehicle">वाहन चुनें</string>
+    <string name="all_vehicles">सभी वाहन</string>
+    <string name="total_spent">कुल खर्च</string>
+    <string name="total_quantity">कुल मात्रा (लीटर)</string>
+    <string name="litres">लीटर</string>
+    <string name="cost">लागत ($)</string>
+    <string name="gas_station">पेट्रोल पंप</string>
+
+    <string name="add_service_log">सर्विस लॉग जोड़ें</string>
+    <string name="service_title">सर्विस का शीर्षक (जैसे ऑयल चेंज)</string>
+    <string name="workshop">वर्कशॉप / गैरेज</string>
+    <string name="no_service_logs">कोई सर्विस लॉग नहीं है</string>
+
+    <string name="add_reminder">रिमाइंडर जोड़ें</string>
+    <string name="reminder_title">रिमाइंडर शीर्षक</string>
+    <string name="due_date">तारीख</string>
+    <string name="no_reminders">कोई रिमाइंडर नहीं है</string>
+
+    <string name="save">सहेजें</string>
+    <string name="cancel">रद्द करें</string>
+    <string name="delete">हटाएं</string>
+
+    <string name="advisor_title">स्मार्ट सर्विस एडवाइजर</string>
+    <string name="advisor_subtitle">किलोमीटर और इतिहास के आधार पर एआई सिफारिशें।</string>
+    <string name="oil_change_due">इंजन ऑयल बदलने की आवश्यकता है</string>
+    <string name="brake_inspection_due">ब्रेक पैड जांच आवश्यक</string>
+    <string name="air_filter_due">एयर फ़िल्टर बदलें</string>
+    <string name="coolant_check_due">कूलेंट द्रव स्तर जांचें</string>
+    <string name="battery_check_due">बैटरी स्वास्थ्य जांच</string>
+    <string name="tire_rotation_due">टायर रोटेशन और बैलेंसिंग</string>
+
+    <string name="vehicle_profile">वाहन प्रोफ़ाइल</string>
+    <string name="export_pdf">पीडीएफ रिपोर्ट बनाएं</string>
+    <string name="share_pdf">रिपोर्ट शेयर करें</string>
+    <string name="add_document">दस्तावेज़ जोड़ें</string>
+    <string name="doc_type">दस्तावेज़ का प्रकार</string>
+
+    <string name="emergency_title">आपातकालीन सहायता</string>
+    <string name="one_tap_call">एक टैप कॉल</string>
+    <string name="mechanic">मैकेनिक</string>
+    <string name="family">परिवार</string>
+    <string name="insurance_hotline">बीमा हेल्पलाइन</string>
+    <string name="towing_service">टोइंग सेवा</string>
+
+    <string name="achievements_title">उपलब्धियां</string>
+    <string name="settings_title">सेटिंग्स</string>
+    <string name="theme_mode">डार्क मोड</string>
+    <string name="language">भाषा</string>
+    <string name="backup_data">बैकअप (JSON)</string>
+    <string name="restore_data">रिस्टोर</string>
+</resources>

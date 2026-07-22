@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">DriveCare 驭管家</string>
+    <string name="tab_dashboard">仪表盘</string>
+    <string name="tab_garage">我的车库</string>
+    <string name="tab_fuel">油耗分析</string>
+    <string name="tab_service">智能保养顾问</string>
+    <string name="tab_documents">车辆证件</string>
+    <string name="tab_emergency">紧急救援</string>
+    <string name="tab_achievements">里程成就</string>
+    <string name="tab_settings">设置</string>
+    <string name="tab_reminders">提醒事项</string>
+
+    <string name="total_vehicles">车辆总数</string>
+    <string name="upcoming_services">待办保养</string>
+    <string name="active_insurance">有效保险</string>
+    <string name="monthly_fuel_cost">本月燃油支出</string>
+    <string name="total_fuel_entries">加油记录总数</string>
+    <string name="vehicle_health_score">车辆健康指数</string>
+
+    <string name="health_excellent">极佳</string>
+    <string name="health_good">良好</string>
+    <string name="health_fair">一般</string>
+    <string name="health_poor">较差</string>
+
+    <string name="add_vehicle">添加车辆</string>
+    <string name="edit_vehicle">编辑车辆</string>
+    <string name="delete_vehicle">删除车辆</string>
+    <string name="no_vehicles_title">暂未添加任何车辆</string>
+    <string name="no_vehicles_desc">点击下方按钮添加您的第一辆爱车。</string>
+    <string name="vehicle_name">车辆名称</string>
+    <string name="brand">品牌</string>
+    <string name="model">车型</string>
+    <string name="year">年份</string>
+    <string name="plate_no">车牌号码</string>
+    <string name="fuel_type">燃料类型</string>
+    <string name="odometer">里程表读数 (km)</string>
+    <string name="type">车辆类型</string>
+
+    <string name="log_fuel">记录加油</string>
+    <string name="select_vehicle">选择车辆</string>
+    <string name="all_vehicles">所有车辆</string>
+    <string name="total_spent">总支出</string>
+    <string name="total_quantity">总加油量 (升)</string>
+    <string name="litres">升</string>
+    <string name="cost">费用 ($)</string>
+    <string name="gas_station">加油站</string>
+
+    <string name="add_service_log">添加保养记录</string>
+    <string name="service_title">保养项目 (例如 机油更换)</string>
+    <string name="workshop">修理厂 / 4S店</string>
+    <string name="no_service_logs">暂无保养记录</string>
+
+    <string name="add_reminder">添加提醒</string>
+    <string name="reminder_title">提醒名称</string>
+    <string name="due_date">截止日期</string>
+    <string name="no_reminders">暂无保养提醒</string>
+
+    <string name="save">保存</string>
+    <string name="cancel">取消</string>
+    <string name="delete">删除</string>
+
+    <string name="advisor_title">智能保养顾问</string>
+    <string name="advisor_subtitle">基于行驶里程与历史记录的智能保养建议。</string>
+    <string name="oil_change_due">建议更换发动机机油</string>
+    <string name="brake_inspection_due">需检查刹车片磨损</string>
+    <string name="air_filter_due">建议更换空气滤清器</string>
+    <string name="coolant_check_due">检查冷却液液位</string>
+    <string name="battery_check_due">检查蓄电池健康状况</string>
+    <string name="tire_rotation_due">轮胎换位与动平衡</string>
+
+    <string name="vehicle_profile">车辆详情档案</string>
+    <string name="export_pdf">生成 PDF 导出报告</string>
+    <string name="share_pdf">分享 PDF 报告</string>
+    <string name="add_document">添加车辆证件</string>
+    <string name="doc_type">证件类型</string>
+
+    <string name="emergency_title">道路紧急救援</string>
+    <string name="one_tap_call">一键拨号</string>
+    <string name="mechanic">修理厂</string>
+    <string name="family">紧急联系人</string>
+    <string name="insurance_hotline">保险报案热线</string>
+    <string name="towing_service">拖车救援</string>
+
+    <string name="achievements_title">成就与里程碑</string>
+    <string name="settings_title">系统设置</string>
+    <string name="theme_mode">深色模式</string>
+    <string name="language">应用语言</string>
+    <string name="backup_data">数据备份 (JSON)</string>
+    <string name="restore_data">恢复数据</string>
+</resources>

@@ -2,6 +2,7 @@ package com.drivecare.app.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -11,7 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.drivecare.app.data.model.Reminder
+import com.drivecare.app.data.model.Document
 import com.drivecare.app.data.model.Vehicle
 import com.drivecare.app.ui.DriveCareViewModel
 import com.drivecare.app.utils.AppStrings
@@ -19,15 +20,24 @@ import com.drivecare.app.utils.LocalAppLanguage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ReminderScreen(
+fun DocumentsScreen(
     viewModel: DriveCareViewModel,
     modifier: Modifier = Modifier
 ) {
     val lang = LocalAppLanguage.current
     val vehicles by viewModel.vehicles.collectAsState()
-    val reminders by viewModel.reminders.collectAsState()
+    val documents by viewModel.documents.collectAsState()
 
     var showAddDialog by remember { mutableStateOf(false) }
+    var selectedFilter by remember { mutableStateOf("All") }
+
+    val categories = listOf("All", "Registration", "Insurance", "License", "Bill", "Warranty", "Photo")
+
+    val filteredDocs = if (selectedFilter == "All") {
+        documents
+    } else {
+        documents.filter { it.docType.equals(selectedFilter, ignoreCase = true) }
+    }
 
     Scaffold(
         modifier = modifier,
@@ -35,8 +45,8 @@ fun ReminderScreen(
             if (vehicles.isNotEmpty()) {
                 ExtendedFloatingActionButton(
                     onClick = { showAddDialog = true },
-                    icon = { Icon(Icons.Default.AddAlarm, contentDescription = AppStrings.get("add_reminder", lang)) },
-                    text = { Text(AppStrings.get("add_reminder", lang)) }
+                    icon = { Icon(Icons.Default.UploadFile, contentDescription = AppStrings.get("add_document", lang)) },
+                    text = { Text(AppStrings.get("add_document", lang)) }
                 )
             }
         }
@@ -46,31 +56,39 @@ fun ReminderScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = AppStrings.get("tab_reminders", lang),
+                text = AppStrings.get("tab_documents", lang),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
 
-            if (reminders.isEmpty()) {
+            // Category filter chips
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(categories) { cat ->
+                    FilterChip(
+                        selected = selectedFilter == cat,
+                        onClick = { selectedFilter = cat },
+                        label = { Text(if (cat == "All") AppStrings.get("all_vehicles", lang) else cat) }
+                    )
+                }
+            }
+
+            if (filteredDocs.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.NotificationsNone, contentDescription = null, modifier = Modifier.size(64.dp))
+                        Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(64.dp))
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text(AppStrings.get("no_reminders", lang), style = MaterialTheme.typography.titleMedium)
-                        Text(AppStrings.get("no_reminders_desc", lang), style = MaterialTheme.typography.bodySmall)
+                        Text(AppStrings.get("no_documents", lang), style = MaterialTheme.typography.titleMedium)
                     }
                 }
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    items(reminders, key = { it.id }) { rem ->
+                    items(filteredDocs, key = { it.id }) { doc ->
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (rem.isCompleted) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface
-                            )
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                         ) {
                             Row(
                                 modifier = Modifier
@@ -83,17 +101,22 @@ fun ReminderScreen(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    Checkbox(
-                                        checked = rem.isCompleted,
-                                        onCheckedChange = { viewModel.toggleReminder(rem) }
+                                    Icon(
+                                        Icons.Default.Description,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(32.dp)
                                     )
                                     Column {
-                                        Text(rem.reminderTitle, fontWeight = FontWeight.Bold)
-                                        Text("${rem.vehicleName} • ${rem.dueDate}")
+                                        Text(doc.docTitle, fontWeight = FontWeight.Bold)
+                                        Text("${doc.vehicleName} • ${doc.docType}", style = MaterialTheme.typography.bodySmall)
+                                        if (doc.expiryDate.isNotBlank()) {
+                                            Text("Expires: ${doc.expiryDate}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                                        }
                                     }
                                 }
 
-                                IconButton(onClick = { viewModel.deleteReminder(rem) }) {
+                                IconButton(onClick = { viewModel.deleteDocument(doc) }) {
                                     Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
                                 }
                             }
@@ -105,11 +128,11 @@ fun ReminderScreen(
     }
 
     if (showAddDialog && vehicles.isNotEmpty()) {
-        AddReminderDialog(
+        AddDocumentDialog(
             vehicles = vehicles,
             onDismiss = { showAddDialog = false },
-            onSave = { reminder ->
-                viewModel.addReminder(reminder)
+            onSave = { doc ->
+                viewModel.addDocument(doc)
                 showAddDialog = false
             },
             lang = lang
@@ -118,37 +141,40 @@ fun ReminderScreen(
 }
 
 @Composable
-fun AddReminderDialog(
+fun AddDocumentDialog(
     vehicles: List<Vehicle>,
     onDismiss: () -> Unit,
-    onSave: (Reminder) -> Unit,
+    onSave: (Document) -> Unit,
     lang: com.drivecare.app.utils.AppLanguage
 ) {
     var selectedVehicle by remember { mutableStateOf(vehicles.first()) }
     var title by remember { mutableStateOf("") }
-    var dueDate by remember { mutableStateOf("2026-08-01") }
+    var docType by remember { mutableStateOf("Registration") }
+    var expiryDate by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(AppStrings.get("add_reminder", lang)) },
+        title = { Text(AppStrings.get("add_document", lang)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(value = selectedVehicle.vehicleName, onValueChange = {}, readOnly = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text(AppStrings.get("reminder_title", lang)) }, singleLine = true)
-                OutlinedTextField(value = dueDate, onValueChange = { dueDate = it }, label = { Text(AppStrings.get("due_date", lang)) }, singleLine = true)
+                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Document Title") }, singleLine = true)
+                OutlinedTextField(value = docType, onValueChange = { docType = it }, label = { Text(AppStrings.get("doc_type", lang)) }, singleLine = true)
+                OutlinedTextField(value = expiryDate, onValueChange = { expiryDate = it }, label = { Text("Expiry Date (e.g. 2027-12-31)") }, singleLine = true)
             }
         },
         confirmButton = {
             Button(
                 onClick = {
                     if (title.isNotBlank()) {
-                        val reminder = Reminder(
+                        val doc = Document(
                             vehicleId = selectedVehicle.id,
                             vehicleName = selectedVehicle.vehicleName,
-                            reminderTitle = title,
-                            dueDate = dueDate
+                            docTitle = title,
+                            docType = docType,
+                            expiryDate = expiryDate
                         )
-                        onSave(reminder)
+                        onSave(doc)
                     }
                 }
             ) {

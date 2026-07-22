@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">درايف كير</string>
+    <string name="tab_dashboard">لوحة التحكم</string>
+    <string name="tab_garage">المرأب</string>
+    <string name="tab_fuel">تحليل الوقود</string>
+    <string name="tab_service">مستشار الصيانه</string>
+    <string name="tab_documents">الوثائق</string>
+    <string name="tab_emergency">الطوارئ</string>
+    <string name="tab_achievements">الإنجازات</string>
+    <string name="tab_settings">الإعدادات</string>
+    <string name="tab_reminders">التذكيرات</string>
+
+    <string name="total_vehicles">إجمالي المركبات</string>
+    <string name="upcoming_services">الصيانة القادمة</string>
+    <string name="active_insurance">التأمين النشط</string>
+    <string name="monthly_fuel_cost">تكلفة الوقود الشهرية</string>
+    <string name="total_fuel_entries">سجلات الوقود</string>
+    <string name="vehicle_health_score">مؤشر صحة المركبة</string>
+
+    <string name="health_excellent">ممتاز</string>
+    <string name="health_good">جيد</string>
+    <string name="health_fair">مقبول</string>
+    <string name="health_poor">ضعيف</string>
+
+    <string name="add_vehicle">إضافة مركبة</string>
+    <string name="edit_vehicle">تعديل المركبة</string>
+    <string name="delete_vehicle">حذف المركبة</string>
+    <string name="no_vehicles_title">لم يتم إضافة مركبات بعد</string>
+    <string name="no_vehicles_desc">اضغط على الزر أدناه لإضافة أول مركبة.</string>
+    <string name="vehicle_name">اسم المركبة</string>
+    <string name="brand">الماركة</string>
+    <string name="model">الموديل</string>
+    <string name="year">السنة</string>
+    <string name="plate_no">رقم لوحة السيارة</string>
+    <string name="fuel_type">نوع الوقود</string>
+    <string name="odometer">قراءة العداد (كم)</string>
+    <string name="type">نوع المركبة</string>
+
+    <string name="log_fuel">تسجيل الوقود</string>
+    <string name="select_vehicle">اختر المركبة</string>
+    <string name="all_vehicles">جميع المركبات</string>
+    <string name="total_spent">المبلغ الإجمالي</string>
+    <string name="total_quantity">الكمية الإجمالية</string>
+    <string name="litres">لتر</string>
+    <string name="cost">التكلفة ($)</string>
+    <string name="gas_station">محطة الوقود</string>
+
+    <string name="add_service_log">إضافة سجل صيانة</string>
+    <string name="service_title">نوع الخدمة (مثل تغيير الزيت)</string>
+    <string name="workshop">الورشة / الكراج</string>
+    <string name="no_service_logs">لا توجد سجلات صيانة</string>
+
+    <string name="add_reminder">إضافة تذكير</string>
+    <string name="reminder_title">عنوان التذكير</string>
+    <string name="due_date">التاريخ</string>
+    <string name="no_reminders">لا توجد تذكيرات</string>
+
+    <string name="save">حفظ</string>
+    <string name="cancel">إلغاء</string>
+    <string name="delete">حذف</string>
+
+    <string name="advisor_title">مستشار الصيانة الذكي</string>
+    <string name="advisor_subtitle">توصيات صيانة ذكية بناءً على الكيلومترات والسجل.</string>
+    <string name="oil_change_due">يوصى بتغيير زيت المحرك</string>
+    <string name="brake_inspection_due">فحص فحمات الفرامل مطلوب</string>
+    <string name="air_filter_due">تغيير فلتر الهواء مطلوب</string>
+    <string name="coolant_check_due">فحص مستوى سائل التبريد</string>
+    <string name="battery_check_due">فحص حالة البطارية</string>
+    <string name="tire_rotation_due">تدوير وترصيص الإطارات</string>
+
+    <string name="vehicle_profile">ملف المركبة</string>
+    <string name="export_pdf">إنشاء تقرير PDF</string>
+    <string name="share_pdf">مشاركة التقرير</string>
+    <string name="add_document">إضافة وثيقة</string>
+    <string name="doc_type">نوع الوثيقة</string>
+
+    <string name="emergency_title">طوارئ الطريق والمساعدة</string>
+    <string name="one_tap_call">اتصال بضغطة واحدة</string>
+    <string name="mechanic">الميكانيكي</string>
+    <string name="family">جهة اتصال العائلة</string>
+    <string name="insurance_hotline">خط طوارئ التأمين</string>
+    <string name="towing_service">سطحة / سحب السيارات</string>
+
+    <string name="achievements_title">الإنجازات والميداليات</string>
+    <string name="settings_title">الإعدادات والتفضيلات</string>
+    <string name="theme_mode">الوضع الداكن</string>
+    <string name="language">لغة التطبيق</string>
+    <string name="backup_data">نسخ احتياطي (JSON)</string>
+    <string name="restore_data">استعادة البيانات</string>
+</resources>

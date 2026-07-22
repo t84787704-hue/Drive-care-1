@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ڈرائیو کیئر</string>
+    <string name="tab_dashboard">ڈیش بورڈ</string>
+    <string name="tab_garage">گیراج</string>
+    <string name="tab_fuel">ایندھن کا تجزیہ</string>
+    <string name="tab_service">سروس مشیر</string>
+    <string name="tab_documents">دستاویزات</string>
+    <string name="tab_emergency">ہنگامی مدد</string>
+    <string name="tab_achievements">کامیابیاں</string>
+    <string name="tab_settings">سیٹنگز</string>
+    <string name="tab_reminders">یاد دہانی</string>
+
+    <string name="total_vehicles">کل گاڑیاں</string>
+    <string name="upcoming_services">آنے والی سروسز</string>
+    <string name="active_insurance">فعال انشورنس</string>
+    <string name="monthly_fuel_cost">ماہانہ ایندھن کا خرچ</string>
+    <string name="total_fuel_entries">کل ایندھن کے ریکارڈ</string>
+    <string name="vehicle_health_score">گاڑی کی صحت کا اسکور</string>
+
+    <string name="health_excellent">بہترین</string>
+    <string name="health_good">اچھا</string>
+    <string name="health_fair">مناسب</string>
+    <string name="health_poor">کمزور</string>
+
+    <string name="add_vehicle">گاڑی شامل کریں</string>
+    <string name="edit_vehicle">گاڑی تبدیل کریں</string>
+    <string name="delete_vehicle">گاڑی ختم کریں</string>
+    <string name="no_vehicles_title">ابھی تک کوئی گاڑی شامل نہیں کی گئی</string>
+    <string name="no_vehicles_desc">اپنی پہلی گاڑی شامل کرنے کے لیے بٹن پر کلک کریں۔</string>
+    <string name="vehicle_name">گاڑی کا نام</string>
+    <string name="brand">کمپنی / برانڈ</string>
+    <string name="model">ماڈل</string>
+    <string name="year">سال</string>
+    <string name="plate_no">نمبر پلیٹ</string>
+    <string name="fuel_type">ایندھن کی قسم</string>
+    <string name="odometer">میٹر ریڈنگ (کلو میٹر)</string>
+    <string name="type">گاڑی کی قسم</string>
+
+    <string name="log_fuel">ایندھن درج کریں</string>
+    <string name="select_vehicle">گاڑی منتخب کریں</string>
+    <string name="all_vehicles">تمام گاڑیاں</string>
+    <string name="total_spent">کل خرچ</string>
+    <string name="total_quantity">کل مقدار (لیٹر)</string>
+    <string name="litres">لیٹر</string>
+    <string name="cost">قیمت ($)</string>
+    <string name="gas_station">پیٹرول پمپ</string>
+
+    <string name="add_service_log">سروس درج کریں</string>
+    <string name="service_title">تفصیل (مثلاً آئل چینج)</string>
+    <string name="workshop">ورکشاپ</string>
+    <string name="no_service_logs">کوئی سروس ریکارڈ نہیں</string>
+
+    <string name="add_reminder">یاد دہانی لگائیں</string>
+    <string name="reminder_title">یاد دہانی کا عنوان</string>
+    <string name="due_date">تاریخ</string>
+    <string name="no_reminders">کوئی یاد دہانی نہیں</string>
+
+    <string name="save">محفوظ کریں</string>
+    <string name="cancel">منسوخ کریں</string>
+    <string name="delete">ختم کریں</string>
+
+    <string name="advisor_title">سمارٹ سروس مشیر</string>
+    <string name="advisor_subtitle">گاڑی کی کلومیٹر اور ہسٹری کے مطابق خودکار تجاویز۔</string>
+    <string name="oil_change_due">انجن آئل تبدیل کرنے کی ضرورت ہے</string>
+    <string name="brake_inspection_due">بریک پیڈز کی چیکنگ ضروری ہے</string>
+    <string name="air_filter_due">ایئر فلٹر تبدیل کریں</string>
+    <string name="coolant_check_due">کولنٹ لیول چیک کریں</string>
+    <string name="battery_check_due">بیٹری کی حالت چیک کریں</string>
+    <string name="tire_rotation_due">ٹائر روٹیشن اور بیلنسنگ</string>
+
+    <string name="vehicle_profile">گاڑی کا پروفائل</string>
+    <string name="export_pdf">پی ڈی ایف رپورٹ بنائیں</string>
+    <string name="share_pdf">رپورٹ شیئر کریں</string>
+    <string name="add_document">دستاویز شامل کریں</string>
+    <string name="doc_type">دستاویز کی قسم</string>
+
+    <string name="emergency_title">روڈ سائیڈ ایمرجنسی مدد</string>
+    <string name="one_tap_call">ایک ٹیپ سے کال کریں</string>
+    <string name="mechanic">مکینک</string>
+    <string name="family">اہل خانہ</string>
+    <string name="insurance_hotline">انشورنس ہیلپ لائن</string>
+    <string name="towing_service">ٹو ٹرک سروس</string>
+
+    <string name="achievements_title">کامیابیاں اور ایوارڈز</string>
+    <string name="settings_title">ایپ سیٹنگز</string>
+    <string name="theme_mode">ڈارک موڈ</string>
+    <string name="language">زبان کا انتخاب</string>
+    <string name="backup_data">بیک اپ لیں (JSON)</string>
+    <string name="restore_data">ریسٹور کریں</string>
+</resources>

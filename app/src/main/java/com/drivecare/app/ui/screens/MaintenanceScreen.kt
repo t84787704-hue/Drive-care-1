@@ -4,10 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,9 +16,6 @@ import com.drivecare.app.data.model.Vehicle
 import com.drivecare.app.ui.DriveCareViewModel
 import com.drivecare.app.utils.AppStrings
 import com.drivecare.app.utils.LocalAppLanguage
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,54 +29,114 @@ fun MaintenanceScreen(
 
     var showAddDialog by remember { mutableStateOf(false) }
 
+    val advisorSuggestions = remember(vehicles, maintenanceLogs) {
+        if (vehicles.isNotEmpty()) {
+            viewModel.getMaintenanceAdvisorSuggestions(vehicles.first(), maintenanceLogs)
+        } else emptyList()
+    }
+
     Scaffold(
         modifier = modifier,
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { showAddDialog = true },
-                icon = { Icon(Icons.Default.Add, contentDescription = AppStrings.get("add_service_log", lang)) },
-                text = { Text(AppStrings.get("add_service_log", lang)) }
-            )
+            if (vehicles.isNotEmpty()) {
+                ExtendedFloatingActionButton(
+                    onClick = { showAddDialog = true },
+                    icon = { Icon(Icons.Default.Add, contentDescription = AppStrings.get("add_service_log", lang)) },
+                    text = { Text(AppStrings.get("add_service_log", lang)) }
+                )
+            }
         }
-    ) { padding ->
-        Box(
+    ) { paddingValues ->
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp)
+                .padding(paddingValues)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Smart Maintenance Advisor Section
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary)
+                        Text(
+                            text = AppStrings.get("advisor_title", lang),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Text(
+                        text = AppStrings.get("advisor_subtitle", lang),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    if (advisorSuggestions.isEmpty()) {
+                        Text("All maintenance items are up to date!", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                    } else {
+                        advisorSuggestions.forEach { rec ->
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(AppStrings.get(rec.titleKey, lang), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                        Text(rec.reason, style = MaterialTheme.typography.labelSmall)
+                                    }
+                                    Surface(
+                                        color = if (rec.urgency == "HIGH") MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,
+                                        shape = MaterialTheme.shapes.small
+                                    ) {
+                                        Text(
+                                            text = rec.urgency,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Service History List
+            Text(
+                text = AppStrings.get("tab_service", lang),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+
             if (maintenanceLogs.isEmpty()) {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        Icons.Default.Build,
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = AppStrings.get("no_service_logs", lang),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = AppStrings.get("no_service_desc", lang),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.Build, contentDescription = null, modifier = Modifier.size(64.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(AppStrings.get("no_service_logs", lang), style = MaterialTheme.typography.titleMedium)
+                        Text(AppStrings.get("no_service_desc", lang), style = MaterialTheme.typography.bodySmall)
+                    }
                 }
             } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(maintenanceLogs, key = { it.id }) { log ->
                         Card(
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                         ) {
                             Row(
                                 modifier = Modifier
@@ -91,39 +145,18 @@ fun MaintenanceScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        Icons.Default.Build,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(28.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Column {
-                                        Text(
-                                            text = log.serviceTitle,
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        Text(
-                                            text = "${log.vehicleName} • $${log.serviceCost}",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                        Text(
-                                            text = "Date: ${log.serviceDate} | Workshop: ${log.workshopName.ifBlank { "N/A" }}",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.outline
-                                        )
+                                Column {
+                                    Text(log.serviceTitle, fontWeight = FontWeight.Bold)
+                                    Text("${log.vehicleName} • ${log.serviceDate}")
+                                    if (log.workshopName.isNotBlank()) {
+                                        Text("Workshop: ${log.workshopName}", style = MaterialTheme.typography.bodySmall)
                                     }
                                 }
-
-                                IconButton(onClick = { viewModel.deleteMaintenance(log) }) {
-                                    Icon(
-                                        Icons.Default.Delete,
-                                        contentDescription = AppStrings.get("delete", lang),
-                                        tint = MaterialTheme.colorScheme.error
-                                    )
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text("$${log.serviceCost}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                    IconButton(onClick = { viewModel.deleteMaintenance(log) }) {
+                                        Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                                    }
                                 }
                             }
                         }
@@ -133,124 +166,58 @@ fun MaintenanceScreen(
         }
     }
 
-    if (showAddDialog) {
-        AddMaintenanceDialog(
+    if (showAddDialog && vehicles.isNotEmpty()) {
+        AddServiceDialog(
             vehicles = vehicles,
             onDismiss = { showAddDialog = false },
-            onSave = { maintenance ->
-                viewModel.addMaintenance(maintenance)
+            onSave = { log ->
+                viewModel.addMaintenance(log)
                 showAddDialog = false
-            }
+            },
+            lang = lang
         )
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddMaintenanceDialog(
+fun AddServiceDialog(
     vehicles: List<Vehicle>,
     onDismiss: () -> Unit,
-    onSave: (Maintenance) -> Unit
+    onSave: (Maintenance) -> Unit,
+    lang: com.drivecare.app.utils.AppLanguage
 ) {
-    val lang = LocalAppLanguage.current
-    var selectedVehicle by remember { mutableStateOf(vehicles.firstOrNull()) }
-    var vehicleMenuExpanded by remember { mutableStateOf(false) }
-
+    var selectedVehicle by remember { mutableStateOf(vehicles.first()) }
     var title by remember { mutableStateOf("") }
     var cost by remember { mutableStateOf("") }
     var workshop by remember { mutableStateOf("") }
-    var date by remember {
-        mutableStateOf(SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()))
-    }
+    var date by remember { mutableStateOf("2026-07-22") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(AppStrings.get("add_service_log", lang)) },
         text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text("${AppStrings.get("select_vehicle", lang)} *", style = MaterialTheme.typography.labelSmall)
-                ExposedDropdownMenuBox(
-                    expanded = vehicleMenuExpanded,
-                    onExpandedChange = { vehicleMenuExpanded = !vehicleMenuExpanded },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    OutlinedTextField(
-                        value = selectedVehicle?.vehicleName ?: AppStrings.get("select_vehicle", lang),
-                        onValueChange = {},
-                        readOnly = true,
-                        trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
-                        modifier = Modifier
-                            .menuAnchor()
-                            .fillMaxWidth()
-                    )
-
-                    ExposedDropdownMenu(
-                        expanded = vehicleMenuExpanded,
-                        onDismissRequest = { vehicleMenuExpanded = false }
-                    ) {
-                        vehicles.forEach { v ->
-                            DropdownMenuItem(
-                                text = { Text(v.vehicleName) },
-                                onClick = {
-                                    selectedVehicle = v
-                                    vehicleMenuExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text(AppStrings.get("service_title", lang)) },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = cost,
-                        onValueChange = { cost = it },
-                        label = { Text(AppStrings.get("cost", lang)) },
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = date,
-                        onValueChange = { date = it },
-                        label = { Text(AppStrings.get("due_date", lang)) },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                OutlinedTextField(
-                    value = workshop,
-                    onValueChange = { workshop = it },
-                    label = { Text(AppStrings.get("workshop", lang)) },
-                    modifier = Modifier.fillMaxWidth()
-                )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(value = selectedVehicle.vehicleName, onValueChange = {}, readOnly = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text(AppStrings.get("service_title", lang)) }, singleLine = true)
+                OutlinedTextField(value = cost, onValueChange = { cost = it }, label = { Text(AppStrings.get("cost", lang)) }, singleLine = true)
+                OutlinedTextField(value = workshop, onValueChange = { workshop = it }, label = { Text(AppStrings.get("workshop", lang)) }, singleLine = true)
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    val v = selectedVehicle
-                    if (v != null && title.isNotBlank()) {
-                        onSave(
-                            Maintenance(
-                                vehicleId = v.id,
-                                vehicleName = v.vehicleName,
-                                serviceTitle = title,
-                                serviceCost = cost,
-                                serviceDate = date,
-                                workshopName = workshop
-                            )
+                    if (title.isNotBlank()) {
+                        val log = Maintenance(
+                            vehicleId = selectedVehicle.id,
+                            vehicleName = selectedVehicle.vehicleName,
+                            serviceTitle = title,
+                            serviceDate = date,
+                            serviceCost = cost.ifBlank { "0" },
+                            workshopName = workshop
                         )
+                        onSave(log)
                     }
-                },
-                enabled = selectedVehicle != null && title.isNotBlank()
+                }
             ) {
                 Text(AppStrings.get("save", lang))
             }

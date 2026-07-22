@@ -1,3 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">DriveCare</string>
+    <string name="tab_dashboard">Dashboard</string>
+    <string name="tab_garage">Garage</string>
+    <string name="tab_fuel">Fuel Analytics</string>
+    <string name="tab_service">Service Advisor</string>
+    <string name="tab_documents">Documents</string>
+    <string name="tab_emergency">Emergency</string>
+    <string name="tab_achievements">Achievements</string>
+    <string name="tab_settings">Settings</string>
+    <string name="tab_reminders">Reminders</string>
+
+    <string name="total_vehicles">Total Vehicles</string>
+    <string name="upcoming_services">Upcoming Services</string>
+    <string name="active_insurance">Active Insurance</string>
+    <string name="monthly_fuel_cost">Monthly Fuel Cost</string>
+    <string name="total_fuel_entries">Total Fuel Logs</string>
+    <string name="vehicle_health_score">Vehicle Health Score</string>
+
+    <string name="health_excellent">Excellent</string>
+    <string name="health_good">Good</string>
+    <string name="health_fair">Fair</string>
+    <string name="health_poor">Poor</string>
+
+    <string name="add_vehicle">Add Vehicle</string>
+    <string name="edit_vehicle">Edit Vehicle</string>
+    <string name="delete_vehicle">Delete Vehicle</string>
+    <string name="no_vehicles_title">No Vehicles Added Yet</string>
+    <string name="no_vehicles_desc">Tap the button below to add your first vehicle.</string>
+    <string name="vehicle_name">Vehicle Name</string>
+    <string name="brand">Brand</string>
+    <string name="model">Model</string>
+    <string name="year">Year</string>
+    <string name="plate_no">Plate No.</string>
+    <string name="fuel_type">Fuel Type</string>
+    <string name="odometer">Odometer Reading</string>
+    <string name="type">Vehicle Type</string>
+
+    <string name="log_fuel">Log Fuel</string>
+    <string name="select_vehicle">Select Vehicle</string>
+    <string name="all_vehicles">All Vehicles</string>
+    <string name="total_spent">Total Spent</string>
+    <string name="total_quantity">Total Quantity</string>
+    <string name="litres">Litres</string>
+    <string name="cost">Cost ($)</string>
+    <string name="gas_station">Gas Station (Optional)</string>
+
+    <string name="add_service_log">Add Service Log</string>
+    <string name="service_title">Service Title (e.g. Oil Change)</string>
+    <string name="workshop">Workshop / Garage</string>
+    <string name="no_service_logs">No Service Logs Yet</string>
+
+    <string name="add_reminder">Add Reminder</string>
+    <string name="reminder_title">Reminder Title (e.g. Insurance)</string>
+    <string name="due_date">Due Date</string>
+    <string name="no_reminders">No Service Reminders</string>
+
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="delete">Delete</string>
+
+    <string name="advisor_title">Smart Maintenance Advisor</string>
+    <string name="advisor_subtitle">AI-powered maintenance suggestions based on mileage and history.</string>
+    <string name="oil_change_due">Engine Oil Replacement Recommended</string>
+    <string name="brake_inspection_due">Brake Pad Inspection Due</string>
+    <string name="air_filter_due">Air Filter Replacement Needed</string>
+    <string name="coolant_check_due">Coolant Fluid Level Check</string>
+    <string name="battery_check_due">Battery Health Check</string>
+    <string name="tire_rotation_due">Tire Rotation &amp; Balancing</string>
+
+    <string name="vehicle_profile">Vehicle Profile</string>
+    <string name="export_pdf">Generate PDF Report</string>
+    <string name="share_pdf">Share Report</string>
+    <string name="add_document">Add Document</string>
+    <string name="doc_type">Document Type</string>
+
+    <string name="emergency_title">Roadside Emergency &amp; Assistance</string>
+    <string name="one_tap_call">One-Tap Call</string>
+    <string name="mechanic">Mechanic</string>
+    <string name="family">Family Contact</string>
+    <string name="insurance_hotline">Insurance Hotline</string>
+    <string name="towing_service">Tow Truck Service</string>
+
+    <string name="achievements_title">Achievements &amp; Milestones</string>
+    <string name="settings_title">Settings &amp; Preferences</string>
+    <string name="theme_mode">Dark Mode Theme</string>
+    <string name="language">Application Language</string>
+    <string name="backup_data">Backup Database (JSON)</string>
+    <string name="restore_data">Restore Database</string>
 </resources>

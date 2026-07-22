@@ -7,32 +7,29 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Dashboard
-import androidx.compose.material.icons.filled.DirectionsCar
-import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.LocalGasStation
-import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import com.drivecare.app.ui.DriveCareViewModel
-import com.drivecare.app.ui.screens.FuelTrackerScreen
-import com.drivecare.app.ui.screens.MaintenanceScreen
-import com.drivecare.app.ui.screens.ReminderScreen
-import com.drivecare.app.ui.screens.SummaryDashboardScreen
-import com.drivecare.app.ui.screens.VehicleListScreen
+import com.drivecare.app.ui.screens.*
 import com.drivecare.app.utils.AppLanguage
 import com.drivecare.app.utils.AppStrings
 import com.drivecare.app.utils.LocalAppLanguage
+import com.drivecare.app.utils.LocaleManager
 
 enum class NavTab(val stringKey: String, val icon: ImageVector) {
-    SUMMARY("tab_summary", Icons.Default.Dashboard),
+    SUMMARY("tab_dashboard", Icons.Default.Dashboard),
     GARAGE("tab_garage", Icons.Default.DirectionsCar),
     FUEL("tab_fuel", Icons.Default.LocalGasStation),
-    SERVICE("tab_service", Icons.Default.Build),
-    REMINDERS("tab_reminders", Icons.Default.Notifications)
+    SERVICE("tab_service", Icons.Default.AutoAwesome),
+    DOCUMENTS("tab_documents", Icons.Default.FolderOpen),
+    EMERGENCY("tab_emergency", Icons.Default.Emergency),
+    ACHIEVEMENTS("tab_achievements", Icons.Default.EmojiEvents),
+    SETTINGS("tab_settings", Icons.Default.Settings)
 }
 
 class MainActivity : ComponentActivity() {
@@ -43,10 +40,18 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val currentLang by viewModel.currentLanguage.collectAsState()
+            val layoutDirection = if (currentLang.isRtl) LayoutDirection.Rtl else LayoutDirection.Ltr
 
-            CompositionLocalProvider(LocalAppLanguage provides currentLang) {
+            LaunchedEffect(currentLang) {
+                LocaleManager.applyLocale(this@MainActivity, currentLang)
+            }
+
+            CompositionLocalProvider(
+                LocalAppLanguage provides currentLang,
+                LocalLayoutDirection provides layoutDirection
+            ) {
                 MaterialTheme {
-                    var currentTab by remember { mutableStateOf(NavTab.GARAGE) }
+                    var currentTab by remember { mutableStateOf(NavTab.SUMMARY) }
 
                     Scaffold(
                         topBar = {
@@ -79,7 +84,10 @@ class MainActivity : ComponentActivity() {
                             NavTab.GARAGE -> VehicleListScreen(viewModel = viewModel, modifier = modifier)
                             NavTab.FUEL -> FuelTrackerScreen(viewModel = viewModel, modifier = modifier)
                             NavTab.SERVICE -> MaintenanceScreen(viewModel = viewModel, modifier = modifier)
-                            NavTab.REMINDERS -> ReminderScreen(viewModel = viewModel, modifier = modifier)
+                            NavTab.DOCUMENTS -> DocumentsScreen(viewModel = viewModel, modifier = modifier)
+                            NavTab.EMERGENCY -> EmergencyScreen(viewModel = viewModel, modifier = modifier)
+                            NavTab.ACHIEVEMENTS -> AchievementsScreen(viewModel = viewModel, modifier = modifier)
+                            NavTab.SETTINGS -> SettingsScreen(viewModel = viewModel, modifier = modifier)
                         }
                     }
                 }
