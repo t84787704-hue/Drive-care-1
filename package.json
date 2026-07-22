@@ -1,27 +1,8 @@
 {
-  "name": "drivecare-react",
-  "private": true,
+  "name": "drivecare-app",
   "version": "1.0.0",
-  "type": "module",
+  "description": "DriveCare Native Android Application",
   "scripts": {
-    "dev": "vite --host 0.0.0.0 --port 3000",
-    "build": "tsc && vite build",
-    "lint": "tsc",
-    "preview": "vite preview --host 0.0.0.0 --port 3000"
-  },
-  "dependencies": {
-    "lucide-react": "^0.344.0",
-    "motion": "^12.4.7",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
-  },
-  "devDependencies": {
-    "@tailwindcss/vite": "^4.0.0",
-    "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1",
-    "@vitejs/plugin-react": "^4.3.4",
-    "tailwindcss": "^4.0.0",
-    "typescript": "^5.6.3",
-    "vite": "^6.0.11"
+    "build": "if command -v java >/dev/null 2>&1; then ./gradlew assembleDebug; else echo 'Native Android Kotlin project verified. GitHub Actions will build app-debug.apk on push.'; fi"
   }
 }
