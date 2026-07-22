@@ -1,6 +1,7 @@
 package com.drivecare.app.ui
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.drivecare.app.data.db.AppDatabase
@@ -65,7 +66,16 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     private val _selectedFuelVehicle = MutableStateFlow<Vehicle?>(null)
     val selectedFuelVehicle: StateFlow<Vehicle?> = _selectedFuelVehicle.asStateFlow()
 
-    private val _currentLanguage = MutableStateFlow(AppLanguage.ENGLISH)
+    private val prefs = application.getSharedPreferences("drivecare_prefs", Context.MODE_PRIVATE)
+
+    private val _currentLanguage = MutableStateFlow(
+        try {
+            val code = prefs.getString("selected_language", AppLanguage.ENGLISH.code) ?: AppLanguage.ENGLISH.code
+            AppLanguage.entries.find { it.code == code } ?: AppLanguage.ENGLISH
+        } catch (e: Exception) {
+            AppLanguage.ENGLISH
+        }
+    )
     val currentLanguage: StateFlow<AppLanguage> = _currentLanguage.asStateFlow()
 
     init {
@@ -83,6 +93,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun setLanguage(language: AppLanguage) {
         _currentLanguage.value = language
+        prefs.edit().putString("selected_language", language.code).apply()
         LocaleManager.applyLocale(getApplication(), language)
     }
 
@@ -214,26 +225,224 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         return list
     }
 
-    // Backup JSON Generator
+    // Comprehensive Backup JSON Generator
     fun exportBackupJson(): String {
         val root = JSONObject()
-        val vArray = JSONArray()
-        vehicles.value.forEach { v ->
-            val obj = JSONObject().apply {
-                put("id", v.id)
-                put("vehicleName", v.vehicleName)
-                put("brand", v.brand)
-                put("model", v.model)
-                put("year", v.manufacturingYear)
-                put("plate", v.registrationNumber)
-                put("fuelType", v.fuelType)
-                put("odometer", v.odometerReading)
-            }
-            vArray.put(obj)
-        }
-        root.put("vehicles", vArray)
         root.put("version", 2)
         root.put("timestamp", System.currentTimeMillis())
+
+        // Vehicles
+        val vArray = JSONArray()
+        vehicles.value.forEach { v ->
+            vArray.put(JSONObject().apply {
+                put("id", v.id)
+                put("vehicleName", v.vehicleName)
+                put("vehicleType", v.vehicleType)
+                put("brand", v.brand)
+                put("model", v.model)
+                put("manufacturingYear", v.manufacturingYear)
+                put("registrationNumber", v.registrationNumber)
+                put("fuelType", v.fuelType)
+                put("odometerReading", v.odometerReading)
+                put("notes", v.notes)
+            })
+        }
+        root.put("vehicles", vArray)
+
+        // Fuel Entries
+        val fArray = JSONArray()
+        fuelEntries.value.forEach { f ->
+            fArray.put(JSONObject().apply {
+                put("id", f.id)
+                put("vehicleId", f.vehicleId)
+                put("vehicleName", f.vehicleName)
+                put("fuelDate", f.fuelDate)
+                put("fuelType", f.fuelType)
+                put("fuelQuantity", f.fuelQuantity)
+                put("amountPaid", f.amountPaid)
+                put("currentOdometer", f.currentOdometer)
+                put("fuelStationName", f.fuelStationName)
+            })
+        }
+        root.put("fuel_entries", fArray)
+
+        // Maintenance
+        val mArray = JSONArray()
+        maintenanceLogs.value.forEach { m ->
+            mArray.put(JSONObject().apply {
+                put("id", m.id)
+                put("vehicleId", m.vehicleId)
+                put("vehicleName", m.vehicleName)
+                put("serviceTitle", m.serviceTitle)
+                put("serviceType", m.serviceType)
+                put("serviceDate", m.serviceDate)
+                put("currentOdometer", m.currentOdometer)
+                put("serviceCost", m.serviceCost)
+                put("workshopName", m.workshopName)
+            })
+        }
+        root.put("maintenance", mArray)
+
+        // Reminders
+        val rArray = JSONArray()
+        reminders.value.forEach { r ->
+            rArray.put(JSONObject().apply {
+                put("id", r.id)
+                put("vehicleId", r.vehicleId)
+                put("vehicleName", r.vehicleName)
+                put("reminderTitle", r.reminderTitle)
+                put("reminderType", r.reminderType)
+                put("dueDate", r.dueDate)
+                put("isCompleted", r.isCompleted)
+            })
+        }
+        root.put("reminders", rArray)
+
+        // Documents
+        val dArray = JSONArray()
+        documents.value.forEach { d ->
+            dArray.put(JSONObject().apply {
+                put("id", d.id)
+                put("vehicleId", d.vehicleId)
+                put("vehicleName", d.vehicleName)
+                put("docTitle", d.docTitle)
+                put("docType", d.docType)
+                put("issueDate", d.issueDate)
+                put("expiryDate", d.expiryDate)
+                put("notes", d.notes)
+            })
+        }
+        root.put("documents", dArray)
+
+        // Emergency Contacts
+        val cArray = JSONArray()
+        emergencyContacts.value.forEach { c ->
+            cArray.put(JSONObject().apply {
+                put("id", c.id)
+                put("name", c.name)
+                put("category", c.category)
+                put("phoneNumber", c.phoneNumber)
+                put("notes", c.notes)
+            })
+        }
+        root.put("emergency_contacts", cArray)
+
         return root.toString(2)
+    }
+
+    // Comprehensive Restore JSON Parser
+    fun restoreBackupJson(jsonString: String, onComplete: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val root = JSONObject(jsonString)
+
+                if (root.has("vehicles")) {
+                    val arr = root.getJSONArray("vehicles")
+                    for (i in 0 until arr.length()) {
+                        val obj = arr.getJSONObject(i)
+                        val v = Vehicle(
+                            vehicleName = obj.optString("vehicleName", "Vehicle"),
+                            vehicleType = obj.optString("vehicleType", "Car"),
+                            brand = obj.optString("brand", ""),
+                            model = obj.optString("model", ""),
+                            manufacturingYear = obj.optString("manufacturingYear", obj.optString("year", "")),
+                            registrationNumber = obj.optString("registrationNumber", obj.optString("plate", "")),
+                            fuelType = obj.optString("fuelType", "Petrol"),
+                            odometerReading = obj.optString("odometerReading", obj.optString("odometer", "0")),
+                            notes = obj.optString("notes", "")
+                        )
+                        vehicleDao.insertVehicle(v)
+                    }
+                }
+
+                if (root.has("fuel_entries")) {
+                    val arr = root.getJSONArray("fuel_entries")
+                    for (i in 0 until arr.length()) {
+                        val obj = arr.getJSONObject(i)
+                        val f = FuelEntry(
+                            vehicleId = obj.optLong("vehicleId", 1),
+                            vehicleName = obj.optString("vehicleName", ""),
+                            fuelDate = obj.optString("fuelDate", "2026-07-22"),
+                            fuelType = obj.optString("fuelType", "Petrol"),
+                            fuelQuantity = obj.optString("fuelQuantity", "0"),
+                            amountPaid = obj.optString("amountPaid", "0"),
+                            currentOdometer = obj.optString("currentOdometer", "0"),
+                            fuelStationName = obj.optString("fuelStationName", "")
+                        )
+                        fuelDao.insertFuelEntry(f)
+                    }
+                }
+
+                if (root.has("maintenance")) {
+                    val arr = root.getJSONArray("maintenance")
+                    for (i in 0 until arr.length()) {
+                        val obj = arr.getJSONObject(i)
+                        val m = Maintenance(
+                            vehicleId = obj.optLong("vehicleId", 1),
+                            vehicleName = obj.optString("vehicleName", ""),
+                            serviceTitle = obj.optString("serviceTitle", "Service"),
+                            serviceType = obj.optString("serviceType", "Routine Service"),
+                            serviceDate = obj.optString("serviceDate", "2026-07-22"),
+                            currentOdometer = obj.optString("currentOdometer", "0"),
+                            serviceCost = obj.optString("serviceCost", "0"),
+                            workshopName = obj.optString("workshopName", "")
+                        )
+                        maintenanceDao.insertMaintenance(m)
+                    }
+                }
+
+                if (root.has("reminders")) {
+                    val arr = root.getJSONArray("reminders")
+                    for (i in 0 until arr.length()) {
+                        val obj = arr.getJSONObject(i)
+                        val r = Reminder(
+                            vehicleId = obj.optLong("vehicleId", 1),
+                            vehicleName = obj.optString("vehicleName", ""),
+                            reminderTitle = obj.optString("reminderTitle", "Reminder"),
+                            reminderType = obj.optString("reminderType", "Oil Change"),
+                            dueDate = obj.optString("dueDate", "2026-12-31"),
+                            isCompleted = obj.optBoolean("isCompleted", false)
+                        )
+                        reminderDao.insertReminder(r)
+                    }
+                }
+
+                if (root.has("documents")) {
+                    val arr = root.getJSONArray("documents")
+                    for (i in 0 until arr.length()) {
+                        val obj = arr.getJSONObject(i)
+                        val d = Document(
+                            vehicleId = obj.optLong("vehicleId", 1),
+                            vehicleName = obj.optString("vehicleName", ""),
+                            docTitle = obj.optString("docTitle", "Document"),
+                            docType = obj.optString("docType", "Registration"),
+                            issueDate = obj.optString("issueDate", ""),
+                            expiryDate = obj.optString("expiryDate", ""),
+                            notes = obj.optString("notes", "")
+                        )
+                        documentDao.insertDocument(d)
+                    }
+                }
+
+                if (root.has("emergency_contacts")) {
+                    val arr = root.getJSONArray("emergency_contacts")
+                    for (i in 0 until arr.length()) {
+                        val obj = arr.getJSONObject(i)
+                        val c = EmergencyContact(
+                            name = obj.optString("name", "Contact"),
+                            category = obj.optString("category", "Mechanic"),
+                            phoneNumber = obj.optString("phoneNumber", ""),
+                            notes = obj.optString("notes", "")
+                        )
+                        emergencyContactDao.insertContact(c)
+                    }
+                }
+
+                onComplete(true, "Data restored successfully!")
+            } catch (e: Exception) {
+                e.printStackTrace()
+                onComplete(false, "Failed to restore data: ${e.localizedMessage}")
+            }
+        }
     }
 }
