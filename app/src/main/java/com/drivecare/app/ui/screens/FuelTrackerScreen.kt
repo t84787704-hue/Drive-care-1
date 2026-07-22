@@ -17,6 +17,8 @@ import androidx.compose.ui.unit.dp
 import com.drivecare.app.data.model.FuelEntry
 import com.drivecare.app.data.model.Vehicle
 import com.drivecare.app.ui.DriveCareViewModel
+import com.drivecare.app.utils.AppStrings
+import com.drivecare.app.utils.LocalAppLanguage
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -27,6 +29,7 @@ fun FuelTrackerScreen(
     viewModel: DriveCareViewModel,
     modifier: Modifier = Modifier
 ) {
+    val lang = LocalAppLanguage.current
     val vehicles by viewModel.vehicles.collectAsState()
     val allFuelEntries by viewModel.fuelEntries.collectAsState()
     val selectedVehicle by viewModel.selectedFuelVehicle.collectAsState()
@@ -54,8 +57,8 @@ fun FuelTrackerScreen(
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = { showAddDialog = true },
-                icon = { Icon(Icons.Default.Add, contentDescription = "Log Fuel") },
-                text = { Text("Log Fuel") }
+                icon = { Icon(Icons.Default.Add, contentDescription = AppStrings.get("log_fuel", lang)) },
+                text = { Text(AppStrings.get("log_fuel", lang)) }
             )
         }
     ) { padding ->
@@ -67,7 +70,7 @@ fun FuelTrackerScreen(
         ) {
             // Vehicle Selector Dropdown Bar
             Text(
-                text = "Select Vehicle",
+                text = AppStrings.get("select_vehicle", lang),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.outline
             )
@@ -79,7 +82,7 @@ fun FuelTrackerScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 OutlinedTextField(
-                    value = selectedVehicle?.vehicleName ?: "All Vehicles",
+                    value = selectedVehicle?.vehicleName ?: AppStrings.get("all_vehicles", lang),
                     onValueChange = {},
                     readOnly = true,
                     trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
@@ -93,7 +96,7 @@ fun FuelTrackerScreen(
                     onDismissRequest = { vehicleDropdownExpanded = false }
                 ) {
                     DropdownMenuItem(
-                        text = { Text("All Vehicles") },
+                        text = { Text(AppStrings.get("all_vehicles", lang)) },
                         onClick = {
                             viewModel.selectFuelVehicle(null)
                             vehicleDropdownExpanded = false
@@ -127,7 +130,7 @@ fun FuelTrackerScreen(
                     horizontalArrangement = Arrangement.SpaceAround
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Total Spent", style = MaterialTheme.typography.labelMedium)
+                        Text(AppStrings.get("total_spent", lang), style = MaterialTheme.typography.labelMedium)
                         Text(
                             text = "$${String.format(Locale.US, "%.2f", totalCost)}",
                             style = MaterialTheme.typography.titleLarge,
@@ -136,7 +139,7 @@ fun FuelTrackerScreen(
                         )
                     }
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Total Quantity", style = MaterialTheme.typography.labelMedium)
+                        Text(AppStrings.get("total_quantity", lang), style = MaterialTheme.typography.labelMedium)
                         Text(
                             text = "${String.format(Locale.US, "%.1f", totalQuantity)} L",
                             style = MaterialTheme.typography.titleLarge,
@@ -155,7 +158,7 @@ fun FuelTrackerScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "No fuel entries found for selected vehicle.",
+                        text = AppStrings.get("no_fuel_entries", lang),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -194,6 +197,7 @@ fun FuelCard(
     entry: FuelEntry,
     onDelete: () -> Unit
 ) {
+    val lang = LocalAppLanguage.current
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
@@ -235,7 +239,7 @@ fun FuelCard(
             IconButton(onClick = onDelete) {
                 Icon(
                     Icons.Default.Delete,
-                    contentDescription = "Delete Log",
+                    contentDescription = AppStrings.get("delete", lang),
                     tint = MaterialTheme.colorScheme.error
                 )
             }
@@ -251,6 +255,7 @@ fun AddFuelDialog(
     onDismiss: () -> Unit,
     onSave: (FuelEntry) -> Unit
 ) {
+    val lang = LocalAppLanguage.current
     var selectedVehicle by remember { mutableStateOf(preselectedVehicle ?: vehicles.firstOrNull()) }
     var vehicleMenuExpanded by remember { mutableStateOf(false) }
 
@@ -266,21 +271,21 @@ fun AddFuelDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add Fuel Log") },
+        title = { Text(AppStrings.get("log_fuel", lang)) },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // Vehicle selection dropdown
-                Text("Select Vehicle *", style = MaterialTheme.typography.labelSmall)
+                Text("${AppStrings.get("select_vehicle", lang)} *", style = MaterialTheme.typography.labelSmall)
                 ExposedDropdownMenuBox(
                     expanded = vehicleMenuExpanded,
                     onExpandedChange = { vehicleMenuExpanded = !vehicleMenuExpanded },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     OutlinedTextField(
-                        value = selectedVehicle?.vehicleName ?: "Select Vehicle",
+                        value = selectedVehicle?.vehicleName ?: AppStrings.get("select_vehicle", lang),
                         onValueChange = {},
                         readOnly = true,
                         trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
@@ -310,13 +315,13 @@ fun AddFuelDialog(
                     OutlinedTextField(
                         value = quantity,
                         onValueChange = { quantity = it },
-                        label = { Text("Litres/Gals") },
+                        label = { Text(AppStrings.get("litres", lang)) },
                         modifier = Modifier.weight(1f)
                     )
                     OutlinedTextField(
                         value = cost,
                         onValueChange = { cost = it },
-                        label = { Text("Cost ($)") },
+                        label = { Text(AppStrings.get("cost", lang)) },
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -325,13 +330,13 @@ fun AddFuelDialog(
                     OutlinedTextField(
                         value = odometer,
                         onValueChange = { odometer = it },
-                        label = { Text("Odometer") },
+                        label = { Text(AppStrings.get("odometer", lang)) },
                         modifier = Modifier.weight(1f)
                     )
                     OutlinedTextField(
                         value = date,
                         onValueChange = { date = it },
-                        label = { Text("Date") },
+                        label = { Text(AppStrings.get("due_date", lang)) },
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -339,7 +344,7 @@ fun AddFuelDialog(
                 OutlinedTextField(
                     value = station,
                     onValueChange = { station = it },
-                    label = { Text("Gas Station (Optional)") },
+                    label = { Text(AppStrings.get("gas_station", lang)) },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -365,12 +370,12 @@ fun AddFuelDialog(
                 },
                 enabled = selectedVehicle != null && quantity.isNotBlank() && cost.isNotBlank()
             ) {
-                Text("Save")
+                Text(AppStrings.get("save", lang))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(AppStrings.get("cancel", lang))
             }
         }
     )

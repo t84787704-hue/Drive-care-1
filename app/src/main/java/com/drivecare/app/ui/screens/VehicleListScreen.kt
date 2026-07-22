@@ -16,6 +16,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.drivecare.app.data.model.Vehicle
 import com.drivecare.app.ui.DriveCareViewModel
+import com.drivecare.app.utils.AppStrings
+import com.drivecare.app.utils.LocalAppLanguage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -23,6 +25,7 @@ fun VehicleListScreen(
     viewModel: DriveCareViewModel,
     modifier: Modifier = Modifier
 ) {
+    val lang = LocalAppLanguage.current
     val vehicles by viewModel.vehicles.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
     var vehicleToEdit by remember { mutableStateOf<Vehicle?>(null) }
@@ -33,8 +36,8 @@ fun VehicleListScreen(
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = { showAddDialog = true },
-                icon = { Icon(Icons.Default.Add, contentDescription = "Add Vehicle") },
-                text = { Text("Add Vehicle") }
+                icon = { Icon(Icons.Default.Add, contentDescription = AppStrings.get("add_vehicle", lang)) },
+                text = { Text(AppStrings.get("add_vehicle", lang)) }
             )
         }
     ) { padding ->
@@ -59,12 +62,12 @@ fun VehicleListScreen(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "No Vehicles Added Yet",
+                        text = AppStrings.get("no_vehicles_title", lang),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Tap the button below to add your first vehicle.",
+                        text = AppStrings.get("no_vehicles_desc", lang),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -89,7 +92,7 @@ fun VehicleListScreen(
 
     if (showAddDialog) {
         VehicleFormDialog(
-            title = "Add New Vehicle",
+            title = AppStrings.get("add_vehicle", lang),
             vehicle = null,
             onDismiss = { showAddDialog = false },
             onSave = { newVehicle ->
@@ -101,7 +104,7 @@ fun VehicleListScreen(
 
     vehicleToEdit?.let { vehicle ->
         VehicleFormDialog(
-            title = "Edit Vehicle",
+            title = AppStrings.get("edit_vehicle", lang),
             vehicle = vehicle,
             onDismiss = { vehicleToEdit = null },
             onSave = { updatedVehicle ->
@@ -114,8 +117,8 @@ fun VehicleListScreen(
     vehicleToDelete?.let { vehicle ->
         AlertDialog(
             onDismissRequest = { vehicleToDelete = null },
-            title = { Text("Delete Vehicle") },
-            text = { Text("Are you sure you want to delete '${vehicle.vehicleName}'? All associated fuel entries and maintenance logs will also be removed.") },
+            title = { Text(AppStrings.get("confirm_delete_title", lang)) },
+            text = { Text(AppStrings.get("confirm_delete_msg", lang)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -124,12 +127,12 @@ fun VehicleListScreen(
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Delete")
+                    Text(AppStrings.get("delete", lang))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { vehicleToDelete = null }) {
-                    Text("Cancel")
+                    Text(AppStrings.get("cancel", lang))
                 }
             }
         )
@@ -142,6 +145,7 @@ fun VehicleCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val lang = LocalAppLanguage.current
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -184,14 +188,14 @@ fun VehicleCard(
                     IconButton(onClick = onEdit) {
                         Icon(
                             Icons.Default.Edit,
-                            contentDescription = "Edit Vehicle",
+                            contentDescription = AppStrings.get("edit_vehicle", lang),
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
                     IconButton(onClick = onDelete) {
                         Icon(
                             Icons.Default.Delete,
-                            contentDescription = "Delete Vehicle",
+                            contentDescription = AppStrings.get("delete_vehicle", lang),
                             tint = MaterialTheme.colorScheme.error
                         )
                     }
@@ -206,16 +210,16 @@ fun VehicleCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                InfoColumn(label = "Type", value = vehicle.vehicleType)
-                InfoColumn(label = "Year", value = vehicle.manufacturingYear.ifBlank { "N/A" })
-                InfoColumn(label = "Fuel", value = vehicle.fuelType)
-                InfoColumn(label = "Plate", value = vehicle.registrationNumber.ifBlank { "N/A" })
+                InfoColumn(label = AppStrings.get("type", lang), value = vehicle.vehicleType)
+                InfoColumn(label = AppStrings.get("year", lang), value = vehicle.manufacturingYear.ifBlank { "N/A" })
+                InfoColumn(label = AppStrings.get("fuel", lang), value = vehicle.fuelType)
+                InfoColumn(label = AppStrings.get("plate", lang), value = vehicle.registrationNumber.ifBlank { "N/A" })
             }
 
             if (vehicle.odometerReading.isNotBlank()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Odometer: ${vehicle.odometerReading} km",
+                    text = "${AppStrings.get("odometer", lang)}: ${vehicle.odometerReading} km",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.secondary,
                     fontWeight = FontWeight.SemiBold
@@ -249,6 +253,7 @@ fun VehicleFormDialog(
     onDismiss: () -> Unit,
     onSave: (Vehicle) -> Unit
 ) {
+    val lang = LocalAppLanguage.current
     var name by remember { mutableStateOf(vehicle?.vehicleName ?: "") }
     var brand by remember { mutableStateOf(vehicle?.brand ?: "") }
     var model by remember { mutableStateOf(vehicle?.model ?: "") }
@@ -268,7 +273,7 @@ fun VehicleFormDialog(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Vehicle Name *") },
+                    label = { Text("${AppStrings.get("vehicle_name", lang)} *") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -276,14 +281,14 @@ fun VehicleFormDialog(
                     OutlinedTextField(
                         value = brand,
                         onValueChange = { brand = it },
-                        label = { Text("Brand") },
+                        label = { Text(AppStrings.get("brand", lang)) },
                         singleLine = true,
                         modifier = Modifier.weight(1f)
                     )
                     OutlinedTextField(
                         value = model,
                         onValueChange = { model = it },
-                        label = { Text("Model") },
+                        label = { Text(AppStrings.get("model", lang)) },
                         singleLine = true,
                         modifier = Modifier.weight(1f)
                     )
@@ -292,14 +297,14 @@ fun VehicleFormDialog(
                     OutlinedTextField(
                         value = year,
                         onValueChange = { year = it },
-                        label = { Text("Year") },
+                        label = { Text(AppStrings.get("year", lang)) },
                         singleLine = true,
                         modifier = Modifier.weight(1f)
                     )
                     OutlinedTextField(
                         value = plate,
                         onValueChange = { plate = it },
-                        label = { Text("Plate No.") },
+                        label = { Text(AppStrings.get("plate_no", lang)) },
                         singleLine = true,
                         modifier = Modifier.weight(1f)
                     )
@@ -308,14 +313,14 @@ fun VehicleFormDialog(
                     OutlinedTextField(
                         value = fuelType,
                         onValueChange = { fuelType = it },
-                        label = { Text("Fuel Type") },
+                        label = { Text(AppStrings.get("fuel_type", lang)) },
                         singleLine = true,
                         modifier = Modifier.weight(1f)
                     )
                     OutlinedTextField(
                         value = odometer,
                         onValueChange = { odometer = it },
-                        label = { Text("Odometer") },
+                        label = { Text(AppStrings.get("odometer", lang)) },
                         singleLine = true,
                         modifier = Modifier.weight(1f)
                     )
@@ -348,12 +353,12 @@ fun VehicleFormDialog(
                 },
                 enabled = name.isNotBlank()
             ) {
-                Text("Save")
+                Text(AppStrings.get("save", lang))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(AppStrings.get("cancel", lang))
             }
         }
     )

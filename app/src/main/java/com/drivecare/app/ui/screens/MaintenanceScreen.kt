@@ -17,6 +17,8 @@ import androidx.compose.ui.unit.dp
 import com.drivecare.app.data.model.Maintenance
 import com.drivecare.app.data.model.Vehicle
 import com.drivecare.app.ui.DriveCareViewModel
+import com.drivecare.app.utils.AppStrings
+import com.drivecare.app.utils.LocalAppLanguage
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -27,6 +29,7 @@ fun MaintenanceScreen(
     viewModel: DriveCareViewModel,
     modifier: Modifier = Modifier
 ) {
+    val lang = LocalAppLanguage.current
     val vehicles by viewModel.vehicles.collectAsState()
     val maintenanceLogs by viewModel.maintenanceLogs.collectAsState()
 
@@ -37,8 +40,8 @@ fun MaintenanceScreen(
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = { showAddDialog = true },
-                icon = { Icon(Icons.Default.Add, contentDescription = "Add Service") },
-                text = { Text("Add Service Log") }
+                icon = { Icon(Icons.Default.Add, contentDescription = AppStrings.get("add_service_log", lang)) },
+                text = { Text(AppStrings.get("add_service_log", lang)) }
             )
         }
     ) { padding ->
@@ -62,12 +65,12 @@ fun MaintenanceScreen(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "No Service Logs Yet",
+                        text = AppStrings.get("no_service_logs", lang),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Track oil changes, repairs, and tire rotations.",
+                        text = AppStrings.get("no_service_desc", lang),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -118,7 +121,7 @@ fun MaintenanceScreen(
                                 IconButton(onClick = { viewModel.deleteMaintenance(log) }) {
                                     Icon(
                                         Icons.Default.Delete,
-                                        contentDescription = "Delete",
+                                        contentDescription = AppStrings.get("delete", lang),
                                         tint = MaterialTheme.colorScheme.error
                                     )
                                 }
@@ -149,6 +152,7 @@ fun AddMaintenanceDialog(
     onDismiss: () -> Unit,
     onSave: (Maintenance) -> Unit
 ) {
+    val lang = LocalAppLanguage.current
     var selectedVehicle by remember { mutableStateOf(vehicles.firstOrNull()) }
     var vehicleMenuExpanded by remember { mutableStateOf(false) }
 
@@ -161,20 +165,20 @@ fun AddMaintenanceDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Log Maintenance / Repair") },
+        title = { Text(AppStrings.get("add_service_log", lang)) },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("Vehicle *", style = MaterialTheme.typography.labelSmall)
+                Text("${AppStrings.get("select_vehicle", lang)} *", style = MaterialTheme.typography.labelSmall)
                 ExposedDropdownMenuBox(
                     expanded = vehicleMenuExpanded,
                     onExpandedChange = { vehicleMenuExpanded = !vehicleMenuExpanded },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     OutlinedTextField(
-                        value = selectedVehicle?.vehicleName ?: "Select Vehicle",
+                        value = selectedVehicle?.vehicleName ?: AppStrings.get("select_vehicle", lang),
                         onValueChange = {},
                         readOnly = true,
                         trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
@@ -202,7 +206,7 @@ fun AddMaintenanceDialog(
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text("Service Title * (e.g. Oil Change)") },
+                    label = { Text(AppStrings.get("service_title", lang)) },
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -210,13 +214,13 @@ fun AddMaintenanceDialog(
                     OutlinedTextField(
                         value = cost,
                         onValueChange = { cost = it },
-                        label = { Text("Cost ($)") },
+                        label = { Text(AppStrings.get("cost", lang)) },
                         modifier = Modifier.weight(1f)
                     )
                     OutlinedTextField(
                         value = date,
                         onValueChange = { date = it },
-                        label = { Text("Date") },
+                        label = { Text(AppStrings.get("due_date", lang)) },
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -224,7 +228,7 @@ fun AddMaintenanceDialog(
                 OutlinedTextField(
                     value = workshop,
                     onValueChange = { workshop = it },
-                    label = { Text("Workshop / Garage") },
+                    label = { Text(AppStrings.get("workshop", lang)) },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -248,12 +252,12 @@ fun AddMaintenanceDialog(
                 },
                 enabled = selectedVehicle != null && title.isNotBlank()
             ) {
-                Text("Save")
+                Text(AppStrings.get("save", lang))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(AppStrings.get("cancel", lang))
             }
         }
     )

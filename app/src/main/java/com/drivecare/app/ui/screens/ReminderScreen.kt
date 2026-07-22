@@ -18,6 +18,8 @@ import androidx.compose.ui.unit.dp
 import com.drivecare.app.data.model.Reminder
 import com.drivecare.app.data.model.Vehicle
 import com.drivecare.app.ui.DriveCareViewModel
+import com.drivecare.app.utils.AppStrings
+import com.drivecare.app.utils.LocalAppLanguage
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -28,6 +30,7 @@ fun ReminderScreen(
     viewModel: DriveCareViewModel,
     modifier: Modifier = Modifier
 ) {
+    val lang = LocalAppLanguage.current
     val vehicles by viewModel.vehicles.collectAsState()
     val reminders by viewModel.reminders.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
@@ -37,8 +40,8 @@ fun ReminderScreen(
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = { showAddDialog = true },
-                icon = { Icon(Icons.Default.Add, contentDescription = "Add Reminder") },
-                text = { Text("Add Reminder") }
+                icon = { Icon(Icons.Default.Add, contentDescription = AppStrings.get("add_reminder", lang)) },
+                text = { Text(AppStrings.get("add_reminder", lang)) }
             )
         }
     ) { padding ->
@@ -62,12 +65,12 @@ fun ReminderScreen(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "No Service Reminders",
+                        text = AppStrings.get("no_reminders", lang),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Set reminders for insurance renewal, oil change, or inspection.",
+                        text = AppStrings.get("no_reminders_desc", lang),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -107,7 +110,7 @@ fun ReminderScreen(
                                             fontWeight = FontWeight.Bold
                                         )
                                         Text(
-                                            text = "${reminder.vehicleName} • Due: ${reminder.dueDate}",
+                                            text = "${reminder.vehicleName} • ${AppStrings.get("due_date", lang)}: ${reminder.dueDate}",
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -117,7 +120,7 @@ fun ReminderScreen(
                                 IconButton(onClick = { viewModel.deleteReminder(reminder) }) {
                                     Icon(
                                         Icons.Default.Delete,
-                                        contentDescription = "Delete",
+                                        contentDescription = AppStrings.get("delete", lang),
                                         tint = MaterialTheme.colorScheme.error
                                     )
                                 }
@@ -148,6 +151,7 @@ fun AddReminderDialog(
     onDismiss: () -> Unit,
     onSave: (Reminder) -> Unit
 ) {
+    val lang = LocalAppLanguage.current
     var selectedVehicle by remember { mutableStateOf(vehicles.firstOrNull()) }
     var vehicleMenuExpanded by remember { mutableStateOf(false) }
 
@@ -158,20 +162,20 @@ fun AddReminderDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add Reminder") },
+        title = { Text(AppStrings.get("add_reminder", lang)) },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("Vehicle *", style = MaterialTheme.typography.labelSmall)
+                Text("${AppStrings.get("select_vehicle", lang)} *", style = MaterialTheme.typography.labelSmall)
                 ExposedDropdownMenuBox(
                     expanded = vehicleMenuExpanded,
                     onExpandedChange = { vehicleMenuExpanded = !vehicleMenuExpanded },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     OutlinedTextField(
-                        value = selectedVehicle?.vehicleName ?: "Select Vehicle",
+                        value = selectedVehicle?.vehicleName ?: AppStrings.get("select_vehicle", lang),
                         onValueChange = {},
                         readOnly = true,
                         trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
@@ -199,14 +203,14 @@ fun AddReminderDialog(
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text("Reminder Title * (e.g. Insurance Renewal)") },
+                    label = { Text(AppStrings.get("reminder_title", lang)) },
                     modifier = Modifier.fillMaxWidth()
                 )
 
                 OutlinedTextField(
                     value = dueDate,
                     onValueChange = { dueDate = it },
-                    label = { Text("Due Date") },
+                    label = { Text(AppStrings.get("due_date", lang)) },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -228,12 +232,12 @@ fun AddReminderDialog(
                 },
                 enabled = selectedVehicle != null && title.isNotBlank()
             ) {
-                Text("Save")
+                Text(AppStrings.get("save", lang))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(AppStrings.get("cancel", lang))
             }
         }
     )

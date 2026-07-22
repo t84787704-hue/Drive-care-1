@@ -38,6 +38,14 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     private val _selectedFuelVehicle = MutableStateFlow<Vehicle?>(null)
     val selectedFuelVehicle: StateFlow<Vehicle?> = _selectedFuelVehicle.asStateFlow()
 
+    // Current App Language state
+    private val _currentLanguage = MutableStateFlow(com.drivecare.app.utils.AppLanguage.ENGLISH)
+    val currentLanguage: StateFlow<com.drivecare.app.utils.AppLanguage> = _currentLanguage.asStateFlow()
+
+    fun setLanguage(language: com.drivecare.app.utils.AppLanguage) {
+        _currentLanguage.value = language
+    }
+
     fun selectFuelVehicle(vehicle: Vehicle?) {
         _selectedFuelVehicle.value = vehicle
     }
