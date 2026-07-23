@@ -248,6 +248,7 @@ object AppStrings {
         "reset_feature_guides_desc" to "Re-enable first-time introduction popups for all app features.",
         "guides_reset_toast" to "Feature introduction guides reset successfully!",
         "guide_main_benefits" to "Key Benefits & Capabilities",
+        "guide_language_selector" to "Guide Language",
 
         "guide_dashboard_title" to "Dashboard Overview",
         "guide_dashboard_desc" to "Your central command center for fleet status, expense summaries, and recent activity.",
@@ -505,7 +506,63 @@ object AppStrings {
         "btn_sign_in" to "سائن ان کریں",
         "btn_profile" to "پروفائل",
         "user_profile_title" to "صارف کا پروفائل",
-        "cloud_signin_title" to "کلاؤڈ سائن ان"
+        "cloud_signin_title" to "کلاؤڈ سائن ان",
+
+        "got_it" to "سمجھ گیا",
+        "dont_show_again" to "دوبارہ نہ دکھائیں",
+        "reset_feature_guides" to "فیچر گائیڈز ری سیٹ کریں",
+        "reset_feature_guides_desc" to "تمام خصوصیات کے تعارفی پاپ اپس دوبارہ فعال کریں۔",
+        "guides_reset_toast" to "فیچر گائیڈز کامیابی کے ساتھ ری سیٹ ہو گئیں!",
+        "guide_main_benefits" to "اہم فوائد اور قابلیتیں",
+        "guide_language_selector" to "گائیڈ کی زبان",
+
+        "guide_dashboard_title" to "ڈیش بورڈ کا جائزہ",
+        "guide_dashboard_desc" to "آپ کی گاڑیوں کی حالت، اخراجات کے خلاصے اور حالیہ سرگرمیوں کا مرکزی مرکز۔",
+        "guide_dashboard_benefits" to "• گاڑیوں کا ہیلتھ اسکور اور فعال گاڑیاں دیکھیں\n• ماہانہ ایندھن اور کل اخراجات کی نگرانی کریں\n• ٹرپ لاگت کا تخمینہ اور ہسٹری دیکھیں",
+
+        "guide_garage_title" to "میری گاڑیاں (گیراج)",
+        "guide_garage_desc" to "اپنی گاڑیوں کے پروفائلز، کیلو میٹر ریڈنگ اور ہیلتھ اسٹیٹس کا انتظام کریں۔",
+        "guide_garage_benefits" to "• نمبر پلیٹ اور گاڑی کی تفصیلات محفوظ کریں\n• مائلج اور اوڈومیٹر ریڈنگ اپ ڈیٹ کریں\n• پی ڈی ایف رپورٹ بنائیں اور شیئر کریں",
+
+        "guide_fuel_title" to "ایندھن کا ٹریکر",
+        "guide_fuel_desc" to "پیٹرول بھروانے کا ریکارڈ رکھیں، مائلج کا حساب لگائیں اور اخراجات دیکھیں۔",
+        "guide_fuel_benefits" to "• ایندھن کی اوسط (km/L) ٹریک کریں\n• فی کلو میٹر خرچ کا حساب لگائیں\n• ماہانہ ایندھن کے اخراجات کا تجزیہ کریں",
+
+        "guide_services_title" to "سروس اور مرمت کی ہسٹری",
+        "guide_services_desc" to "آئل چینج، بریک سروس اور آئندہ کی مرمت کا مکمل ریکارڈ رکھیں۔",
+        "guide_services_benefits" to "• سمارٹ سروس مشیر کی خودکار تجاویز\n• ورکشاپ اور سروس کی تفصیلات محفوظ کریں\n• پارٹس کی تبدیلی کی تاریخ کا ریکارڈ",
+
+        "guide_expenses_title" to "اخراجات کا مینیجر",
+        "guide_expenses_desc" to "پارکنگ، ٹول ٹیکس، انشورنس اور دیگر غیر ایندھن اخراجات کا ریکارڈ رکھیں۔",
+        "guide_expenses_benefits" to "• پارکنگ، ٹول اور ٹیکسز کی درجہ بندی\n• ہر گاڑی کا الگ خرچ کا جائزہ\n• اخراجات کا گرافکل چارٹ",
+
+        "guide_documents_title" to "گاڑی کی دستاویزات",
+        "guide_documents_desc" to "رجسٹریشن، ڈرائیونگ لائسنس اور پرمٹ محفوظ طریقے سے اسٹور کریں۔",
+        "guide_documents_benefits" to "• دستاویزات کی آخری تاریخیں محفوظ کریں\n• میعاد ختم ہونے پر الرٹس حاصل کریں\n• ڈیجیٹل کاپیاں ہر وقت دستیاب رکھیں",
+
+        "guide_insurance_title" to "انشورنس پالیسیاں",
+        "guide_insurance_desc" to "پالیسی نمبرز، کوریج کی تفصیلات، ایجنٹ نمبر اور رینیول کی تاریخیں دیکھیں۔",
+        "guide_insurance_benefits" to "• پالیسی ختم ہونے کے خودکار الرٹس\n• ایک کلک پر تجدید اور خرچ کا اندراج\n• ایجنٹ کو براہ راست کال کرنے کی سہولت",
+
+        "guide_reminders_title" to "سروس کی یاد دہانیاں",
+        "guide_reminders_desc" to "آئل چینج، ٹائر چیکنگ اور بیٹری سروس کی تاریخوں کے لیے یاد دہانی سیٹ کریں۔",
+        "guide_reminders_benefits" to "• اہم مرمتی کام کبھی مس نہ ہوں\n• اینڈرائڈ سسٹم نوٹیفیکیشنز کے ساتھ منسلک\n• ایک ٹیپ پر کام مکمل مارک کریں",
+
+        "guide_notifications_title" to "نوٹیفیکیشن انجن",
+        "guide_notifications_desc" to "بقیہ کاموں اور میعاد ختم ہونے پر بیک گراؤنڈ میں خودکار الرٹس حاصل کریں۔",
+        "guide_notifications_benefits" to "• انشورنس اور دستاویزات کے بروقت الرٹس\n• نوٹیفیکیشن کی ترجیحات تبدیل کریں\n• ایپ بند ہونے پر بھی الرٹس حاصل کریں",
+
+        "guide_gps_tracking_title" to "جی پی ایس لائیو ٹریکنگ",
+        "guide_gps_tracking_desc" to "گاڑی کی لائیو لوکیشن، جیوفینس الرٹس اور روٹ ہسٹری دیکھیں۔",
+        "guide_gps_tracking_benefits" to "• میپ پر لائیو لوکیشن اور اسپیڈ دیکھیں\n• جیوفینس کی حد عبور ہونے پر الرٹس\n• پرانے سفر کا مکمل تجزیہ",
+
+        "guide_family_sharing_title" to "فیملی شیئرنگ اور ڈرائیورز",
+        "guide_family_sharing_desc" to "اہل خانہ کے ساتھ گاڑیوں کی رسائی شیئر کریں اور ڈرائیورز کے پروفائلز مینیج کریں۔",
+        "guide_family_sharing_benefits" to "• ملٹی یوزر گاڑی کی شیئرنگ\n• ڈرائیور پروفائلز اور فون نمبرز\n• گاڑی کی منتقلی اور چابی ہینڈ اوور",
+
+        "guide_settings_title" to "سیٹنگز اور ترجیحات",
+        "guide_settings_desc" to "زبان، کرنسی سمبل، ڈارک موڈ اور ڈیٹا بیک اپ کی سیٹنگز تبدیل کریں۔",
+        "guide_settings_benefits" to "• ملٹی کرنسی ($ € £ ₹ ¥) اور زبانیں\n• لائٹ اور ڈارک تھیم\n• JSON ڈیٹا بیک اپ اور ریسٹور"
     )
 
     private val arabicMap = mapOf(
@@ -576,7 +633,63 @@ object AppStrings {
         "no_recent_activity" to "لا توجد أنشطة حديثة مسجلة.",
         "vehicles_active_fleet" to "مركبات نشطة في الأسطول",
         "tasks_pending" to "مهام معلقة",
-        "all_tasks_up_to_date" to "جميع المهام مكتملة"
+        "all_tasks_up_to_date" to "جميع المهام مكتملة",
+
+        "got_it" to "فهمت",
+        "dont_show_again" to "عدم إظهار المرة القادمة",
+        "reset_feature_guides" to "إعادة ضبط أدلة الميزات",
+        "reset_feature_guides_desc" to "إعادة تمكين الإرشادات التعريفية لجميع ميزات التطبيق.",
+        "guides_reset_toast" to "تم إعادة ضبط أدلة الميزات بنجاح!",
+        "guide_main_benefits" to "المزايا والقدرات الرئيسية",
+        "guide_language_selector" to "لغة الدليل",
+
+        "guide_dashboard_title" to "نظرة عامة على لوحة التحكم",
+        "guide_dashboard_desc" to "مركز التحكم الرئيسي لحالة الأسطول، وملخص المصاريف، والأنشطة الأخيرة.",
+        "guide_dashboard_benefits" to "• عرض مؤشر صحة الأسطول والمركبات النشطة\n• متابعة إنفاق الوقود الشهري والمصاريف الكلية\n• حاسبة تكاليف الرحلات والسجل الزمني",
+
+        "guide_garage_title" to "مركباتي (المرأب)",
+        "guide_garage_desc" to "إدارة ملفات المركبات، والمواصفات، وقراءات العداد، وحالة الصحة.",
+        "guide_garage_benefits" to "• تتبع مواصفات المركبة وأرقام اللوحات\n• تحديث قراءات العداد والمسافات\n• إنشاء ومشاركة تقارير PDF",
+
+        "guide_fuel_title" to "متبع الوقود",
+        "guide_fuel_desc" to "تسجيل تعبئة الوقود، وحساب كفاءة الاستهلاك الحقيقية، ومتابعة مصاريف المحطات.",
+        "guide_fuel_benefits" to "• تتبع معدل استهلاك الوقود (كم/لتر)\n• متابعة التكلفة لكل كيلومتر\n• تحليل مصاريف الوقود الشهرية",
+
+        "guide_services_title" to "سجل الصيانة",
+        "guide_services_desc" to "تسجيل تغيير الزيت، وتدوير الإطارات، وإصلاح الفرامل، ومواعيد الصيانة القادمة.",
+        "guide_services_benefits" to "• توصيات الصيانة الذكية من الذكاء الاصطناعي\n• الاحتفاظ بسجلات الورشة والصيانة المفصلة\n• تتبع تاريخ استبدال قطع الغيار",
+
+        "guide_expenses_title" to "مدير المصاريف",
+        "guide_expenses_desc" to "تتبع مصاريف المركبة غير الوقود مثل المواقف، والرسوم، والضرائب، والإصلاحات.",
+        "guide_expenses_benefits" to "• تصنيف المواقف والرسوم والضرائب للإصلاحات\n• تفصيل المصاريف لكل مركبة\n• رسوم بيانية توضيحية لفئات الإنفاق",
+
+        "guide_documents_title" to "وثائق المركبة",
+        "guide_documents_desc" to "حفظ رخص السير، وشهادات الفحص، ورخص القيادة، والتصاريح بآمان.",
+        "guide_documents_benefits" to "• حفظ تواريخ الإصدار والانتهاء للوثائق\n• شارات وتنبيهات لانتهاء الصلاحية\n• الوصول الرقمي للوثائق في أي وقت",
+
+        "guide_insurance_title" to "وثائق التأمين",
+        "guide_insurance_desc" to "تتبع أرقام الوثائق النشطة، وتفاصيل التغطية، وهواتف الوكلاء، وتواريخ التجديد.",
+        "guide_insurance_benefits" to "• تنبيهات تلقائية لانتهاء وثائق التأمين\n• التجديد وتسجيل المصاريف بنقرة واحدة\n• الاتصال المباشر بخط طوارئ الوكيل",
+
+        "guide_reminders_title" to "تذكيرات الصيانة",
+        "guide_reminders_desc" to "تعيين مواعيد مخصصة لتغيير الزيت، وفحص الإطارات، والبطارية، والتجديدات.",
+        "guide_reminders_benefits" to "• عدم تفويت مهام الصيانة الهامة مطلقاً\n• متكامل مع إشعارات نظام أندرويد\n• تعليم المهام كمكتملة بضغطة واحدة",
+
+        "guide_notifications_title" to "محرك الإشعارات",
+        "guide_notifications_desc" to "تنبيهات خلفية تلقائية عبر Android WorkManager للمهام المعلقة.",
+        "guide_notifications_benefits" to "• تنبيهات النظام للتأمين والوثائق المنتهية\n• فئات إشعارات قابلة للتخصيص\n• الفحص في الخلفية حتى عند إغلاق التطبيق",
+
+        "guide_gps_tracking_title" to "التتبع المباشر بـ GPS",
+        "guide_gps_tracking_desc" to "محاكاة التتبع المباشر لموقع المركبة، وتنبيهات السياج الجغرافي، وسجلات الرحلات.",
+        "guide_gps_tracking_benefits" to "• عرض الموقع المباشر والسرعة على الخريطة\n• تنبيهات اختراق حدود السياج الجغرافي\n• تحليل مسار الرحلات السابقة",
+
+        "guide_family_sharing_title" to "المشاركة العائلية والسائقون",
+        "guide_family_sharing_desc" to "مشاركة الوصول للمركبة مع أفراد العائلة، وإدارة ملفات السائقين، وتحديد الصلاحيات.",
+        "guide_family_sharing_benefits" to "• مشاركة المركبة بين عدة مستخدمين\n• ملفات السائقين ومعلومات الاتصال\n• نقل الملكية والمفاتيح بسهولة",
+
+        "guide_settings_title" to "الإعدادات والتفضيلات",
+        "guide_settings_desc" to "تخصيص الوحدات والإقليمية، ورمز العملة، والوضع الليلي، والمزامنة السحابية.",
+        "guide_settings_benefits" to "• خيارات العملات ($ € £ ₹ ¥) واللغات المتعددة\n• التبديل بين الوضع المظلم والفاتح\n• نسخ واعادة استعادة البيانات بصيغة JSON"
     )
 
     private val hindiMap = mapOf(
@@ -629,7 +742,63 @@ object AppStrings {
         "no_recent_activity" to "कोई हालिया गतिविधि नहीं है।",
         "vehicles_active_fleet" to "सक्रिय वाहन",
         "tasks_pending" to "लंबित कार्य",
-        "all_tasks_up_to_date" to "सभी कार्य पूर्ण हैं"
+        "all_tasks_up_to_date" to "सभी कार्य पूर्ण हैं",
+
+        "got_it" to "समझ गया",
+        "dont_show_again" to "पुनः न दिखाएं",
+        "reset_feature_guides" to "फ़ीचर गाइड रीसेट करें",
+        "reset_feature_guides_desc" to "सभी ऐप सुविधाओं के लिए परिचयात्मक पॉपअप फिर से सक्षम करें।",
+        "guides_reset_toast" to "फ़ीचर गाइड सफलतापूर्वक रीसेट हो गए!",
+        "guide_main_benefits" to "मुख्य लाभ एवं क्षमताएं",
+        "guide_language_selector" to "गाइड भाषा",
+
+        "guide_dashboard_title" to "डैशबोर्ड अवलोकन",
+        "guide_dashboard_desc" to "आपके बेड़े की स्थिति, खर्च सारांश और हालिया गतिविधियों का मुख्य केंद्र।",
+        "guide_dashboard_benefits" to "• वाहन स्वास्थ्य स्कोर और सक्रिय वाहन देखें\n• मासिक ईंधन और कुल खर्चों की निगरानी करें\n• यात्रा लागत कैलकुलेटर और हालिया टाइमलाइन",
+
+        "guide_garage_title" to "मेरे वाहन (गैरेज)",
+        "guide_garage_desc" to "अपने वाहनों के प्रोफाइल, स्पेसिफिकेशन, ओडोमीटर रीडिंग और स्वास्थ्य स्थिति प्रबंधित करें।",
+        "guide_garage_benefits" to "• वाहन विवरण और नंबर प्लेट ट्रैक करें\n• माइलेज और ओडोमीटर रीडिंग अपडेट करें\n• पीडीएफ रिपोर्ट बनाएं और साझा करें",
+
+        "guide_fuel_title" to "ईंधन ट्रैकर",
+        "guide_fuel_desc" to "ईंधन भरवाने का रिकॉर्ड रखें, वास्तविक माइलेज का हिसाब लगाएं और खर्च देखें।",
+        "guide_fuel_benefits" to "• ईंधन खपत (km/L) ट्रैक करें\n• प्रति किलोमीटर लागत की निगरानी करें\n• मासिक ईंधन व्यय का विश्लेषण करें",
+
+        "guide_services_title" to "सर्विस इतिहास",
+        "guide_services_desc" to "तेल परिवर्तन, टायर रोटेशन, ब्रेक मरम्मत और आगामी सर्विस शेड्यूल रिकॉर्ड करें।",
+        "guide_services_benefits" to "• एआई स्मार्ट रखरखाव सिफारिशें\n• विस्तृत कार्यशाला और सेवा लॉग रखें\n• पुर्जों के प्रतिस्थापन इतिहास को ट्रैक करें",
+
+        "guide_expenses_title" to "खर्च प्रबंधक",
+        "guide_expenses_desc" to "पार्किंग, टोल, टैक्स और मरम्मत जैसे गैर-ईंधन खर्चों को ट्रैक करें।",
+        "guide_expenses_benefits" to "• पार्किंग, टोल, टैक्स और मरम्मत को वर्गीकृत करें\n• प्रति वाहन खर्च का विवरण\n• दृश्य व्यय श्रेणी प्रगति चार्ट",
+
+        "guide_documents_title" to "वाहन दस्तावेज़",
+        "guide_documents_desc" to "पंजीकरण प्रमाण पत्र, ड्राइविंग लाइसेंस और परमिट सुरक्षित रूप से संग्रहीत करें।",
+        "guide_documents_benefits" to "• दस्तावेजों के जारी होने और समाप्ति तिथि सहेजें\n• समाप्ति चेतावनी बैज और अलर्ट\n• यात्रा के दौरान डिजिटल दस्तावेज़ों तक पहुँच",
+
+        "guide_insurance_title" to "बीमा नीतियां",
+        "guide_insurance_desc" to "सक्रिय नीति संख्या, कवरेज विवरण, एजेंट हेल्पलाइन और नवीनीकरण तिथियां ट्रैक करें।",
+        "guide_insurance_benefits" to "• स्वचालित बीमा समाप्ति चेतावनियां\n• एक-टैप नवीनीकरण और खर्च लॉगिंग\n• एजेंट हेल्पलाइन पर सीधे कॉल करें",
+
+        "guide_reminders_title" to "सर्विस रिमाइंडर",
+        "guide_reminders_desc" to "तेल परिवर्तन, टायर निरीक्षण, बैटरी जांच और नवीनीकरण के लिए रिमाइंडर्स सेट करें।",
+        "guide_reminders_benefits" to "• कभी भी महत्वपूर्ण रखरखाव कार्य न भूलें\n• एंड्रॉइड सिस्टम नोटिफिकेशन के साथ एकीकृत\n• त्वरित कार्य पूर्ण स्थिति दर्ज करें",
+
+        "guide_notifications_title" to "नोटिफिकेशन इंजन",
+        "guide_notifications_desc" to "लंबित कार्यों के लिए एंड्रॉइड वर्कमैनेजर के माध्यम से स्वचालित पृष्ठभूमि अलर्ट।",
+        "guide_notifications_benefits" to "• समाप्त हो रहे बीमा और दस्तावेजों के लिए सिस्टम अलर्ट\n• अनुकूलन योग्य अधिसूचना श्रेणियां\n• ऐप बंद होने पर भी बैकग्राउंड चेक",
+
+        "guide_gps_tracking_title" to "जीपीएस लाइव ट्रैकिंग",
+        "guide_gps_tracking_desc" to "लाइव वाहन स्थान ट्रैकिंग, जियोफेंस अलर्ट और यात्रा मार्ग लॉग का अनुकरण करें।",
+        "guide_gps_tracking_benefits" to "• मानचित्र पर लाइव स्थान और गति देखें\n• जियोफेंस सीमा उल्लंघन अलर्ट\n• ऐतिहासिक यात्रा मार्ग विश्लेषण",
+
+        "guide_family_sharing_title" to "फैमिली शेयरिंग और ड्राइवर्स",
+        "guide_family_sharing_desc" to "परिवार के सदस्यों के साथ वाहन की पहुंच साझा करें, ड्राइवर प्रोफाइल प्रबंधित करें।",
+        "guide_family_sharing_benefits" to "• बहु-उपयोगकर्ता वाहन साझाकरण\n• ड्राइवर प्रोफाइल और संपर्क विवरण\n• निर्बाध स्वामित्व और कुंजी स्थानांतरण",
+
+        "guide_settings_title" to "सेटिंग्स और प्राथमिकताएं",
+        "guide_settings_desc" to "क्षेत्रीय इकाइयों, मुद्रा प्रतीकों, थीम मोड और क्लाउड डेटाबेस सिंक को कस्टमाइज़ करें।",
+        "guide_settings_benefits" to "• बहु-मुद्रा ($ € £ ₹ ¥) और भाषा विकल्प\n• लाइट और डार्क थीम प्राथमिकताएं\n• JSON डेटा बैकअप और रिस्टोर"
     )
 
     private val chineseMap = mapOf(
@@ -682,6 +851,62 @@ object AppStrings {
         "no_recent_activity" to "暂无近期动态记录。",
         "vehicles_active_fleet" to "车队活跃车辆",
         "tasks_pending" to "项待办任务",
-        "all_tasks_up_to_date" to "所有任务均已最新"
+        "all_tasks_up_to_date" to "所有任务均已最新",
+
+        "got_it" to "知道了",
+        "dont_show_again" to "不再显示",
+        "reset_feature_guides" to "重置功能指南",
+        "reset_feature_guides_desc" to "重新启用所有应用功能的首次介绍弹窗。",
+        "guides_reset_toast" to "功能介绍指南已成功重置！",
+        "guide_main_benefits" to "核心优势与功能",
+        "guide_language_selector" to "指南语言",
+
+        "guide_dashboard_title" to "仪表盘总览",
+        "guide_dashboard_desc" to "您的车辆状态、费用汇总和近期动态的核心控制中心。",
+        "guide_dashboard_benefits" to "• 查看车队健康指数与活跃车辆\n• 监控每月油耗与总支出\n• 使用行程费用预估与近期动态",
+
+        "guide_garage_title" to "我的车辆（车库）",
+        "guide_garage_desc" to "管理您的车辆档案、技术参数、里程表读数与健康状态。",
+        "guide_garage_benefits" to "• 追踪车辆参数与车牌信息\n• 更新里程表读数\n• 生成并分享 PDF 车辆报告",
+
+        "guide_fuel_title" to "油耗追踪",
+        "guide_fuel_desc" to "记录加油日志、计算真实油耗 (km/L) 并监控加油站支出。",
+        "guide_fuel_benefits" to "• 追踪燃油效率 (km/L)\n• 监控每公里行车成本\n• 分析每月加油站支出分析",
+
+        "guide_services_title" to "保养记录",
+        "guide_services_desc" to "记录更换机油、轮胎对调、刹车维修及未来保养计划。",
+        "guide_services_benefits" to "• AI 智能保养建议\n• 详细记录修理厂与服务日志\n• 追踪零部件更换历史",
+
+        "guide_expenses_title" to "费用管理",
+        "guide_expenses_desc" to "追踪非加油类车辆开支，如停车费、高速费、税费与维修费。",
+        "guide_expenses_benefits" to "• 分类整理停车、高速、税费与维修\n• 按车辆拆分支出明细\n• 可视化支出类别比例图表",
+
+        "guide_documents_title" to "车辆证件",
+        "guide_documents_desc" to "安全存储行驶证、驾驶证、环保标志与各类许可等。",
+        "guide_documents_benefits" to "• 保存证件签发与到期日期\n• 到期预警标识与提醒\n• 随时随地查阅电子版证件",
+
+        "guide_insurance_title" to "车辆保险",
+        "guide_insurance_desc" to "追踪在保保单号、保障范围、保险专员电话与续保日期。",
+        "guide_insurance_benefits" to "• 保单到期自动预警\n• 一键续保并自动计入费用\n• 一键拨打保险代理热线",
+
+        "guide_reminders_title" to "提醒事项",
+        "guide_reminders_desc" to "针对换油、轮胎检查、蓄电池检测与各种到期设定自定义提醒。",
+        "guide_reminders_benefits" to "• 绝不错过关键车辆保养\n• 深度集成 Android 系统通知栏\n• 一键标记已完成状态",
+
+        "guide_notifications_title" to "通知推送引擎",
+        "guide_notifications_desc" to "通过 Android WorkManager 后台定时推送待办事项与预警。",
+        "guide_notifications_benefits" to "• 保险与证件到期的系统级推送\n• 可自定义通知分类与开关\n• 应用关闭状态下依然后台监测",
+
+        "guide_gps_tracking_title" to "GPS 实时定位",
+        "guide_gps_tracking_desc" to "模拟车辆实时位置追踪、电子围栏预警与历史行程轨迹。",
+        "guide_gps_tracking_benefits" to "• 地图实时查看车速与当前位置\n• 越界电子围栏触发报警\n• 历史行程路线深度分析",
+
+        "guide_family_sharing_title" to "家庭与共享驾驶员",
+        "guide_family_sharing_desc" to "与家庭成员共享车辆使用权、管理驾驶员档案并分配权限。",
+        "guide_family_sharing_benefits" to "• 多用户共同管理车辆\n• 驾驶员档案与紧急联系方式\n• 无缝车辆转让与电子钥匙交接",
+
+        "guide_settings_title" to "设置与偏好",
+        "guide_settings_desc" to "自定义计量单位、货币符号、主题模式与云端数据库同步。",
+        "guide_settings_benefits" to "• 多国货币 ($ € £ ₹ ¥) 与多语言切换\n• 明亮与深色主题模式切换\n• JSON 数据一键备份与还原"
     )
 }

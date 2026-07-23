@@ -1,5 +1,7 @@
 package com.drivecare.app.ui.components
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -29,6 +31,7 @@ fun FeatureGuideDialog(
 ) {
     val context = LocalContext.current
     var dontShowAgain by remember { mutableStateOf(false) }
+    var selectedLang by remember(lang) { mutableStateOf(lang) }
 
     val icon: ImageVector = when (feature) {
         AppFeature.DASHBOARD -> Icons.Default.Dashboard
@@ -45,17 +48,13 @@ fun FeatureGuideDialog(
         AppFeature.SETTINGS -> Icons.Default.Settings
     }
 
-    val title = AppStrings.get("guide_${feature.key}_title", lang)
-    val desc = AppStrings.get("guide_${feature.key}_desc", lang)
-    val benefits = AppStrings.get("guide_${feature.key}_benefits", lang)
+    val title = AppStrings.get("guide_${feature.key}_title", selectedLang)
+    val desc = AppStrings.get("guide_${feature.key}_desc", selectedLang)
+    val benefits = AppStrings.get("guide_${feature.key}_benefits", selectedLang)
 
     AlertDialog(
         onDismissRequest = {
-            if (dontShowAgain) {
-                FeatureGuideManager.setGuideShown(context, feature, true)
-            } else {
-                FeatureGuideManager.setGuideShown(context, feature, true)
-            }
+            FeatureGuideManager.setGuideShown(context, feature, true)
             onDismiss()
         },
         icon = {
@@ -90,6 +89,46 @@ fun FeatureGuideDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                // Language Selector inside dialog
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = AppStrings.get("guide_language_selector", selectedLang),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        AppLanguage.values().forEach { l ->
+                            val isSelected = selectedLang == l
+                            Surface(
+                                selected = isSelected,
+                                onClick = { selectedLang = l },
+                                shape = RoundedCornerShape(16.dp),
+                                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                                border = if (isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
+                            ) {
+                                Text(
+                                    text = l.displayName,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
                 Text(
                     text = desc,
                     style = MaterialTheme.typography.bodyMedium,
@@ -106,7 +145,7 @@ fun FeatureGuideDialog(
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(
-                            text = AppStrings.get("guide_main_benefits", lang),
+                            text = AppStrings.get("guide_main_benefits", selectedLang),
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -129,7 +168,7 @@ fun FeatureGuideDialog(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = AppStrings.get("dont_show_again", lang),
+                        text = AppStrings.get("dont_show_again", selectedLang),
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
@@ -143,7 +182,7 @@ fun FeatureGuideDialog(
                 }
             ) {
                 Text(
-                    text = AppStrings.get("got_it", lang),
+                    text = AppStrings.get("got_it", selectedLang),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
