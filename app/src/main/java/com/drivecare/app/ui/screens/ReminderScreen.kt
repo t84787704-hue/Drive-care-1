@@ -43,37 +43,45 @@ fun ReminderScreen(
             }
         }
     ) { paddingValues ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp),
+                .padding(paddingValues),
+            contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 88.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = AppStrings.get("tab_reminders", lang),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
+            item {
+                Text(
+                    text = AppStrings.get("tab_reminders", lang),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            }
 
             if (reminders.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.NotificationsNone, contentDescription = null, modifier = Modifier.size(64.dp))
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(AppStrings.get("no_reminders", lang), style = MaterialTheme.typography.titleMedium)
-                        Text(AppStrings.get("no_reminders_desc", lang), style = MaterialTheme.typography.bodySmall)
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.NotificationsNone, contentDescription = null, modifier = Modifier.size(64.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(AppStrings.get("no_reminders", lang), style = MaterialTheme.typography.titleMedium)
+                            Text(AppStrings.get("no_reminders_desc", lang), style = MaterialTheme.typography.bodySmall)
+                        }
                     }
                 }
             } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    items(reminders, key = { it.id }) { rem ->
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (rem.isCompleted) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface
-                            )
-                        ) {
+                items(reminders, key = { it.id }) { rem ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (rem.isCompleted) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface
+                        )
+                    ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -101,7 +109,6 @@ fun ReminderScreen(
                             }
                         }
                     }
-                }
             }
         }
     }

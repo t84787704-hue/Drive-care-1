@@ -59,81 +59,90 @@ fun FuelTrackerScreen(
             }
         }
     ) { paddingValues ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp),
+                .padding(paddingValues),
+            contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 88.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Fuel Analytics Header Cards
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Card(
-                    modifier = Modifier.weight(1f),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(AppStrings.get("total_spent", lang), style = MaterialTheme.typography.labelSmall)
-                        Text("$${String.format(Locale.US, "%.2f", totalSpent)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Card(
+                        modifier = Modifier.weight(1f),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(AppStrings.get("total_spent", lang), style = MaterialTheme.typography.labelSmall)
+                            Text("$${String.format(Locale.US, "%.2f", totalSpent)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        }
                     }
-                }
 
-                Card(
-                    modifier = Modifier.weight(1f),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(AppStrings.get("total_quantity", lang), style = MaterialTheme.typography.labelSmall)
-                        Text("${String.format(Locale.US, "%.1f", totalLitres)} L", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Card(
+                        modifier = Modifier.weight(1f),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(AppStrings.get("total_quantity", lang), style = MaterialTheme.typography.labelSmall)
+                            Text("${String.format(Locale.US, "%.1f", totalLitres)} L", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
 
-            // Fuel Log List
-            Text(
-                text = AppStrings.get("tab_fuel", lang),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
+            // Fuel Log List Header
+            item {
+                Text(
+                    text = AppStrings.get("tab_fuel", lang),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
 
             if (filteredFuel.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.LocalGasStation, contentDescription = null, modifier = Modifier.size(64.dp))
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(AppStrings.get("no_fuel_entries", lang), style = MaterialTheme.typography.bodyMedium)
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.LocalGasStation, contentDescription = null, modifier = Modifier.size(64.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(AppStrings.get("no_fuel_entries", lang), style = MaterialTheme.typography.bodyMedium)
+                        }
                     }
                 }
             } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    items(filteredFuel, key = { it.id }) { entry ->
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                items(filteredFuel, key = { it.id }) { entry ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column {
-                                    Text(entry.vehicleName, fontWeight = FontWeight.Bold)
-                                    Text("${entry.fuelDate} • ${entry.fuelType} • ${entry.currentOdometer} km")
-                                    if (entry.fuelStationName.isNotBlank()) {
-                                        Text("Station: ${entry.fuelStationName}", style = MaterialTheme.typography.bodySmall)
-                                    }
+                            Column {
+                                Text(entry.vehicleName, fontWeight = FontWeight.Bold)
+                                Text("${entry.fuelDate} • ${entry.fuelType} • ${entry.currentOdometer} km")
+                                if (entry.fuelStationName.isNotBlank()) {
+                                    Text("Station: ${entry.fuelStationName}", style = MaterialTheme.typography.bodySmall)
                                 }
-                                Column(horizontalAlignment = Alignment.End) {
-                                    Text("$${entry.amountPaid}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                                    Text("${entry.fuelQuantity} Litres", style = MaterialTheme.typography.bodySmall)
-                                    IconButton(onClick = { viewModel.deleteFuelEntry(entry) }) {
-                                        Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
-                                    }
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text("$${entry.amountPaid}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                Text("${entry.fuelQuantity} Litres", style = MaterialTheme.typography.bodySmall)
+                                IconButton(onClick = { viewModel.deleteFuelEntry(entry) }) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
                                 }
                             }
                         }

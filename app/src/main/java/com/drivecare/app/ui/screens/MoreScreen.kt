@@ -40,57 +40,32 @@ enum class MoreSubSection {
 fun MoreScreen(
     viewModel: DriveCareViewModel,
     modifier: Modifier = Modifier,
-    initialSubSection: MoreSubSection = MoreSubSection.MENU
+    subSection: MoreSubSection = MoreSubSection.MENU,
+    onSubSectionSelect: (MoreSubSection) -> Unit = {}
 ) {
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val lang = LocalAppLanguage.current
 
-    var currentSubSection by remember { mutableStateOf(initialSubSection) }
     var showBackupDialog by remember { mutableStateOf(false) }
     var showRestoreDialog by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
     var backupJsonText by remember { mutableStateOf("") }
     var restoreJsonInput by remember { mutableStateOf("") }
 
-    if (currentSubSection != MoreSubSection.MENU) {
-        Column(modifier = modifier.fillMaxSize()) {
-            TopAppBar(
-                title = {
-                    Text(
-                        when (currentSubSection) {
-                            MoreSubSection.INSURANCE -> "Insurance & Renewals"
-                            MoreSubSection.EXPENSES -> "Expense Manager"
-                            MoreSubSection.TIMELINE -> "Vehicle Timeline"
-                            MoreSubSection.GPS_TRACKING -> "GPS Live Tracking & Trips"
-                            MoreSubSection.FAMILY_SHARING -> "Family Sharing & Drivers"
-                            MoreSubSection.DOCUMENTS -> AppStrings.get("tab_documents", lang)
-                            MoreSubSection.EMERGENCY -> AppStrings.get("tab_emergency", lang)
-                            MoreSubSection.ACHIEVEMENTS -> AppStrings.get("tab_achievements", lang)
-                            MoreSubSection.SETTINGS -> AppStrings.get("settings_title", lang)
-                            else -> AppStrings.get("tab_more", lang)
-                        }
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = { currentSubSection = MoreSubSection.MENU }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
-                }
-            )
-            Box(modifier = Modifier.weight(1f)) {
-                when (currentSubSection) {
-                    MoreSubSection.INSURANCE -> InsuranceRenewalScreen(viewModel = viewModel)
-                    MoreSubSection.EXPENSES -> ExpenseManagerScreen(viewModel = viewModel)
-                    MoreSubSection.TIMELINE -> VehicleTimelineScreen(viewModel = viewModel)
-                    MoreSubSection.GPS_TRACKING -> GpsTrackingScreen(viewModel = viewModel)
-                    MoreSubSection.FAMILY_SHARING -> FamilySharingScreen(viewModel = viewModel)
-                    MoreSubSection.DOCUMENTS -> DocumentsScreen(viewModel = viewModel)
-                    MoreSubSection.EMERGENCY -> EmergencyScreen(viewModel = viewModel)
-                    MoreSubSection.ACHIEVEMENTS -> AchievementsScreen(viewModel = viewModel)
-                    MoreSubSection.SETTINGS -> SettingsScreen(viewModel = viewModel)
-                    else -> {}
-                }
+    if (subSection != MoreSubSection.MENU) {
+        Box(modifier = modifier.fillMaxSize()) {
+            when (subSection) {
+                MoreSubSection.INSURANCE -> InsuranceRenewalScreen(viewModel = viewModel)
+                MoreSubSection.EXPENSES -> ExpenseManagerScreen(viewModel = viewModel)
+                MoreSubSection.TIMELINE -> VehicleTimelineScreen(viewModel = viewModel)
+                MoreSubSection.GPS_TRACKING -> GpsTrackingScreen(viewModel = viewModel)
+                MoreSubSection.FAMILY_SHARING -> FamilySharingScreen(viewModel = viewModel)
+                MoreSubSection.DOCUMENTS -> DocumentsScreen(viewModel = viewModel)
+                MoreSubSection.EMERGENCY -> EmergencyScreen(viewModel = viewModel)
+                MoreSubSection.ACHIEVEMENTS -> AchievementsScreen(viewModel = viewModel)
+                MoreSubSection.SETTINGS -> SettingsScreen(viewModel = viewModel)
+                else -> {}
             }
         }
     } else {
@@ -124,7 +99,7 @@ fun MoreScreen(
                         icon = Icons.Default.VerifiedUser,
                         title = "Insurance & Renewals",
                         subtitle = "Policy Details, Renewal Reminders & Coverage Tracking",
-                        onClick = { currentSubSection = MoreSubSection.INSURANCE }
+                        onClick = { onSubSectionSelect(MoreSubSection.INSURANCE) }
                     )
 
                     Divider()
@@ -133,7 +108,7 @@ fun MoreScreen(
                         icon = Icons.Default.AttachMoney,
                         title = "Expense Manager",
                         subtitle = "Track Parking, Tolls, Insurance & Taxes",
-                        onClick = { currentSubSection = MoreSubSection.EXPENSES }
+                        onClick = { onSubSectionSelect(MoreSubSection.EXPENSES) }
                     )
 
                     Divider()
@@ -142,7 +117,7 @@ fun MoreScreen(
                         icon = Icons.Default.Timeline,
                         title = "Vehicle Timeline",
                         subtitle = "Chronological History of Refills, Services & Expenses",
-                        onClick = { currentSubSection = MoreSubSection.TIMELINE }
+                        onClick = { onSubSectionSelect(MoreSubSection.TIMELINE) }
                     )
 
                     Divider()
@@ -151,7 +126,7 @@ fun MoreScreen(
                         icon = Icons.Default.GpsFixed,
                         title = "GPS Tracking & Route History",
                         subtitle = "Live Vehicle Location, Trip Logs & Geofencing",
-                        onClick = { currentSubSection = MoreSubSection.GPS_TRACKING }
+                        onClick = { onSubSectionSelect(MoreSubSection.GPS_TRACKING) }
                     )
 
                     Divider()
@@ -160,7 +135,7 @@ fun MoreScreen(
                         icon = Icons.Default.Group,
                         title = "Family Sharing & Drivers",
                         subtitle = "Multi-User Vehicle Sharing, Driver Profiles & Transfers",
-                        onClick = { currentSubSection = MoreSubSection.FAMILY_SHARING }
+                        onClick = { onSubSectionSelect(MoreSubSection.FAMILY_SHARING) }
                     )
 
                     Divider()
@@ -169,7 +144,7 @@ fun MoreScreen(
                         icon = Icons.Default.FolderOpen,
                         title = AppStrings.get("tab_documents", lang),
                         subtitle = "Manage Insurance, Registration, PUC & Licenses",
-                        onClick = { currentSubSection = MoreSubSection.DOCUMENTS }
+                        onClick = { onSubSectionSelect(MoreSubSection.DOCUMENTS) }
                     )
 
                     Divider()
@@ -179,7 +154,7 @@ fun MoreScreen(
                         title = AppStrings.get("tab_emergency", lang),
                         subtitle = "One-tap Calling for Towing, Mechanics & Contacts",
                         iconTint = MaterialTheme.colorScheme.error,
-                        onClick = { currentSubSection = MoreSubSection.EMERGENCY }
+                        onClick = { onSubSectionSelect(MoreSubSection.EMERGENCY) }
                     )
 
                     Divider()
@@ -188,7 +163,7 @@ fun MoreScreen(
                         icon = Icons.Default.EmojiEvents,
                         title = AppStrings.get("tab_achievements", lang),
                         subtitle = "Milestone Badges & Driving Gamification",
-                        onClick = { currentSubSection = MoreSubSection.ACHIEVEMENTS }
+                        onClick = { onSubSectionSelect(MoreSubSection.ACHIEVEMENTS) }
                     )
                 }
             }
@@ -210,7 +185,7 @@ fun MoreScreen(
                         icon = Icons.Default.Settings,
                         title = AppStrings.get("settings_title", lang),
                         subtitle = "Language, Notifications & Preferences",
-                        onClick = { currentSubSection = MoreSubSection.SETTINGS }
+                        onClick = { onSubSectionSelect(MoreSubSection.SETTINGS) }
                     )
 
                     Divider()
@@ -219,7 +194,7 @@ fun MoreScreen(
                         icon = Icons.Default.Language,
                         title = AppStrings.get("language", lang),
                         subtitle = "Current: ${lang.displayName}",
-                        onClick = { currentSubSection = MoreSubSection.SETTINGS }
+                        onClick = { onSubSectionSelect(MoreSubSection.SETTINGS) }
                     )
 
                     Divider()

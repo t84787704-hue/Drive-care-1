@@ -91,6 +91,7 @@ fun VehicleListScreen(
             } else {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(bottom = 88.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
                     items(filteredVehicles, key = { it.id }) { v ->

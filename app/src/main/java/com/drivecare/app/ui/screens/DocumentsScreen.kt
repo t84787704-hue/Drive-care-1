@@ -53,41 +53,51 @@ fun DocumentsScreen(
             }
         }
     ) { paddingValues ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp),
+                .padding(paddingValues),
+            contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 88.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(
-                text = AppStrings.get("tab_documents", lang),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
+            item {
+                Text(
+                    text = AppStrings.get("tab_documents", lang),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            }
 
             // Category filter chips
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(categories) { cat ->
-                    FilterChip(
-                        selected = selectedFilter == cat,
-                        onClick = { selectedFilter = cat },
-                        label = { Text(if (cat == "All") AppStrings.get("all_vehicles", lang) else cat) }
-                    )
+            item {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(categories) { cat ->
+                        FilterChip(
+                            selected = selectedFilter == cat,
+                            onClick = { selectedFilter = cat },
+                            label = { Text(if (cat == "All") AppStrings.get("all_vehicles", lang) else cat) }
+                        )
+                    }
                 }
             }
 
             if (filteredDocs.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(64.dp))
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(AppStrings.get("no_documents", lang), style = MaterialTheme.typography.titleMedium)
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(64.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(AppStrings.get("no_documents", lang), style = MaterialTheme.typography.titleMedium)
+                        }
                     }
                 }
             } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    items(filteredDocs, key = { it.id }) { doc ->
+                items(filteredDocs, key = { it.id }) { doc ->
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -124,7 +134,6 @@ fun DocumentsScreen(
                             }
                         }
                     }
-                }
             }
         }
     }

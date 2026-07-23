@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
@@ -35,6 +36,11 @@ enum class NavTab(val stringKey: String, val icon: ImageVector) {
     SERVICE("tab_services", Icons.Default.Build),
     MORE("tab_more", Icons.Default.MoreHoriz)
 }
+
+data class NavDestination(
+    val tab: NavTab,
+    val subSection: MoreSubSection = MoreSubSection.MENU
+)
 
 class MainActivity : ComponentActivity() {
     private val viewModel: DriveCareViewModel by viewModels()
@@ -87,13 +93,48 @@ class MainActivity : ComponentActivity() {
             ) {
                 val colorScheme = if (useDarkTheme) darkColorScheme() else lightColorScheme()
                 MaterialTheme(colorScheme = colorScheme) {
-                    var currentTab by remember { mutableStateOf(NavTab.SUMMARY) }
-                    var moreSubSection by remember { mutableStateOf(MoreSubSection.MENU) }
+                    val backStack = remember { mutableStateListOf(NavDestination(NavTab.SUMMARY)) }
+                    val currentDestination = backStack.lastOrNull() ?: NavDestination(NavTab.SUMMARY)
+                    val currentTab = currentDestination.tab
+                    val currentSubSection = currentDestination.subSection
+                    val isSecondary = backStack.size > 1 || currentDestination != NavDestination(NavTab.SUMMARY)
+
+                    val popBackStack: () -> Unit = {
+                        if (backStack.size > 1) {
+                            backStack.removeAt(backStack.lastIndex)
+                        } else {
+                            backStack.clear()
+                            backStack.add(NavDestination(NavTab.SUMMARY))
+                        }
+                    }
+
+                    BackHandler(enabled = isSecondary) {
+                        popBackStack()
+                    }
+
+                    val titleText = if (currentTab == NavTab.MORE && currentSubSection != MoreSubSection.MENU) {
+                        when (currentSubSection) {
+                            MoreSubSection.INSURANCE -> "Insurance & Renewals"
+                            MoreSubSection.EXPENSES -> "Expense Manager"
+                            MoreSubSection.TIMELINE -> "Vehicle Timeline"
+                            MoreSubSection.GPS_TRACKING -> "GPS Live Tracking & Trips"
+                            MoreSubSection.FAMILY_SHARING -> "Family Sharing & Drivers"
+                            MoreSubSection.DOCUMENTS -> AppStrings.get("tab_documents", currentLang)
+                            MoreSubSection.EMERGENCY -> AppStrings.get("tab_emergency", currentLang)
+                            MoreSubSection.ACHIEVEMENTS -> AppStrings.get("tab_achievements", currentLang)
+                            MoreSubSection.SETTINGS -> AppStrings.get("settings_title", currentLang)
+                            else -> AppStrings.get("tab_more", currentLang)
+                        }
+                    } else {
+                        "${AppStrings.get("app_name", currentLang)} - ${AppStrings.get(currentTab.stringKey, currentLang)}"
+                    }
 
                     Scaffold(
                         topBar = {
                             OptInTopBar(
-                                titleKey = currentTab.stringKey,
+                                titleText = titleText,
+                                showBackButton = isSecondary,
+                                onBackClick = popBackStack,
                                 currentLanguage = currentLang,
                                 onLanguageSelected = { viewModel.setLanguage(it) }
                             )
@@ -105,10 +146,17 @@ class MainActivity : ComponentActivity() {
                                     NavigationBarItem(
                                         selected = currentTab == tab,
                                         onClick = {
-                                            if (tab == NavTab.MORE && currentTab != NavTab.MORE) {
-                                                moreSubSection = MoreSubSection.MENU
+                                            if (tab == NavTab.SUMMARY) {
+                                                if (currentDestination != NavDestination(NavTab.SUMMARY)) {
+                                                    backStack.clear()
+                                                    backStack.add(NavDestination(NavTab.SUMMARY))
+                                                }
+                                            } else {
+                                                val dest = NavDestination(tab, MoreSubSection.MENU)
+                                                if (currentDestination != dest) {
+                                                    backStack.add(dest)
+                                                }
                                             }
-                                            currentTab = tab
                                         },
                                         label = { Text(localizedTitle) },
                                         icon = { Icon(tab.icon, contentDescription = localizedTitle) }
@@ -126,27 +174,18 @@ class MainActivity : ComponentActivity() {
                                 viewModel = viewModel,
                                 modifier = modifier,
                                 onNavigateTab = { target ->
-                                    when (target) {
-                                        "GARAGE" -> currentTab = NavTab.GARAGE
-                                        "FUEL" -> currentTab = NavTab.FUEL
-                                        "SERVICES", "SERVICE" -> currentTab = NavTab.SERVICE
-                                        "EXPENSES" -> {
-                                            moreSubSection = MoreSubSection.EXPENSES
-                                            currentTab = NavTab.MORE
-                                        }
-                                        "TIMELINE" -> {
-                                            moreSubSection = MoreSubSection.TIMELINE
-                                            currentTab = NavTab.MORE
-                                        }
-                                        "GPS" -> {
-                                            moreSubSection = MoreSubSection.GPS_TRACKING
-                                            currentTab = NavTab.MORE
-                                        }
-                                        "SHARING" -> {
-                                            moreSubSection = MoreSubSection.FAMILY_SHARING
-                                            currentTab = NavTab.MORE
-                                        }
-                                        else -> currentTab = NavTab.MORE
+                                    val dest = when (target) {
+                                        "GARAGE" -> NavDestination(NavTab.GARAGE)
+                                        "FUEL" -> NavDestination(NavTab.FUEL)
+                                        "SERVICES", "SERVICE" -> NavDestination(NavTab.SERVICE)
+                                        "EXPENSES" -> NavDestination(NavTab.MORE, MoreSubSection.EXPENSES)
+                                        "TIMELINE" -> NavDestination(NavTab.MORE, MoreSubSection.TIMELINE)
+                                        "GPS" -> NavDestination(NavTab.MORE, MoreSubSection.GPS_TRACKING)
+                                        "SHARING" -> NavDestination(NavTab.MORE, MoreSubSection.FAMILY_SHARING)
+                                        else -> NavDestination(NavTab.MORE, MoreSubSection.MENU)
+                                    }
+                                    if (currentDestination != dest) {
+                                        backStack.add(dest)
                                     }
                                 }
                             )
@@ -156,7 +195,13 @@ class MainActivity : ComponentActivity() {
                             NavTab.MORE -> MoreScreen(
                                 viewModel = viewModel,
                                 modifier = modifier,
-                                initialSubSection = moreSubSection
+                                subSection = currentSubSection,
+                                onSubSectionSelect = { sub ->
+                                    val dest = NavDestination(NavTab.MORE, sub)
+                                    if (currentDestination != dest) {
+                                        backStack.add(dest)
+                                    }
+                                }
                             )
                         }
                     }
@@ -168,7 +213,9 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     private fun OptInTopBar(
-        titleKey: String,
+        titleText: String,
+        showBackButton: Boolean,
+        onBackClick: () -> Unit,
         currentLanguage: AppLanguage,
         onLanguageSelected: (AppLanguage) -> Unit
     ) {
@@ -176,7 +223,14 @@ class MainActivity : ComponentActivity() {
 
         TopAppBar(
             title = {
-                Text("${AppStrings.get("app_name", currentLanguage)} - ${AppStrings.get(titleKey, currentLanguage)}")
+                Text(titleText)
+            },
+            navigationIcon = {
+                if (showBackButton) {
+                    IconButton(onClick = onBackClick) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                }
             },
             actions = {
                 IconButton(onClick = { menuExpanded = true }) {

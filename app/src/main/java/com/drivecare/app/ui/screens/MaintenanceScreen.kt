@@ -54,66 +54,68 @@ fun MaintenanceScreen(
             }
         }
     ) { paddingValues ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp),
+                .padding(paddingValues),
+            contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 88.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Smart Maintenance Advisor Section
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f))
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary)
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary)
+                            Text(
+                                text = AppStrings.get("advisor_title", lang),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                         Text(
-                            text = AppStrings.get("advisor_title", lang),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            text = AppStrings.get("advisor_subtitle", lang),
+                            style = MaterialTheme.typography.bodySmall
                         )
-                    }
-                    Text(
-                        text = AppStrings.get("advisor_subtitle", lang),
-                        style = MaterialTheme.typography.bodySmall
-                    )
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
 
-                    if (advisorSuggestions.isEmpty()) {
-                        Text("All maintenance items are up to date!", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                    } else {
-                        advisorSuggestions.forEach { rec ->
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                        if (advisorSuggestions.isEmpty()) {
+                            Text("All maintenance items are up to date!", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                        } else {
+                            advisorSuggestions.forEach { rec ->
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                                 ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(AppStrings.get(rec.titleKey, lang), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                        Text(rec.reason, style = MaterialTheme.typography.labelSmall)
-                                    }
-                                    Surface(
-                                        color = if (rec.urgency == "HIGH") MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,
-                                        shape = MaterialTheme.shapes.small
+                                    Row(
+                                        modifier = Modifier.padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Text(
-                                            text = rec.urgency,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            fontWeight = FontWeight.Bold
-                                        )
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(AppStrings.get(rec.titleKey, lang), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                            Text(rec.reason, style = MaterialTheme.typography.labelSmall)
+                                        }
+                                        Surface(
+                                            color = if (rec.urgency == "HIGH") MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,
+                                            shape = MaterialTheme.shapes.small
+                                        ) {
+                                            Text(
+                                                text = rec.urgency,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -122,48 +124,55 @@ fun MaintenanceScreen(
                 }
             }
 
-            // Service History List
-            Text(
-                text = AppStrings.get("tab_service", lang),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
+            // Service History List Header
+            item {
+                Text(
+                    text = AppStrings.get("tab_service", lang),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
 
             if (maintenanceLogs.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.Build, contentDescription = null, modifier = Modifier.size(64.dp))
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(AppStrings.get("no_service_logs", lang), style = MaterialTheme.typography.titleMedium)
-                        Text(AppStrings.get("no_service_desc", lang), style = MaterialTheme.typography.bodySmall)
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.Build, contentDescription = null, modifier = Modifier.size(64.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(AppStrings.get("no_service_logs", lang), style = MaterialTheme.typography.titleMedium)
+                            Text(AppStrings.get("no_service_desc", lang), style = MaterialTheme.typography.bodySmall)
+                        }
                     }
                 }
             } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    items(maintenanceLogs, key = { it.id }) { log ->
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                items(maintenanceLogs, key = { it.id }) { log ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column {
-                                    Text(log.serviceTitle, fontWeight = FontWeight.Bold)
-                                    Text("${log.vehicleName} • ${log.serviceDate}")
-                                    if (log.workshopName.isNotBlank()) {
-                                        Text("Workshop: ${log.workshopName}", style = MaterialTheme.typography.bodySmall)
-                                    }
+                            Column {
+                                Text(log.serviceTitle, fontWeight = FontWeight.Bold)
+                                Text("${log.vehicleName} • ${log.serviceDate}")
+                                if (log.workshopName.isNotBlank()) {
+                                    Text("Workshop: ${log.workshopName}", style = MaterialTheme.typography.bodySmall)
                                 }
-                                Column(horizontalAlignment = Alignment.End) {
-                                    Text("$${log.serviceCost}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                                    IconButton(onClick = { viewModel.deleteMaintenance(log) }) {
-                                        Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
-                                    }
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text("$${log.serviceCost}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                IconButton(onClick = { viewModel.deleteMaintenance(log) }) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
                                 }
                             }
                         }

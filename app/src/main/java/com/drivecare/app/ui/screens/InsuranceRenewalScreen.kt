@@ -99,127 +99,135 @@ fun InsuranceRenewalScreen(
             }
         }
     ) { innerPadding ->
-        Column(
+        LazyColumn(
             modifier = modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp),
+                .padding(innerPadding),
+            contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 88.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Header Title
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "Insurance & Policies",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Policy Details, Renewal Reminders & Coverage Tracking",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Insurance & Policies",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Policy Details, Renewal Reminders & Coverage Tracking",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
 
             // Metric Overview Cards
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                InsuranceMetricCard(
-                    title = "Active",
-                    count = activeCount,
-                    containerColor = Color(0xFFE8F5E9),
-                    contentColor = Color(0xFF2E7D32),
-                    modifier = Modifier.weight(1f)
-                )
-                InsuranceMetricCard(
-                    title = "Expiring Soon",
-                    count = expiringCount,
-                    containerColor = Color(0xFFFFF8E1),
-                    contentColor = Color(0xFFF57F17),
-                    modifier = Modifier.weight(1f)
-                )
-                InsuranceMetricCard(
-                    title = "Expired",
-                    count = expiredCount,
-                    containerColor = Color(0xFFFFEBEE),
-                    contentColor = Color(0xFFC62828),
-                    modifier = Modifier.weight(1f)
-                )
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    InsuranceMetricCard(
+                        title = "Active",
+                        count = activeCount,
+                        containerColor = Color(0xFFE8F5E9),
+                        contentColor = Color(0xFF2E7D32),
+                        modifier = Modifier.weight(1f)
+                    )
+                    InsuranceMetricCard(
+                        title = "Expiring Soon",
+                        count = expiringCount,
+                        containerColor = Color(0xFFFFF8E1),
+                        contentColor = Color(0xFFF57F17),
+                        modifier = Modifier.weight(1f)
+                    )
+                    InsuranceMetricCard(
+                        title = "Expired",
+                        count = expiredCount,
+                        containerColor = Color(0xFFFFEBEE),
+                        contentColor = Color(0xFFC62828),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
 
             // Status Filter Chips
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                FilterChip(
-                    selected = selectedStatusFilter == "ALL",
-                    onClick = { selectedStatusFilter = "ALL" },
-                    label = { Text("All (${insurancePolicies.size})") }
-                )
-                FilterChip(
-                    selected = selectedStatusFilter == "ACTIVE",
-                    onClick = { selectedStatusFilter = "ACTIVE" },
-                    label = { Text("Active ($activeCount)") }
-                )
-                FilterChip(
-                    selected = selectedStatusFilter == "EXPIRING",
-                    onClick = { selectedStatusFilter = "EXPIRING" },
-                    label = { Text("Expiring ($expiringCount)") }
-                )
-                FilterChip(
-                    selected = selectedStatusFilter == "EXPIRED",
-                    onClick = { selectedStatusFilter = "EXPIRED" },
-                    label = { Text("Expired ($expiredCount)") }
-                )
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = selectedStatusFilter == "ALL",
+                        onClick = { selectedStatusFilter = "ALL" },
+                        label = { Text("All (${insurancePolicies.size})") }
+                    )
+                    FilterChip(
+                        selected = selectedStatusFilter == "ACTIVE",
+                        onClick = { selectedStatusFilter = "ACTIVE" },
+                        label = { Text("Active ($activeCount)") }
+                    )
+                    FilterChip(
+                        selected = selectedStatusFilter == "EXPIRING",
+                        onClick = { selectedStatusFilter = "EXPIRING" },
+                        label = { Text("Expiring ($expiringCount)") }
+                    )
+                    FilterChip(
+                        selected = selectedStatusFilter == "EXPIRED",
+                        onClick = { selectedStatusFilter = "EXPIRED" },
+                        label = { Text("Expired ($expiredCount)") }
+                    )
+                }
             }
 
             // Vehicle Filter Dropdown
             if (vehicles.isNotEmpty()) {
-                var vehicleDropdownExpanded by remember { mutableStateOf(false) }
-                val currentVehicleName = remember(selectedVehicleFilter, vehicles) {
-                    vehicles.find { it.id == selectedVehicleFilter }?.vehicleName ?: "All Vehicles"
-                }
+                item {
+                    var vehicleDropdownExpanded by remember { mutableStateOf(false) }
+                    val currentVehicleName = remember(selectedVehicleFilter, vehicles) {
+                        vehicles.find { it.id == selectedVehicleFilter }?.vehicleName ?: "All Vehicles"
+                    }
 
-                ExposedDropdownMenuBox(
-                    expanded = vehicleDropdownExpanded,
-                    onExpandedChange = { vehicleDropdownExpanded = !vehicleDropdownExpanded }
-                ) {
-                    OutlinedTextField(
-                        value = "Vehicle: $currentVehicleName",
-                        onValueChange = {},
-                        readOnly = true,
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = vehicleDropdownExpanded) },
-                        modifier = Modifier
-                            .menuAnchor()
-                            .fillMaxWidth()
-                    )
-                    ExposedDropdownMenu(
+                    ExposedDropdownMenuBox(
                         expanded = vehicleDropdownExpanded,
-                        onDismissRequest = { vehicleDropdownExpanded = false }
+                        onExpandedChange = { vehicleDropdownExpanded = !vehicleDropdownExpanded }
                     ) {
-                        DropdownMenuItem(
-                            text = { Text("All Vehicles") },
-                            onClick = {
-                                selectedVehicleFilter = null
-                                vehicleDropdownExpanded = false
-                            }
+                        OutlinedTextField(
+                            value = "Vehicle: $currentVehicleName",
+                            onValueChange = {},
+                            readOnly = true,
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = vehicleDropdownExpanded) },
+                            modifier = Modifier
+                                .menuAnchor()
+                                .fillMaxWidth()
                         )
-                        vehicles.forEach { v ->
+                        ExposedDropdownMenu(
+                            expanded = vehicleDropdownExpanded,
+                            onDismissRequest = { vehicleDropdownExpanded = false }
+                        ) {
                             DropdownMenuItem(
-                                text = { Text("${v.vehicleName} (${v.brand} ${v.model})") },
+                                text = { Text("All Vehicles") },
                                 onClick = {
-                                    selectedVehicleFilter = v.id
+                                    selectedVehicleFilter = null
                                     vehicleDropdownExpanded = false
                                 }
                             )
+                            vehicles.forEach { v ->
+                                DropdownMenuItem(
+                                    text = { Text("${v.vehicleName} (${v.brand} ${v.model})") },
+                                    onClick = {
+                                        selectedVehicleFilter = v.id
+                                        vehicleDropdownExpanded = false
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -227,40 +235,39 @@ fun InsuranceRenewalScreen(
 
             // Policy List
             if (filteredPolicies.isEmpty()) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(32.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
                     ) {
-                        Icon(
-                            Icons.Default.Security,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(48.dp)
-                        )
-                        Text(
-                            text = "No Insurance Policies Found",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "Tap the + button below to add your vehicle insurance policy and set renewal reminders.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Security,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Text(
+                                text = "No Insurance Policies Found",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Tap the + button below to add your vehicle insurance policy and set renewal reminders.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(filteredPolicies, key = { it.id }) { policy ->
+                items(filteredPolicies, key = { it.id }) { policy ->
                         InsurancePolicyCard(
                             policy = policy,
                             currencySymbol = currencySymbol,
@@ -282,7 +289,6 @@ fun InsuranceRenewalScreen(
                             }
                         )
                     }
-                }
             }
         }
     }
