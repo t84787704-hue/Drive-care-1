@@ -245,7 +245,10 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun deleteDocument(document: Document) {
-        viewModelScope.launch { documentDao.deleteDocument(document) }
+        viewModelScope.launch {
+            com.drivecare.app.utils.DocumentFileHelper.deleteFileFromInternalStorage(document.fileUri)
+            documentDao.deleteDocument(document)
+        }
     }
 
     fun addEmergencyContact(contact: EmergencyContact) {
@@ -667,6 +670,9 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                 put("issueDate", d.issueDate)
                 put("expiryDate", d.expiryDate)
                 put("notes", d.notes)
+                put("fileUri", d.fileUri)
+                put("mimeType", d.mimeType)
+                put("fileSize", d.fileSize)
             })
         }
         root.put("documents", dArray)
@@ -867,7 +873,10 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                             docType = obj.optString("docType", "Registration"),
                             issueDate = obj.optString("issueDate", ""),
                             expiryDate = obj.optString("expiryDate", ""),
-                            notes = obj.optString("notes", "")
+                            notes = obj.optString("notes", ""),
+                            fileUri = obj.optString("fileUri", ""),
+                            mimeType = obj.optString("mimeType", ""),
+                            fileSize = obj.optLong("fileSize", 0L)
                         )
                         documentDao.insertDocument(d)
                     }

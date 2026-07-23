@@ -14,5 +14,8 @@ data class Document(
     val issueDate: String = "",
     val expiryDate: String = "",
     val notes: String = "",
+    val fileUri: String = "",
+    val mimeType: String = "",
+    val fileSize: Long = 0L,
     val createdAt: Long = System.currentTimeMillis()
 )

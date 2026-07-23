@@ -22,6 +22,12 @@ import com.drivecare.app.ui.DriveCareViewModel
 import com.drivecare.app.ui.screens.VehicleFormDialog
 import com.drivecare.app.utils.LocalAppLanguage
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.drivecare.app.utils.DocumentFileHelper
+import com.drivecare.app.utils.SavedFileInfo
+
 @Composable
 fun QuickActionRow(
     viewModel: DriveCareViewModel,
@@ -424,6 +430,19 @@ fun QuickAddDocumentDialog(
     var docTitle by remember { mutableStateOf("") }
     var docType by remember { mutableStateOf("Insurance") }
     var expiryDate by remember { mutableStateOf("2027-07-23") }
+    var attachedFileInfo by remember { mutableStateOf<SavedFileInfo?>(null) }
+
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            val saved = DocumentFileHelper.saveFileToInternalStorage(context, uri)
+            if (saved != null) {
+                attachedFileInfo = saved
+                Toast.makeText(context, "File attached", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -476,6 +495,23 @@ fun QuickAddDocumentDialog(
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
+
+                    if (attachedFileInfo != null) {
+                        Text(
+                            "Attached: ${attachedFileInfo!!.fileName} (${DocumentFileHelper.formatFileSize(attachedFileInfo!!.fileSize)})",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    } else {
+                        OutlinedButton(
+                            onClick = { filePickerLauncher.launch("*/*") },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.AttachFile, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Attach Image or PDF Document")
+                        }
+                    }
                 }
             }
         },
@@ -492,7 +528,10 @@ fun QuickAddDocumentDialog(
                                     docType = docType,
                                     issueDate = "2026-07-23",
                                     expiryDate = expiryDate,
-                                    notes = ""
+                                    notes = "",
+                                    fileUri = attachedFileInfo?.fileUriString ?: "",
+                                    mimeType = attachedFileInfo?.mimeType ?: "",
+                                    fileSize = attachedFileInfo?.fileSize ?: 0L
                                 )
                             )
                             Toast.makeText(context, "Document added!", Toast.LENGTH_SHORT).show()
