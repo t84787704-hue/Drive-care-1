@@ -51,7 +51,6 @@ fun InsuranceRenewalScreen(
     var policyToRenew by remember { mutableStateOf<InsurancePolicy?>(null) }
     var policyToDelete by remember { mutableStateOf<InsurancePolicy?>(null) }
 
-    val sdf = SimpleDateFormat("yyyy-MM-DD", Locale.US)
     val todayStr = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()) }
     val warn30DaysStr = remember {
         val cal = Calendar.getInstance()
