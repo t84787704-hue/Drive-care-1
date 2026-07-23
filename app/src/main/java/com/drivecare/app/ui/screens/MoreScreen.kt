@@ -9,6 +9,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -32,7 +34,9 @@ enum class MoreSubSection {
     DOCUMENTS,
     EMERGENCY,
     ACHIEVEMENTS,
-    SETTINGS
+    SETTINGS,
+    PROFILE,
+    AUTH
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -65,6 +69,11 @@ fun MoreScreen(
                 MoreSubSection.EMERGENCY -> EmergencyScreen(viewModel = viewModel)
                 MoreSubSection.ACHIEVEMENTS -> AchievementsScreen(viewModel = viewModel)
                 MoreSubSection.SETTINGS -> SettingsScreen(viewModel = viewModel)
+                MoreSubSection.PROFILE -> ProfileScreen(viewModel = viewModel)
+                MoreSubSection.AUTH -> AuthScreen(
+                    viewModel = viewModel,
+                    onAuthSuccess = { onSubSectionSelect(MoreSubSection.PROFILE) }
+                )
                 else -> {}
             }
         }
@@ -81,6 +90,52 @@ fun MoreScreen(
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold
             )
+
+            // Cloud Account Status Card
+            val currentUser by viewModel.currentUser.collectAsState()
+            val userProfile by viewModel.userProfile.collectAsState()
+            val syncState by viewModel.syncState.collectAsState()
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (currentUser != null) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                    else MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (currentUser != null) (userProfile?.fullName?.ifBlank { null } ?: currentUser?.email ?: "Cloud Account") else "Local Account (Offline)",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = if (currentUser != null) "Cloud Sync Active • ${viewModel.syncManager.formattedLastSync()}" else "Sign in to backup & sync data across devices",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Button(
+                        onClick = {
+                            if (currentUser != null) {
+                                onSubSectionSelect(MoreSubSection.PROFILE)
+                            } else {
+                                onSubSectionSelect(MoreSubSection.AUTH)
+                            }
+                        }
+                    ) {
+                        Text(if (currentUser != null) "Profile" else "Sign In")
+                    }
+                }
+            }
 
             // Grid / Section 1: Features
             Card(

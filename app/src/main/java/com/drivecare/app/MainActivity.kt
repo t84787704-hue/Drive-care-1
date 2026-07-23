@@ -123,6 +123,8 @@ class MainActivity : ComponentActivity() {
                             MoreSubSection.EMERGENCY -> AppStrings.get("tab_emergency", currentLang)
                             MoreSubSection.ACHIEVEMENTS -> AppStrings.get("tab_achievements", currentLang)
                             MoreSubSection.SETTINGS -> AppStrings.get("settings_title", currentLang)
+                            MoreSubSection.PROFILE -> "User Profile"
+                            MoreSubSection.AUTH -> "Cloud Account Sign In"
                             else -> AppStrings.get("tab_more", currentLang)
                         }
                     } else {

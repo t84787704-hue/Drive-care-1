@@ -4,7 +4,12 @@ import android.app.Application
 import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.drivecare.app.data.cloud.CloudUser
+import com.drivecare.app.data.cloud.FirebaseSyncManager
+import com.drivecare.app.data.cloud.SyncState
+import com.drivecare.app.data.cloud.UserProfile
 import com.drivecare.app.data.db.AppDatabase
+import kotlinx.coroutines.flow.first
 import com.drivecare.app.data.model.Document
 import com.drivecare.app.data.model.DriverProfile
 import com.drivecare.app.data.model.EmergencyContact
@@ -156,12 +161,15 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     init {
         // Seed default emergency contacts if none exist
         viewModelScope.launch {
-            emergencyContactDao.getAllContacts().collect { list ->
+            try {
+                val list = emergencyContactDao.getAllContacts().first()
                 if (list.isEmpty()) {
                     emergencyContactDao.insertContact(EmergencyContact(name = "City Towing Service", category = "Towing", phoneNumber = "1-800-555-TOWS", notes = "24/7 Roadside Assistance"))
                     emergencyContactDao.insertContact(EmergencyContact(name = "AutoCare Workshop", category = "Mechanic", phoneNumber = "1-800-555-REPAIR", notes = "Official Garage Partner"))
                     emergencyContactDao.insertContact(EmergencyContact(name = "Insurance Claim Hotline", category = "Insurance", phoneNumber = "1-800-555-CLAIM", notes = "Policy #99824"))
                 }
+            } catch (e: Exception) {
+                // Ignore seed error
             }
         }
     }
@@ -1068,6 +1076,101 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             db.clearAllTables()
             onComplete()
+        }
+    }
+
+    // --- Firebase Auth & Cloud Sync Integration ---
+    val syncManager = FirebaseSyncManager.getInstance()
+
+    val currentUser: StateFlow<CloudUser?> = syncManager.currentUser
+    val userProfile: StateFlow<UserProfile?> = syncManager.userProfile
+    val syncState: StateFlow<SyncState> = syncManager.syncState
+    val lastSyncTime: StateFlow<Long> = syncManager.lastSyncTime
+    val isFirebaseAvailable: StateFlow<Boolean> = syncManager.isFirebaseAvailable
+
+    fun signInWithEmail(email: String, pass: String, onResult: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            val result = syncManager.signInWithEmail(email, pass)
+            result.fold(
+                onSuccess = {
+                    triggerManualSync()
+                    onResult(true, null)
+                },
+                onFailure = {
+                    onResult(false, it.localizedMessage)
+                }
+            )
+        }
+    }
+
+    fun signUpWithEmail(email: String, pass: String, fullName: String, onResult: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            val result = syncManager.signUpWithEmail(email, pass, fullName)
+            result.fold(
+                onSuccess = {
+                    triggerManualSync()
+                    onResult(true, null)
+                },
+                onFailure = {
+                    onResult(false, it.localizedMessage)
+                }
+            )
+        }
+    }
+
+    fun signInWithDemoGoogleAccount(onResult: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            val demoEmail = "user.drive@gmail.com"
+            val demoPass = "DriveCareDemoPass123!"
+            val result = syncManager.signInWithEmail(demoEmail, demoPass)
+            if (result.isSuccess) {
+                triggerManualSync()
+                onResult(true, null)
+            } else {
+                val signUpRes = syncManager.signUpWithEmail(demoEmail, demoPass, "Google User")
+                signUpRes.fold(
+                    onSuccess = {
+                        triggerManualSync()
+                        onResult(true, null)
+                    },
+                    onFailure = {
+                        onResult(false, it.localizedMessage)
+                    }
+                )
+            }
+        }
+    }
+
+    fun sendPasswordReset(email: String, onResult: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            val res = syncManager.sendPasswordReset(email)
+            res.onSuccess { onResult(true, null) }.onFailure { onResult(false, it.localizedMessage) }
+        }
+    }
+
+    fun signOut() {
+        syncManager.signOut()
+    }
+
+    fun saveUserProfile(profile: UserProfile, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val res = syncManager.saveUserProfile(profile)
+            onResult(res.isSuccess)
+        }
+    }
+
+    fun triggerManualSync() {
+        viewModelScope.launch {
+            val currentInsurance = insurancePolicies.value
+            syncManager.syncAllData(
+                vehicles = vehicles.value,
+                fuelEntries = fuelEntries.value,
+                maintenanceRecords = maintenanceLogs.value,
+                expenses = expenses.value,
+                documents = documents.value,
+                insurancePolicies = currentInsurance,
+                reminders = reminders.value
+            )
         }
     }
 }

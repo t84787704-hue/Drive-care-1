@@ -8,6 +8,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -72,6 +74,74 @@ fun SettingsScreen(
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold
         )
+
+        // Cloud Account & Backup Section
+        val currentUser by viewModel.currentUser.collectAsState()
+        val userProfile by viewModel.userProfile.collectAsState()
+        val syncState by viewModel.syncState.collectAsState()
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+            )
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CloudSync,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "Cloud Account & Synchronization",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Divider()
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (currentUser != null) "Account: ${currentUser?.email}" else "Account: Local (Offline)",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "Last Sync: ${viewModel.syncManager.formattedLastSync()} • Status: ${syncState.name}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    AssistChip(
+                        onClick = { viewModel.triggerManualSync() },
+                        label = { Text("Sync Now") },
+                        leadingIcon = { Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                    )
+                }
+
+                if (currentUser == null) {
+                    Text(
+                        text = "Sign in to backup your vehicles, fuel entries, maintenance, expenses, documents, and reminders securely in the cloud.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
 
         // 1. Regional & Display Settings
         Card(modifier = Modifier.fillMaxWidth()) {
