@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -12,8 +13,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.drivecare.app.data.model.Expense
+import com.drivecare.app.data.model.Vehicle
 import com.drivecare.app.ui.DriveCareViewModel
 import com.drivecare.app.utils.AppStrings
 import com.drivecare.app.utils.LocalAppLanguage
@@ -257,9 +260,16 @@ fun AddExpenseDialog(
     var date by remember { mutableStateOf("2026-07-23") }
     var notes by remember { mutableStateOf("") }
 
-    var selectedVehicle by remember { mutableStateOf(vehicles.firstOrNull()) }
+    var selectedVehicle by remember { mutableStateOf<Vehicle?>(vehicles.firstOrNull()) }
     var expandedVehicleDropdown by remember { mutableStateOf(false) }
     var expandedCategoryDropdown by remember { mutableStateOf(false) }
+
+    // Auto-select first vehicle when vehicles list updates from Room DB
+    LaunchedEffect(vehicles) {
+        if (selectedVehicle == null && vehicles.isNotEmpty()) {
+            selectedVehicle = vehicles.first()
+        }
+    }
 
     val categories = listOf("Parking", "Toll", "Insurance", "Service", "Fuel", "Tax", "Cleaning", "Other")
 
@@ -277,7 +287,7 @@ fun AddExpenseDialog(
                     onExpandedChange = { expandedVehicleDropdown = !expandedVehicleDropdown }
                 ) {
                     OutlinedTextField(
-                        value = selectedVehicle?.vehicleName ?: "Select Vehicle",
+                        value = selectedVehicle?.vehicleName ?: if (vehicles.isEmpty()) "No vehicles in garage" else "Select Vehicle",
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Vehicle") },
@@ -290,14 +300,21 @@ fun AddExpenseDialog(
                         expanded = expandedVehicleDropdown,
                         onDismissRequest = { expandedVehicleDropdown = false }
                     ) {
-                        vehicles.forEach { v ->
+                        if (vehicles.isEmpty()) {
                             DropdownMenuItem(
-                                text = { Text(v.vehicleName) },
-                                onClick = {
-                                    selectedVehicle = v
-                                    expandedVehicleDropdown = false
-                                }
+                                text = { Text("No vehicles in garage. Please add a vehicle first.") },
+                                onClick = { expandedVehicleDropdown = false }
                             )
+                        } else {
+                            vehicles.forEach { v ->
+                                DropdownMenuItem(
+                                    text = { Text(v.vehicleName) },
+                                    onClick = {
+                                        selectedVehicle = v
+                                        expandedVehicleDropdown = false
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -344,8 +361,13 @@ fun AddExpenseDialog(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = amountStr,
-                        onValueChange = { amountStr = it },
+                        onValueChange = { input ->
+                            if (input.isEmpty() || input.matches(Regex("""^\d*([.,]\d{0,2})?$"""))) {
+                                amountStr = input
+                            }
+                        },
                         label = { Text("Amount ($)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.weight(1f),
                         singleLine = true
                     )
@@ -369,16 +391,29 @@ fun AddExpenseDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    val amt = amountStr.toDoubleOrNull()
-                    if (title.isBlank() || amt == null || selectedVehicle == null) {
-                        Toast.makeText(context, "Please fill in title, amount and select a vehicle", Toast.LENGTH_SHORT).show()
+                    val cleanTitle = title.trim()
+                    if (cleanTitle.isBlank()) {
+                        Toast.makeText(context, "Please enter title", Toast.LENGTH_SHORT).show()
                         return@Button
                     }
+
+                    if (selectedVehicle == null) {
+                        Toast.makeText(context, "Please select a vehicle", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+
+                    val cleanAmountStr = amountStr.trim().replace(",", ".")
+                    val amt = cleanAmountStr.toDoubleOrNull()
+                    if (cleanAmountStr.isBlank() || amt == null || amt <= 0) {
+                        Toast.makeText(context, "Please enter amount", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+
                     viewModel.addExpense(
                         Expense(
                             vehicleId = selectedVehicle!!.id,
                             vehicleName = selectedVehicle!!.vehicleName,
-                            title = title,
+                            title = cleanTitle,
                             category = category,
                             amount = amt,
                             date = date,
