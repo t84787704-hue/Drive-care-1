@@ -6,12 +6,17 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.drivecare.app.data.db.AppDatabase
 import com.drivecare.app.data.model.Document
+import com.drivecare.app.data.model.DriverProfile
 import com.drivecare.app.data.model.EmergencyContact
 import com.drivecare.app.data.model.Expense
 import com.drivecare.app.data.model.FuelEntry
+import com.drivecare.app.data.model.GeofenceZone
 import com.drivecare.app.data.model.Maintenance
 import com.drivecare.app.data.model.Reminder
+import com.drivecare.app.data.model.TripLog
 import com.drivecare.app.data.model.Vehicle
+import com.drivecare.app.data.model.VehicleShare
+import com.drivecare.app.data.model.VehicleTelemetry
 import com.drivecare.app.utils.AppLanguage
 import com.drivecare.app.utils.LocaleManager
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -55,6 +60,11 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     private val documentDao = db.documentDao()
     private val emergencyContactDao = db.emergencyContactDao()
     private val expenseDao = db.expenseDao()
+    private val driverProfileDao = db.driverProfileDao()
+    private val vehicleShareDao = db.vehicleShareDao()
+    private val tripLogDao = db.tripLogDao()
+    private val geofenceZoneDao = db.geofenceZoneDao()
+    private val vehicleTelemetryDao = db.vehicleTelemetryDao()
 
     val vehicles: StateFlow<List<Vehicle>> = vehicleDao.getAllVehicles()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -75,6 +85,21 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val expenses: StateFlow<List<Expense>> = expenseDao.getAllExpenses()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val driverProfiles: StateFlow<List<DriverProfile>> = driverProfileDao.getAllProfiles()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val vehicleShares: StateFlow<List<VehicleShare>> = vehicleShareDao.getAllShares()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val tripLogs: StateFlow<List<TripLog>> = tripLogDao.getAllTrips()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val geofenceZones: StateFlow<List<GeofenceZone>> = geofenceZoneDao.getAllGeofences()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val recentTelemetry: StateFlow<List<VehicleTelemetry>> = vehicleTelemetryDao.getRecentTelemetry()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _selectedFuelVehicle = MutableStateFlow<Vehicle?>(null)
@@ -195,6 +220,60 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch { expenseDao.deleteExpense(expense) }
     }
 
+    // Driver Profiles
+    fun addDriverProfile(profile: DriverProfile) {
+        viewModelScope.launch { driverProfileDao.insertProfile(profile) }
+    }
+
+    fun updateDriverProfile(profile: DriverProfile) {
+        viewModelScope.launch { driverProfileDao.updateProfile(profile) }
+    }
+
+    fun deleteDriverProfile(profile: DriverProfile) {
+        viewModelScope.launch { driverProfileDao.deleteProfile(profile) }
+    }
+
+    // Vehicle Sharing & Family Access
+    fun addVehicleShare(share: VehicleShare) {
+        viewModelScope.launch { vehicleShareDao.insertShare(share) }
+    }
+
+    fun deleteVehicleShare(share: VehicleShare) {
+        viewModelScope.launch { vehicleShareDao.deleteShare(share) }
+    }
+
+    fun transferVehicleOwnership(vehicleId: Long, newOwnerName: String) {
+        viewModelScope.launch {
+            val v = vehicles.value.find { it.id == vehicleId }
+            if (v != null) {
+                vehicleDao.updateVehicle(v.copy(registrationNumber = "${v.registrationNumber} (Transferred to $newOwnerName)"))
+            }
+        }
+    }
+
+    // Trips & GPS Tracking
+    fun addTripLog(trip: TripLog) {
+        viewModelScope.launch { tripLogDao.insertTrip(trip) }
+    }
+
+    fun deleteTripLog(trip: TripLog) {
+        viewModelScope.launch { tripLogDao.deleteTrip(trip) }
+    }
+
+    // Geofences
+    fun addGeofenceZone(geofence: GeofenceZone) {
+        viewModelScope.launch { geofenceZoneDao.insertGeofence(geofence) }
+    }
+
+    fun deleteGeofenceZone(geofence: GeofenceZone) {
+        viewModelScope.launch { geofenceZoneDao.deleteGeofence(geofence) }
+    }
+
+    // Telemetry
+    fun addVehicleTelemetry(telemetry: VehicleTelemetry) {
+        viewModelScope.launch { vehicleTelemetryDao.insertTelemetry(telemetry) }
+    }
+
     fun getTimelineEvents(targetVehicleId: Long? = null): List<TimelineEvent> {
         val list = mutableListOf<TimelineEvent>()
 
@@ -267,6 +346,21 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                         date = e.date,
                         subtitle = "${e.vehicleName} • ${e.category}",
                         costOrAmount = "$${e.amount}"
+                    )
+                )
+            }
+
+        tripLogs.value
+            .filter { targetVehicleId == null || targetVehicleId == -1L || it.vehicleId == targetVehicleId }
+            .forEach { t ->
+                list.add(
+                    TimelineEvent(
+                        id = "trip_${t.id}",
+                        title = "Trip: ${t.startLocation} ➔ ${t.endLocation}",
+                        type = "Trip",
+                        date = t.tripDate,
+                        subtitle = "${t.vehicleName} • Driver: ${t.driverName} • ${t.durationMinutes} mins",
+                        costOrAmount = "${t.distanceKm} km"
                     )
                 )
             }
@@ -444,6 +538,62 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         }
         root.put("expenses", eArray)
 
+        // Driver Profiles
+        val dpArray = JSONArray()
+        driverProfiles.value.forEach { dp ->
+            dpArray.put(JSONObject().apply {
+                put("id", dp.id)
+                put("name", dp.name)
+                put("email", dp.email)
+                put("phone", dp.phone)
+                put("licenseNumber", dp.licenseNumber)
+                put("rating", dp.rating)
+                put("firebaseUserId", dp.firebaseUserId)
+                put("profilePhotoUrl", dp.profilePhotoUrl)
+                put("createdAt", dp.createdAt)
+                put("lastLoginAt", dp.lastLoginAt)
+            })
+        }
+        root.put("driver_profiles", dpArray)
+
+        // Vehicle Shares
+        val vsArray = JSONArray()
+        vehicleShares.value.forEach { vs ->
+            vsArray.put(JSONObject().apply {
+                put("id", vs.id)
+                put("vehicleId", vs.vehicleId)
+                put("vehicleName", vs.vehicleName)
+                put("sharedWithEmail", vs.sharedWithEmail)
+                put("role", vs.role)
+                put("status", vs.status)
+                put("sharedAt", vs.sharedAt)
+            })
+        }
+        root.put("vehicle_shares", vsArray)
+
+        // Trip Logs
+        val tlArray = JSONArray()
+        tripLogs.value.forEach { tl ->
+            tlArray.put(JSONObject().apply {
+                put("id", tl.id)
+                put("vehicleId", tl.vehicleId)
+                put("vehicleName", tl.vehicleName)
+                put("driverName", tl.driverName)
+                put("startLocation", tl.startLocation)
+                put("endLocation", tl.endLocation)
+                put("distanceKm", tl.distanceKm)
+                put("durationMinutes", tl.durationMinutes)
+                put("avgSpeedKmh", tl.avgSpeedKmh)
+                put("maxSpeedKmh", tl.maxSpeedKmh)
+                put("tripDate", tl.tripDate)
+                put("startTime", tl.startTime)
+                put("endTime", tl.endTime)
+                put("fuelConsumedLiters", tl.fuelConsumedLiters)
+                put("routePointsJson", tl.routePointsJson)
+            })
+        }
+        root.put("trip_logs", tlArray)
+
         return root.toString(2)
     }
 
@@ -569,6 +719,64 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                             notes = obj.optString("notes", "")
                         )
                         expenseDao.insertExpense(exp)
+                    }
+                }
+
+                if (root.has("driver_profiles")) {
+                    val arr = root.getJSONArray("driver_profiles")
+                    for (i in 0 until arr.length()) {
+                        val obj = arr.getJSONObject(i)
+                        val dp = DriverProfile(
+                            name = obj.optString("name", "Driver"),
+                            email = obj.optString("email", ""),
+                            phone = obj.optString("phone", ""),
+                            licenseNumber = obj.optString("licenseNumber", ""),
+                            rating = obj.optDouble("rating", 5.0),
+                            firebaseUserId = obj.optString("firebaseUserId", ""),
+                            profilePhotoUrl = obj.optString("profilePhotoUrl", ""),
+                            createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
+                            lastLoginAt = obj.optLong("lastLoginAt", System.currentTimeMillis())
+                        )
+                        driverProfileDao.insertProfile(dp)
+                    }
+                }
+
+                if (root.has("vehicle_shares")) {
+                    val arr = root.getJSONArray("vehicle_shares")
+                    for (i in 0 until arr.length()) {
+                        val obj = arr.getJSONObject(i)
+                        val vs = VehicleShare(
+                            vehicleId = obj.optLong("vehicleId", 1),
+                            vehicleName = obj.optString("vehicleName", ""),
+                            sharedWithEmail = obj.optString("sharedWithEmail", ""),
+                            role = obj.optString("role", "DRIVER"),
+                            status = obj.optString("status", "ACTIVE")
+                        )
+                        vehicleShareDao.insertShare(vs)
+                    }
+                }
+
+                if (root.has("trip_logs")) {
+                    val arr = root.getJSONArray("trip_logs")
+                    for (i in 0 until arr.length()) {
+                        val obj = arr.getJSONObject(i)
+                        val tl = TripLog(
+                            vehicleId = obj.optLong("vehicleId", 1),
+                            vehicleName = obj.optString("vehicleName", ""),
+                            driverName = obj.optString("driverName", "Primary Driver"),
+                            startLocation = obj.optString("startLocation", "Start"),
+                            endLocation = obj.optString("endLocation", "Destination"),
+                            distanceKm = obj.optDouble("distanceKm", 0.0),
+                            durationMinutes = obj.optInt("durationMinutes", 0),
+                            avgSpeedKmh = obj.optDouble("avgSpeedKmh", 0.0),
+                            maxSpeedKmh = obj.optDouble("maxSpeedKmh", 0.0),
+                            tripDate = obj.optString("tripDate", "2026-07-23"),
+                            startTime = obj.optString("startTime", ""),
+                            endTime = obj.optString("endTime", ""),
+                            fuelConsumedLiters = obj.optDouble("fuelConsumedLiters", 0.0),
+                            routePointsJson = obj.optString("routePointsJson", "[]")
+                        )
+                        tripLogDao.insertTrip(tl)
                     }
                 }
 

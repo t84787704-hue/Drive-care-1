@@ -26,6 +26,8 @@ enum class MoreSubSection {
     MENU,
     EXPENSES,
     TIMELINE,
+    GPS_TRACKING,
+    FAMILY_SHARING,
     DOCUMENTS,
     EMERGENCY,
     ACHIEVEMENTS,
@@ -58,6 +60,8 @@ fun MoreScreen(
                         when (currentSubSection) {
                             MoreSubSection.EXPENSES -> "Expense Manager"
                             MoreSubSection.TIMELINE -> "Vehicle Timeline"
+                            MoreSubSection.GPS_TRACKING -> "GPS Live Tracking & Trips"
+                            MoreSubSection.FAMILY_SHARING -> "Family Sharing & Drivers"
                             MoreSubSection.DOCUMENTS -> AppStrings.get("tab_documents", lang)
                             MoreSubSection.EMERGENCY -> AppStrings.get("tab_emergency", lang)
                             MoreSubSection.ACHIEVEMENTS -> AppStrings.get("tab_achievements", lang)
@@ -76,6 +80,8 @@ fun MoreScreen(
                 when (currentSubSection) {
                     MoreSubSection.EXPENSES -> ExpenseManagerScreen(viewModel = viewModel)
                     MoreSubSection.TIMELINE -> VehicleTimelineScreen(viewModel = viewModel)
+                    MoreSubSection.GPS_TRACKING -> GpsTrackingScreen(viewModel = viewModel)
+                    MoreSubSection.FAMILY_SHARING -> FamilySharingScreen(viewModel = viewModel)
                     MoreSubSection.DOCUMENTS -> DocumentsScreen(viewModel = viewModel)
                     MoreSubSection.EMERGENCY -> EmergencyScreen(viewModel = viewModel)
                     MoreSubSection.ACHIEVEMENTS -> AchievementsScreen(viewModel = viewModel)
@@ -125,6 +131,24 @@ fun MoreScreen(
                         title = "Vehicle Timeline",
                         subtitle = "Chronological History of Refills, Services & Expenses",
                         onClick = { currentSubSection = MoreSubSection.TIMELINE }
+                    )
+
+                    Divider()
+
+                    MoreMenuItem(
+                        icon = Icons.Default.GpsFixed,
+                        title = "GPS Tracking & Route History",
+                        subtitle = "Live Vehicle Location, Trip Logs & Geofencing",
+                        onClick = { currentSubSection = MoreSubSection.GPS_TRACKING }
+                    )
+
+                    Divider()
+
+                    MoreMenuItem(
+                        icon = Icons.Default.Group,
+                        title = "Family Sharing & Drivers",
+                        subtitle = "Multi-User Vehicle Sharing, Driver Profiles & Transfers",
+                        onClick = { currentSubSection = MoreSubSection.FAMILY_SHARING }
                     )
 
                     Divider()

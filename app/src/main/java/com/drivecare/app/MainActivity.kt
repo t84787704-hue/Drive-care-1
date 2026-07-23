@@ -99,6 +99,14 @@ class MainActivity : ComponentActivity() {
                                             moreSubSection = MoreSubSection.TIMELINE
                                             currentTab = NavTab.MORE
                                         }
+                                        "GPS" -> {
+                                            moreSubSection = MoreSubSection.GPS_TRACKING
+                                            currentTab = NavTab.MORE
+                                        }
+                                        "SHARING" -> {
+                                            moreSubSection = MoreSubSection.FAMILY_SHARING
+                                            currentTab = NavTab.MORE
+                                        }
                                         else -> currentTab = NavTab.MORE
                                     }
                                 }
