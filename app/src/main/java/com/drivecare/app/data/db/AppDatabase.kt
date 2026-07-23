@@ -6,20 +6,22 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.drivecare.app.data.dao.DocumentDao
 import com.drivecare.app.data.dao.EmergencyContactDao
+import com.drivecare.app.data.dao.ExpenseDao
 import com.drivecare.app.data.dao.FuelDao
 import com.drivecare.app.data.dao.MaintenanceDao
 import com.drivecare.app.data.dao.ReminderDao
 import com.drivecare.app.data.dao.VehicleDao
 import com.drivecare.app.data.model.Document
 import com.drivecare.app.data.model.EmergencyContact
+import com.drivecare.app.data.model.Expense
 import com.drivecare.app.data.model.FuelEntry
 import com.drivecare.app.data.model.Maintenance
 import com.drivecare.app.data.model.Reminder
 import com.drivecare.app.data.model.Vehicle
 
 @Database(
-    entities = [Vehicle::class, FuelEntry::class, Maintenance::class, Reminder::class, Document::class, EmergencyContact::class],
-    version = 2,
+    entities = [Vehicle::class, FuelEntry::class, Maintenance::class, Reminder::class, Document::class, EmergencyContact::class, Expense::class],
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -29,6 +31,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun reminderDao(): ReminderDao
     abstract fun documentDao(): DocumentDao
     abstract fun emergencyContactDao(): EmergencyContactDao
+    abstract fun expenseDao(): ExpenseDao
 
     companion object {
         @Volatile

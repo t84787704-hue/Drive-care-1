@@ -2,8 +2,6 @@ package com.drivecare.app.ui.screens
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -17,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.drivecare.app.data.model.Vehicle
 import com.drivecare.app.ui.DriveCareViewModel
+import com.drivecare.app.ui.components.QuickActionRow
 import com.drivecare.app.utils.AppStrings
 import com.drivecare.app.utils.LocalAppLanguage
 import java.util.Locale
@@ -32,9 +31,13 @@ fun SummaryDashboardScreen(
     val fuelEntries by viewModel.fuelEntries.collectAsState()
     val maintenanceLogs by viewModel.maintenanceLogs.collectAsState()
     val reminders by viewModel.reminders.collectAsState()
+    val expenses by viewModel.expenses.collectAsState()
 
     val totalFuelSpent = fuelEntries.sumOf { it.amountPaid.toDoubleOrNull() ?: 0.0 }
     val totalMaintenanceSpent = maintenanceLogs.sumOf { it.serviceCost.toDoubleOrNull() ?: 0.0 }
+    val totalOtherExpenses = expenses.sumOf { it.amount }
+    val grandTotalSpent = totalFuelSpent + totalMaintenanceSpent + totalOtherExpenses
+
     val activeRemindersCount = reminders.count { !it.isCompleted }
 
     // Average Fleet Health
@@ -49,6 +52,10 @@ fun SummaryDashboardScreen(
         else -> "health_poor"
     }
 
+    val recentTimeline = remember(vehicles, fuelEntries, maintenanceLogs, reminders, expenses) {
+        viewModel.getTimelineEvents().take(3)
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -56,25 +63,71 @@ fun SummaryDashboardScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Welcome Header Banner
+        // Welcome Header Banner with Vehicle Health Score
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = AppStrings.get("overview_title", lang),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "${AppStrings.get("vehicle_health_score", lang)}: $fleetHealthAvg% (${AppStrings.get(healthLabelKey, lang)})",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = AppStrings.get("overview_title", lang),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Text(
+                            text = "${vehicles.size} Vehicles Active in Garage",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                        )
+                    }
+
+                    Surface(
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                        shape = MaterialTheme.shapes.medium
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Favorite,
+                                contentDescription = null,
+                                tint = if (fleetHealthAvg >= 80) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = "$fleetHealthAvg%",
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Fleet Health Status: ${AppStrings.get(healthLabelKey, lang)}",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
                 LinearProgressIndicator(
                     progress = { fleetHealthAvg / 100f },
                     modifier = Modifier
@@ -85,7 +138,10 @@ fun SummaryDashboardScreen(
             }
         }
 
-        // Top 6 Dashboard Cards Grid
+        // Quick Actions Row
+        QuickActionRow(viewModel = viewModel)
+
+        // KPI Summary Cards Grid
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -95,13 +151,15 @@ fun SummaryDashboardScreen(
                     title = AppStrings.get("total_vehicles", lang),
                     value = "${vehicles.size}",
                     icon = Icons.Default.DirectionsCar,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    onClick = { onNavigateTab?.invoke("GARAGE") }
                 )
                 DashboardKpiCard(
                     title = AppStrings.get("upcoming_services", lang),
                     value = "$activeRemindersCount",
                     icon = Icons.Default.Notifications,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    onClick = { onNavigateTab?.invoke("SERVICES") }
                 )
             }
 
@@ -113,36 +171,20 @@ fun SummaryDashboardScreen(
                     title = AppStrings.get("monthly_fuel_cost", lang),
                     value = "$${String.format(Locale.US, "%.2f", totalFuelSpent)}",
                     icon = Icons.Default.LocalGasStation,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    onClick = { onNavigateTab?.invoke("FUEL") }
                 )
                 DashboardKpiCard(
-                    title = AppStrings.get("total_fuel_entries", lang),
-                    value = "${fuelEntries.size}",
-                    icon = Icons.Default.EvStation,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                DashboardKpiCard(
-                    title = AppStrings.get("service_spent", lang),
-                    value = "$${String.format(Locale.US, "%.2f", totalMaintenanceSpent)}",
-                    icon = Icons.Default.Build,
-                    modifier = Modifier.weight(1f)
-                )
-                DashboardKpiCard(
-                    title = AppStrings.get("vehicle_health_score", lang),
-                    value = "$fleetHealthAvg%",
-                    icon = Icons.Default.HealthAndSafety,
-                    modifier = Modifier.weight(1f)
+                    title = "Total Expense Logged",
+                    value = "$${String.format(Locale.US, "%.2f", grandTotalSpent)}",
+                    icon = Icons.Default.AttachMoney,
+                    modifier = Modifier.weight(1f),
+                    onClick = { onNavigateTab?.invoke("EXPENSES") }
                 )
             }
         }
 
-        // Fleet Quick Overview Section
+        // Vehicle Fleet Summary
         Text(
             text = AppStrings.get("fleet_summary", lang),
             style = MaterialTheme.typography.titleMedium,
@@ -173,7 +215,29 @@ fun SummaryDashboardScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        // Recent Timeline Events Preview
+        if (recentTimeline.isNotEmpty()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Recent Timeline Activity",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                TextButton(onClick = { onNavigateTab?.invoke("TIMELINE") }) {
+                    Text("View All")
+                }
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                recentTimeline.forEach { event ->
+                    TimelineEventRow(event)
+                }
+            }
+        }
 
         // Trip Calculator Card
         TripCalculatorCard(lang)
@@ -185,10 +249,11 @@ fun DashboardKpiCard(
     title: String,
     value: String,
     icon: ImageVector,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null
 ) {
     Card(
-        modifier = modifier,
+        modifier = modifier.then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(

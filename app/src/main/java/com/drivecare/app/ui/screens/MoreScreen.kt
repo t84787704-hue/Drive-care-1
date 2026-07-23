@@ -24,6 +24,8 @@ import com.drivecare.app.utils.LocalAppLanguage
 
 enum class MoreSubSection {
     MENU,
+    EXPENSES,
+    TIMELINE,
     DOCUMENTS,
     EMERGENCY,
     ACHIEVEMENTS,
@@ -54,6 +56,8 @@ fun MoreScreen(
                 title = {
                     Text(
                         when (currentSubSection) {
+                            MoreSubSection.EXPENSES -> "Expense Manager"
+                            MoreSubSection.TIMELINE -> "Vehicle Timeline"
                             MoreSubSection.DOCUMENTS -> AppStrings.get("tab_documents", lang)
                             MoreSubSection.EMERGENCY -> AppStrings.get("tab_emergency", lang)
                             MoreSubSection.ACHIEVEMENTS -> AppStrings.get("tab_achievements", lang)
@@ -70,6 +74,8 @@ fun MoreScreen(
             )
             Box(modifier = Modifier.weight(1f)) {
                 when (currentSubSection) {
+                    MoreSubSection.EXPENSES -> ExpenseManagerScreen(viewModel = viewModel)
+                    MoreSubSection.TIMELINE -> VehicleTimelineScreen(viewModel = viewModel)
                     MoreSubSection.DOCUMENTS -> DocumentsScreen(viewModel = viewModel)
                     MoreSubSection.EMERGENCY -> EmergencyScreen(viewModel = viewModel)
                     MoreSubSection.ACHIEVEMENTS -> AchievementsScreen(viewModel = viewModel)
@@ -104,6 +110,24 @@ fun MoreScreen(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
                     )
+
+                    MoreMenuItem(
+                        icon = Icons.Default.AttachMoney,
+                        title = "Expense Manager",
+                        subtitle = "Track Parking, Tolls, Insurance & Taxes",
+                        onClick = { currentSubSection = MoreSubSection.EXPENSES }
+                    )
+
+                    Divider()
+
+                    MoreMenuItem(
+                        icon = Icons.Default.Timeline,
+                        title = "Vehicle Timeline",
+                        subtitle = "Chronological History of Refills, Services & Expenses",
+                        onClick = { currentSubSection = MoreSubSection.TIMELINE }
+                    )
+
+                    Divider()
 
                     MoreMenuItem(
                         icon = Icons.Default.FolderOpen,

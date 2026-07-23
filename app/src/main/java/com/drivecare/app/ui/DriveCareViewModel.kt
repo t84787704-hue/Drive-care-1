@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.drivecare.app.data.db.AppDatabase
 import com.drivecare.app.data.model.Document
 import com.drivecare.app.data.model.EmergencyContact
+import com.drivecare.app.data.model.Expense
 import com.drivecare.app.data.model.FuelEntry
 import com.drivecare.app.data.model.Maintenance
 import com.drivecare.app.data.model.Reminder
@@ -36,6 +37,15 @@ data class MaintenanceRecommendation(
     val urgency: String // HIGH, MEDIUM, LOW
 )
 
+data class TimelineEvent(
+    val id: String,
+    val title: String,
+    val type: String, // Fuel, Service, Reminder, Document, Expense
+    val date: String,
+    val subtitle: String,
+    val costOrAmount: String = ""
+)
+
 class DriveCareViewModel(application: Application) : AndroidViewModel(application) {
     private val db = AppDatabase.getDatabase(application)
     private val vehicleDao = db.vehicleDao()
@@ -44,6 +54,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     private val reminderDao = db.reminderDao()
     private val documentDao = db.documentDao()
     private val emergencyContactDao = db.emergencyContactDao()
+    private val expenseDao = db.expenseDao()
 
     val vehicles: StateFlow<List<Vehicle>> = vehicleDao.getAllVehicles()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -61,6 +72,9 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val emergencyContacts: StateFlow<List<EmergencyContact>> = emergencyContactDao.getAllContacts()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val expenses: StateFlow<List<Expense>> = expenseDao.getAllExpenses()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _selectedFuelVehicle = MutableStateFlow<Vehicle?>(null)
@@ -171,6 +185,93 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun deleteEmergencyContact(contact: EmergencyContact) {
         viewModelScope.launch { emergencyContactDao.deleteContact(contact) }
+    }
+
+    fun addExpense(expense: Expense) {
+        viewModelScope.launch { expenseDao.insertExpense(expense) }
+    }
+
+    fun deleteExpense(expense: Expense) {
+        viewModelScope.launch { expenseDao.deleteExpense(expense) }
+    }
+
+    fun getTimelineEvents(targetVehicleId: Long? = null): List<TimelineEvent> {
+        val list = mutableListOf<TimelineEvent>()
+
+        fuelEntries.value
+            .filter { targetVehicleId == null || targetVehicleId == -1L || it.vehicleId == targetVehicleId }
+            .forEach { f ->
+                list.add(
+                    TimelineEvent(
+                        id = "fuel_${f.id}",
+                        title = "Fuel Refill (${f.fuelQuantity} L)",
+                        type = "Fuel",
+                        date = f.fuelDate,
+                        subtitle = "${f.vehicleName} • ${f.fuelStationName.ifEmpty { "Fuel Station" }}",
+                        costOrAmount = "$${f.amountPaid}"
+                    )
+                )
+            }
+
+        maintenanceLogs.value
+            .filter { targetVehicleId == null || targetVehicleId == -1L || it.vehicleId == targetVehicleId }
+            .forEach { m ->
+                list.add(
+                    TimelineEvent(
+                        id = "maint_${m.id}",
+                        title = m.serviceTitle,
+                        type = "Service",
+                        date = m.serviceDate,
+                        subtitle = "${m.vehicleName} • ${m.workshopName.ifEmpty { "Workshop" }}",
+                        costOrAmount = "$${m.serviceCost}"
+                    )
+                )
+            }
+
+        reminders.value
+            .filter { targetVehicleId == null || targetVehicleId == -1L || it.vehicleId == targetVehicleId }
+            .forEach { r ->
+                list.add(
+                    TimelineEvent(
+                        id = "rem_${r.id}",
+                        title = r.reminderTitle,
+                        type = "Reminder",
+                        date = r.dueDate,
+                        subtitle = "${r.vehicleName} • ${r.reminderType} (${if (r.isCompleted) "Completed" else "Due"})"
+                    )
+                )
+            }
+
+        documents.value
+            .filter { targetVehicleId == null || targetVehicleId == -1L || it.vehicleId == targetVehicleId }
+            .forEach { d ->
+                list.add(
+                    TimelineEvent(
+                        id = "doc_${d.id}",
+                        title = d.docTitle,
+                        type = "Document",
+                        date = d.issueDate.ifEmpty { d.expiryDate.ifEmpty { "Recently" } },
+                        subtitle = "${d.vehicleName} • ${d.docType}"
+                    )
+                )
+            }
+
+        expenses.value
+            .filter { targetVehicleId == null || targetVehicleId == -1L || it.vehicleId == targetVehicleId }
+            .forEach { e ->
+                list.add(
+                    TimelineEvent(
+                        id = "exp_${e.id}",
+                        title = e.title,
+                        type = "Expense",
+                        date = e.date,
+                        subtitle = "${e.vehicleName} • ${e.category}",
+                        costOrAmount = "$${e.amount}"
+                    )
+                )
+            }
+
+        return list.sortedByDescending { it.date }
     }
 
     // Vehicle Health Score Algorithm (0 - 100)
@@ -327,6 +428,22 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         }
         root.put("emergency_contacts", cArray)
 
+        // Expenses
+        val eArray = JSONArray()
+        expenses.value.forEach { e ->
+            eArray.put(JSONObject().apply {
+                put("id", e.id)
+                put("vehicleId", e.vehicleId)
+                put("vehicleName", e.vehicleName)
+                put("title", e.title)
+                put("category", e.category)
+                put("amount", e.amount)
+                put("date", e.date)
+                put("notes", e.notes)
+            })
+        }
+        root.put("expenses", eArray)
+
         return root.toString(2)
     }
 
@@ -435,6 +552,23 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                             notes = obj.optString("notes", "")
                         )
                         emergencyContactDao.insertContact(c)
+                    }
+                }
+
+                if (root.has("expenses")) {
+                    val arr = root.getJSONArray("expenses")
+                    for (i in 0 until arr.length()) {
+                        val obj = arr.getJSONObject(i)
+                        val exp = Expense(
+                            vehicleId = obj.optLong("vehicleId", 1),
+                            vehicleName = obj.optString("vehicleName", ""),
+                            title = obj.optString("title", "Expense"),
+                            category = obj.optString("category", "Other"),
+                            amount = obj.optDouble("amount", 0.0),
+                            date = obj.optString("date", "2026-07-22"),
+                            notes = obj.optString("notes", "")
+                        )
+                        expenseDao.insertExpense(exp)
                     }
                 }
 

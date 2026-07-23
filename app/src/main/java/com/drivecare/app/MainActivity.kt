@@ -25,11 +25,8 @@ enum class NavTab(val stringKey: String, val icon: ImageVector) {
     SUMMARY("tab_dashboard", Icons.Default.Dashboard),
     GARAGE("tab_garage", Icons.Default.DirectionsCar),
     FUEL("tab_fuel", Icons.Default.LocalGasStation),
-    SERVICE("tab_service", Icons.Default.AutoAwesome),
-    DOCUMENTS("tab_documents", Icons.Default.FolderOpen),
-    EMERGENCY("tab_emergency", Icons.Default.Emergency),
-    ACHIEVEMENTS("tab_achievements", Icons.Default.EmojiEvents),
-    SETTINGS("tab_settings", Icons.Default.Settings)
+    SERVICE("tab_services", Icons.Default.Build),
+    MORE("tab_more", Icons.Default.MoreHoriz)
 }
 
 class MainActivity : ComponentActivity() {
@@ -52,6 +49,7 @@ class MainActivity : ComponentActivity() {
             ) {
                 MaterialTheme {
                     var currentTab by remember { mutableStateOf(NavTab.SUMMARY) }
+                    var moreSubSection by remember { mutableStateOf(MoreSubSection.MENU) }
 
                     Scaffold(
                         topBar = {
@@ -67,7 +65,12 @@ class MainActivity : ComponentActivity() {
                                     val localizedTitle = AppStrings.get(tab.stringKey, currentLang)
                                     NavigationBarItem(
                                         selected = currentTab == tab,
-                                        onClick = { currentTab = tab },
+                                        onClick = {
+                                            if (tab == NavTab.MORE && currentTab != NavTab.MORE) {
+                                                moreSubSection = MoreSubSection.MENU
+                                            }
+                                            currentTab = tab
+                                        },
                                         label = { Text(localizedTitle) },
                                         icon = { Icon(tab.icon, contentDescription = localizedTitle) }
                                     )
@@ -80,14 +83,34 @@ class MainActivity : ComponentActivity() {
                             .padding(innerPadding)
 
                         when (currentTab) {
-                            NavTab.SUMMARY -> SummaryDashboardScreen(viewModel = viewModel, modifier = modifier)
+                            NavTab.SUMMARY -> SummaryDashboardScreen(
+                                viewModel = viewModel,
+                                modifier = modifier,
+                                onNavigateTab = { target ->
+                                    when (target) {
+                                        "GARAGE" -> currentTab = NavTab.GARAGE
+                                        "FUEL" -> currentTab = NavTab.FUEL
+                                        "SERVICES", "SERVICE" -> currentTab = NavTab.SERVICE
+                                        "EXPENSES" -> {
+                                            moreSubSection = MoreSubSection.EXPENSES
+                                            currentTab = NavTab.MORE
+                                        }
+                                        "TIMELINE" -> {
+                                            moreSubSection = MoreSubSection.TIMELINE
+                                            currentTab = NavTab.MORE
+                                        }
+                                        else -> currentTab = NavTab.MORE
+                                    }
+                                }
+                            )
                             NavTab.GARAGE -> VehicleListScreen(viewModel = viewModel, modifier = modifier)
                             NavTab.FUEL -> FuelTrackerScreen(viewModel = viewModel, modifier = modifier)
                             NavTab.SERVICE -> MaintenanceScreen(viewModel = viewModel, modifier = modifier)
-                            NavTab.DOCUMENTS -> DocumentsScreen(viewModel = viewModel, modifier = modifier)
-                            NavTab.EMERGENCY -> EmergencyScreen(viewModel = viewModel, modifier = modifier)
-                            NavTab.ACHIEVEMENTS -> AchievementsScreen(viewModel = viewModel, modifier = modifier)
-                            NavTab.SETTINGS -> SettingsScreen(viewModel = viewModel, modifier = modifier)
+                            NavTab.MORE -> MoreScreen(
+                                viewModel = viewModel,
+                                modifier = modifier,
+                                initialSubSection = moreSubSection
+                            )
                         }
                     }
                 }
