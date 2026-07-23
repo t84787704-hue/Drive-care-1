@@ -1,5 +1,6 @@
 package com.drivecare.app.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -9,6 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.drivecare.app.data.model.Reminder
@@ -117,6 +119,7 @@ fun ReminderScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddReminderDialog(
     vehicles: List<Vehicle>,
@@ -124,32 +127,95 @@ fun AddReminderDialog(
     onSave: (Reminder) -> Unit,
     lang: com.drivecare.app.utils.AppLanguage
 ) {
-    var selectedVehicle by remember { mutableStateOf(vehicles.first()) }
+    val context = LocalContext.current
+
+    var selectedVehicle by remember { mutableStateOf<Vehicle?>(vehicles.firstOrNull()) }
+    var expandedVehicleDropdown by remember { mutableStateOf(false) }
+
     var title by remember { mutableStateOf("") }
-    var dueDate by remember { mutableStateOf("2026-08-01") }
+    var dueDate by remember { mutableStateOf("2026-08-15") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(AppStrings.get("add_reminder", lang)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = selectedVehicle.vehicleName, onValueChange = {}, readOnly = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text(AppStrings.get("reminder_title", lang)) }, singleLine = true)
-                OutlinedTextField(value = dueDate, onValueChange = { dueDate = it }, label = { Text(AppStrings.get("due_date", lang)) }, singleLine = true)
+                Text("Select Vehicle *", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+
+                ExposedDropdownMenuBox(
+                    expanded = expandedVehicleDropdown,
+                    onExpandedChange = { expandedVehicleDropdown = !expandedVehicleDropdown }
+                ) {
+                    OutlinedTextField(
+                        value = selectedVehicle?.vehicleName ?: "Select Vehicle",
+                        onValueChange = {},
+                        readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedVehicleDropdown) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedVehicleDropdown,
+                        onDismissRequest = { expandedVehicleDropdown = false }
+                    ) {
+                        vehicles.forEach { v ->
+                            DropdownMenuItem(
+                                text = { Text("${v.vehicleName} (${v.brand} ${v.model})") },
+                                onClick = {
+                                    selectedVehicle = v
+                                    expandedVehicleDropdown = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text(AppStrings.get("reminder_title", lang) + " *") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = dueDate,
+                    onValueChange = { dueDate = it },
+                    label = { Text(AppStrings.get("due_date", lang) + " (YYYY-MM-DD) *") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    if (title.isNotBlank()) {
-                        val reminder = Reminder(
-                            vehicleId = selectedVehicle.id,
-                            vehicleName = selectedVehicle.vehicleName,
-                            reminderTitle = title,
-                            dueDate = dueDate
-                        )
-                        onSave(reminder)
+                    val v = selectedVehicle
+                    if (v == null) {
+                        Toast.makeText(context, "Please select a vehicle", Toast.LENGTH_SHORT).show()
+                        return@Button
                     }
+
+                    val cleanTitle = title.trim()
+                    if (cleanTitle.isBlank()) {
+                        Toast.makeText(context, "Please enter reminder title", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+
+                    val cleanDueDate = dueDate.trim()
+                    if (cleanDueDate.isBlank()) {
+                        Toast.makeText(context, "Please enter due date", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+
+                    val reminder = Reminder(
+                        vehicleId = v.id,
+                        vehicleName = v.vehicleName,
+                        reminderTitle = cleanTitle,
+                        dueDate = cleanDueDate
+                    )
+                    onSave(reminder)
                 }
             ) {
                 Text(AppStrings.get("save", lang))

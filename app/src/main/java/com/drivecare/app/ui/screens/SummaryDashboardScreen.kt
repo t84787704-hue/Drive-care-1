@@ -1,8 +1,11 @@
 package com.drivecare.app.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -10,11 +13,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.drivecare.app.data.model.Vehicle
 import com.drivecare.app.ui.DriveCareViewModel
+import com.drivecare.app.ui.TimelineEvent
 import com.drivecare.app.ui.components.QuickActionRow
 import com.drivecare.app.utils.AppStrings
 import com.drivecare.app.utils.LocalAppLanguage
@@ -32,6 +38,7 @@ fun SummaryDashboardScreen(
     val maintenanceLogs by viewModel.maintenanceLogs.collectAsState()
     val reminders by viewModel.reminders.collectAsState()
     val expenses by viewModel.expenses.collectAsState()
+    val documents by viewModel.documents.collectAsState()
 
     val totalFuelSpent = fuelEntries.sumOf { it.amountPaid.toDoubleOrNull() ?: 0.0 }
     val totalMaintenanceSpent = maintenanceLogs.sumOf { it.serviceCost.toDoubleOrNull() ?: 0.0 }
@@ -40,20 +47,28 @@ fun SummaryDashboardScreen(
 
     val activeRemindersCount = reminders.count { !it.isCompleted }
 
-    // Average Fleet Health
+    // Dynamic Fleet Health Score
     val fleetHealthAvg = if (vehicles.isNotEmpty()) {
-        vehicles.map { viewModel.calculateHealthScore(it, reminders, fuelEntries, maintenanceLogs) }.average().toInt()
+        vehicles.map { viewModel.calculateHealthScore(it, reminders, fuelEntries, maintenanceLogs, documents) }.average().toInt()
     } else 100
 
     val healthLabelKey = when {
-        fleetHealthAvg >= 90 -> "health_excellent"
+        fleetHealthAvg >= 85 -> "health_excellent"
         fleetHealthAvg >= 70 -> "health_good"
         fleetHealthAvg >= 50 -> "health_fair"
         else -> "health_poor"
     }
 
-    val recentTimeline = remember(vehicles, fuelEntries, maintenanceLogs, reminders, expenses) {
-        viewModel.getTimelineEvents().take(3)
+    val monthlyFuelData = remember(fuelEntries) {
+        viewModel.getMonthlyFuelData(fuelEntries)
+    }
+
+    val expenseCategories = remember(fuelEntries, maintenanceLogs, expenses) {
+        viewModel.getExpenseCategoryBreakdown(fuelEntries, maintenanceLogs, expenses)
+    }
+
+    val recentTimeline = remember(vehicles, fuelEntries, maintenanceLogs, reminders, expenses, documents) {
+        viewModel.getTimelineEvents().take(4)
     }
 
     Column(
@@ -63,7 +78,7 @@ fun SummaryDashboardScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Welcome Header Banner with Vehicle Health Score
+        // Welcome Header Banner with Fleet Health Visualization
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
@@ -82,25 +97,25 @@ fun SummaryDashboardScreen(
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                         Text(
-                            text = "${vehicles.size} Vehicles Active in Garage",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                            text = if (vehicles.isNotEmpty()) "${vehicles.size} Vehicles Active in Fleet" else "No vehicles registered yet",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
                         )
                     }
 
                     Surface(
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                        color = MaterialTheme.colorScheme.surface,
                         shape = MaterialTheme.shapes.medium
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Icon(
                                 Icons.Default.Favorite,
                                 contentDescription = null,
-                                tint = if (fleetHealthAvg >= 80) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                                tint = if (fleetHealthAvg >= 75) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                                 modifier = Modifier.size(18.dp)
                             )
                             Text(
@@ -112,17 +127,23 @@ fun SummaryDashboardScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Fleet Health Status: ${AppStrings.get(healthLabelKey, lang)}",
+                        text = "Fleet Health: ${AppStrings.get(healthLabelKey, lang)}",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    Text(
+                        text = if (activeRemindersCount > 0) "$activeRemindersCount tasks pending" else "All tasks up to date",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                     )
                 }
 
@@ -132,13 +153,14 @@ fun SummaryDashboardScreen(
                     progress = { fleetHealthAvg / 100f },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(8.dp),
-                    color = if (fleetHealthAvg > 80) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(4.dp)),
+                    color = if (fleetHealthAvg >= 75) MaterialTheme.colorScheme.primary else if (fleetHealthAvg >= 50) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error,
                 )
             }
         }
 
-        // Quick Actions Row
+        // Quick Actions Shortcut Bar
         QuickActionRow(viewModel = viewModel)
 
         // KPI Summary Cards Grid
@@ -184,7 +206,26 @@ fun SummaryDashboardScreen(
             }
         }
 
-        // Vehicle Fleet Summary
+        // Analytics & Charts Section
+        if (monthlyFuelData.isNotEmpty() || expenseCategories.isNotEmpty()) {
+            Text(
+                text = "Analytics & Cost Breakdown",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+
+            // Monthly Fuel Cost Bar Chart
+            if (monthlyFuelData.isNotEmpty()) {
+                MonthlyFuelChartCard(monthlyFuelData)
+            }
+
+            // Expense Category Breakdown
+            if (expenseCategories.isNotEmpty()) {
+                ExpenseCategoryBreakdownCard(expenseCategories, grandTotalSpent)
+            }
+        }
+
+        // Vehicle Health & Efficiency Breakdown
         Text(
             text = AppStrings.get("fleet_summary", lang),
             style = MaterialTheme.typography.titleMedium,
@@ -197,44 +238,94 @@ fun SummaryDashboardScreen(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier.padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Icon(Icons.Default.DirectionsCar, contentDescription = null, modifier = Modifier.size(48.dp))
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(AppStrings.get("no_vehicles_registered", lang), fontWeight = FontWeight.SemiBold)
-                    Text(AppStrings.get("no_vehicles_desc", lang), style = MaterialTheme.typography.bodySmall)
+                    Icon(
+                        Icons.Default.DirectionsCar,
+                        contentDescription = null,
+                        modifier = Modifier.size(56.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        AppStrings.get("no_vehicles_registered", lang),
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        AppStrings.get("no_vehicles_desc", lang),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(onClick = { onNavigateTab?.invoke("GARAGE") }) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(AppStrings.get("add_vehicle", lang))
+                    }
                 }
             }
         } else {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 vehicles.forEach { v ->
-                    val vHealth = viewModel.calculateHealthScore(v, reminders, fuelEntries, maintenanceLogs)
-                    VehicleHealthRow(v, vHealth, lang)
+                    val vHealth = viewModel.calculateHealthScore(v, reminders, fuelEntries, maintenanceLogs, documents)
+                    val vEfficiency = viewModel.calculateVehicleFuelEfficiency(v, fuelEntries)
+                    val vCostPerKm = viewModel.calculateCostPerKm(v, fuelEntries, maintenanceLogs, expenses)
+
+                    VehicleHealthCard(
+                        vehicle = v,
+                        healthScore = vHealth,
+                        efficiency = vEfficiency,
+                        costPerKm = vCostPerKm,
+                        lang = lang,
+                        onClick = { onNavigateTab?.invoke("GARAGE") }
+                    )
                 }
             }
         }
 
         // Recent Timeline Events Preview
-        if (recentTimeline.isNotEmpty()) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Recent Timeline Activity",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Recent Timeline Activity",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            if (recentTimeline.isNotEmpty()) {
                 TextButton(onClick = { onNavigateTab?.invoke("TIMELINE") }) {
                     Text("View All")
                 }
             }
+        }
 
+        if (recentTimeline.isEmpty()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "No recent activity logged yet. Refuel or log maintenance to see history.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        } else {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 recentTimeline.forEach { event ->
-                    TimelineEventRow(event)
+                    DashboardTimelineEventRow(event)
                 }
             }
         }
@@ -291,23 +382,179 @@ fun DashboardKpiCard(
 }
 
 @Composable
-fun VehicleHealthRow(vehicle: Vehicle, healthScore: Int, lang: com.drivecare.app.utils.AppLanguage) {
+fun MonthlyFuelChartCard(monthlyFuelData: Map<String, Double>) {
+    val maxCost = (monthlyFuelData.values.maxOrNull() ?: 1.0).coerceAtLeast(1.0)
+    val entries = monthlyFuelData.entries.toList().takeLast(6)
+
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(Icons.Default.BarChart, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Text(
+                    text = "Monthly Fuel Expenditure ($)",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(120.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.Bottom
+            ) {
+                entries.forEach { entry ->
+                    val monthKey = entry.key
+                    val cost = entry.value
+                    val fraction = (cost / maxCost).toFloat().coerceIn(0.1f, 1f)
+
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = "$${cost.toInt()}",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Box(
+                            modifier = Modifier
+                                .width(24.dp)
+                                .fillMaxHeight(fraction)
+                                .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                                .background(MaterialTheme.colorScheme.primary)
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = if (monthKey.length >= 7) monthKey.substring(5) else monthKey,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ExpenseCategoryBreakdownCard(expenseCategories: Map<String, Double>, totalSpent: Double) {
+    val categoriesList = expenseCategories.entries.toList().take(5)
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(Icons.Default.PieChart, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
+                Text(
+                    text = "Expense Category Breakdown",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            categoriesList.forEach { entry ->
+                val category = entry.key
+                val amount = entry.value
+                val pct = if (totalSpent > 0) (amount / totalSpent) * 100 else 0.0
+
+                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(category, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                        Text("$${String.format(Locale.US, "%.2f", amount)} (${String.format(Locale.US, "%.1f", pct)}%)", style = MaterialTheme.typography.bodySmall)
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    LinearProgressIndicator(
+                        progress = { (pct / 100f).toFloat().coerceIn(0f, 1f) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp)),
+                        color = when (category) {
+                            "Fuel" -> MaterialTheme.colorScheme.primary
+                            "Service" -> MaterialTheme.colorScheme.secondary
+                            "Insurance" -> MaterialTheme.colorScheme.tertiary
+                            else -> MaterialTheme.colorScheme.outline
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun VehicleHealthCard(
+    vehicle: Vehicle,
+    healthScore: Int,
+    efficiency: com.drivecare.app.ui.FuelEfficiencyStats,
+    costPerKm: Double,
+    lang: com.drivecare.app.utils.AppLanguage,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(vehicle.vehicleName, fontWeight = FontWeight.Bold)
-                    Text("${vehicle.vehicleType} • ${vehicle.odometerReading.ifBlank { "0" }} km", style = MaterialTheme.typography.bodySmall)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        shape = MaterialTheme.shapes.medium
+                    ) {
+                        Icon(
+                            imageVector = when (vehicle.vehicleType.lowercase()) {
+                                "suv", "van" -> Icons.Default.AirportShuttle
+                                "motorcycle", "bike" -> Icons.Default.TwoWheeler
+                                "truck" -> Icons.Default.LocalShipping
+                                "electric", "ev" -> Icons.Default.EvStation
+                                else -> Icons.Default.DirectionsCar
+                            },
+                            contentDescription = null,
+                            modifier = Modifier.padding(8.dp).size(20.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    Column {
+                        Text(vehicle.vehicleName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Text("${vehicle.brand} ${vehicle.model} • ${vehicle.odometerReading} km", style = MaterialTheme.typography.bodySmall)
+                    }
                 }
+
                 Surface(
-                    color = if (healthScore >= 80) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer,
+                    color = if (healthScore >= 80) MaterialTheme.colorScheme.primaryContainer else if (healthScore >= 50) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.errorContainer,
                     shape = MaterialTheme.shapes.small
                 ) {
                     Text(
@@ -318,14 +565,106 @@ fun VehicleHealthRow(vehicle: Vehicle, healthScore: Int, lang: com.drivecare.app
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(6.dp))
+
+            Spacer(modifier = Modifier.height(10.dp))
+
             LinearProgressIndicator(
                 progress = { healthScore / 100f },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(6.dp),
-                color = if (healthScore >= 80) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(3.dp)),
+                color = if (healthScore >= 80) MaterialTheme.colorScheme.primary else if (healthScore >= 50) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error
             )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Efficiency & Cost stats badges
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = MaterialTheme.shapes.extraSmall
+                ) {
+                    Text(
+                        text = "Fuel Efficiency: ${String.format(Locale.US, "%.1f", efficiency.kmPerLitre)} km/L",
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = MaterialTheme.shapes.extraSmall
+                ) {
+                    Text(
+                        text = "Cost: ${if (costPerKm > 0) String.format(Locale.US, "$%.2f/km", costPerKm) else "N/A"}",
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DashboardTimelineEventRow(event: TimelineEvent) {
+    val (icon, color) = when (event.type) {
+        "Fuel" -> Icons.Default.LocalGasStation to MaterialTheme.colorScheme.primary
+        "Service" -> Icons.Default.Build to MaterialTheme.colorScheme.secondary
+        "Reminder" -> Icons.Default.Notifications to MaterialTheme.colorScheme.tertiary
+        "Document" -> Icons.Default.Description to MaterialTheme.colorScheme.outline
+        else -> Icons.Default.Receipt to MaterialTheme.colorScheme.error
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(color.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = color,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(event.title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                    Text(event.date, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Spacer(modifier = Modifier.height(2.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(event.subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (event.costOrAmount.isNotBlank()) {
+                        Text(event.costOrAmount, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = color)
+                    }
+                }
+            }
         }
     }
 }
@@ -348,7 +687,7 @@ fun TripCalculatorCard(lang: com.drivecare.app.utils.AppLanguage) {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -411,7 +750,7 @@ fun TripCalculatorCard(lang: com.drivecare.app.utils.AppLanguage) {
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             Surface(
                 modifier = Modifier.fillMaxWidth(),

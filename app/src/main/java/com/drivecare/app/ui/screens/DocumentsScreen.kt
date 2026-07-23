@@ -1,5 +1,6 @@
 package com.drivecare.app.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -10,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.drivecare.app.data.model.Document
@@ -140,6 +142,7 @@ fun DocumentsScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddDocumentDialog(
     vehicles: List<Vehicle>,
@@ -147,35 +150,133 @@ fun AddDocumentDialog(
     onSave: (Document) -> Unit,
     lang: com.drivecare.app.utils.AppLanguage
 ) {
-    var selectedVehicle by remember { mutableStateOf(vehicles.first()) }
+    val context = LocalContext.current
+
+    var selectedVehicle by remember { mutableStateOf<Vehicle?>(vehicles.firstOrNull()) }
+    var expandedVehicleDropdown by remember { mutableStateOf(false) }
+
     var title by remember { mutableStateOf("") }
     var docType by remember { mutableStateOf("Registration") }
-    var expiryDate by remember { mutableStateOf("") }
+    var expandedDocTypeDropdown by remember { mutableStateOf(false) }
+
+    var expiryDate by remember { mutableStateOf("2027-12-31") }
+
+    val docTypes = listOf("Registration", "Insurance", "Inspection", "License", "Tax Permit", "Warranty", "Invoice", "Other")
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(AppStrings.get("add_document", lang)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = selectedVehicle.vehicleName, onValueChange = {}, readOnly = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Document Title") }, singleLine = true)
-                OutlinedTextField(value = docType, onValueChange = { docType = it }, label = { Text(AppStrings.get("doc_type", lang)) }, singleLine = true)
-                OutlinedTextField(value = expiryDate, onValueChange = { expiryDate = it }, label = { Text("Expiry Date (e.g. 2027-12-31)") }, singleLine = true)
+                Text("Select Vehicle *", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+
+                ExposedDropdownMenuBox(
+                    expanded = expandedVehicleDropdown,
+                    onExpandedChange = { expandedVehicleDropdown = !expandedVehicleDropdown }
+                ) {
+                    OutlinedTextField(
+                        value = selectedVehicle?.vehicleName ?: "Select Vehicle",
+                        onValueChange = {},
+                        readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedVehicleDropdown) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedVehicleDropdown,
+                        onDismissRequest = { expandedVehicleDropdown = false }
+                    ) {
+                        vehicles.forEach { v ->
+                            DropdownMenuItem(
+                                text = { Text("${v.vehicleName} (${v.brand} ${v.model})") },
+                                onClick = {
+                                    selectedVehicle = v
+                                    expandedVehicleDropdown = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("Document Title *") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Document Type Dropdown
+                ExposedDropdownMenuBox(
+                    expanded = expandedDocTypeDropdown,
+                    onExpandedChange = { expandedDocTypeDropdown = !expandedDocTypeDropdown }
+                ) {
+                    OutlinedTextField(
+                        value = docType,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text(AppStrings.get("doc_type", lang)) },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedDocTypeDropdown) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedDocTypeDropdown,
+                        onDismissRequest = { expandedDocTypeDropdown = false }
+                    ) {
+                        docTypes.forEach { dt ->
+                            DropdownMenuItem(
+                                text = { Text(dt) },
+                                onClick = {
+                                    docType = dt
+                                    if (title.isBlank()) title = "$dt Certificate"
+                                    expandedDocTypeDropdown = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = expiryDate,
+                    onValueChange = { expiryDate = it },
+                    label = { Text("Expiry Date (e.g. 2027-12-31) *") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    if (title.isNotBlank()) {
-                        val doc = Document(
-                            vehicleId = selectedVehicle.id,
-                            vehicleName = selectedVehicle.vehicleName,
-                            docTitle = title,
-                            docType = docType,
-                            expiryDate = expiryDate
-                        )
-                        onSave(doc)
+                    val v = selectedVehicle
+                    if (v == null) {
+                        Toast.makeText(context, "Please select a vehicle", Toast.LENGTH_SHORT).show()
+                        return@Button
                     }
+
+                    val cleanTitle = title.trim()
+                    if (cleanTitle.isBlank()) {
+                        Toast.makeText(context, "Please enter document title", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+
+                    val cleanExpiry = expiryDate.trim()
+                    if (cleanExpiry.isBlank()) {
+                        Toast.makeText(context, "Please enter expiry date", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+
+                    val doc = Document(
+                        vehicleId = v.id,
+                        vehicleName = v.vehicleName,
+                        docTitle = cleanTitle,
+                        docType = docType,
+                        expiryDate = cleanExpiry
+                    )
+                    onSave(doc)
                 }
             ) {
                 Text(AppStrings.get("save", lang))

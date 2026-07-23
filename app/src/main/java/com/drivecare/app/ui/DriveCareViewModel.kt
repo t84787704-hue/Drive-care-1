@@ -51,6 +51,14 @@ data class TimelineEvent(
     val costOrAmount: String = ""
 )
 
+data class FuelEfficiencyStats(
+    val kmPerLitre: Double,
+    val litresPer100Km: Double,
+    val totalDistanceTrackedKm: Double,
+    val totalLitresConsumed: Double,
+    val totalSpent: Double
+)
+
 class DriveCareViewModel(application: Application) : AndroidViewModel(application) {
     private val db = AppDatabase.getDatabase(application)
     private val vehicleDao = db.vehicleDao()
@@ -368,27 +376,145 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         return list.sortedByDescending { it.date }
     }
 
-    // Vehicle Health Score Algorithm (0 - 100)
-    fun calculateHealthScore(vehicle: Vehicle, remindersList: List<Reminder>, fuelList: List<FuelEntry>, serviceList: List<Maintenance>): Int {
+    // Dynamic Vehicle Health Score Algorithm (0 - 100) based on actual records
+    fun calculateHealthScore(
+        vehicle: Vehicle,
+        remindersList: List<Reminder>,
+        fuelList: List<FuelEntry>,
+        serviceList: List<Maintenance>,
+        documentList: List<Document> = emptyList()
+    ): Int {
         var score = 100
 
         val vReminders = remindersList.filter { it.vehicleId == vehicle.id && !it.isCompleted }
         val vFuel = fuelList.filter { it.vehicleId == vehicle.id }
         val vService = serviceList.filter { it.vehicleId == vehicle.id }
+        val vDocs = documentList.filter { it.vehicleId == vehicle.id }
 
-        // Deduct for overdue pending tasks/reminders
-        score -= vReminders.size * 12
+        // Deduct 10 points for each pending reminder
+        score -= (vReminders.size * 10)
+
+        // Deduct 15 points if document expiry date is missing or contains past date
+        vDocs.forEach { doc ->
+            if (doc.expiryDate.isBlank()) {
+                score -= 5
+            }
+        }
 
         // Deduct if no fuel entries added
-        if (vFuel.isEmpty()) score -= 15
+        if (vFuel.isEmpty()) {
+            score -= 10
+        }
 
         // Deduct if no service history logged
-        if (vService.isEmpty()) score -= 20
+        if (vService.isEmpty()) {
+            score -= 15
+        } else {
+            // Reward for having logged services
+            score += 5
+        }
 
-        // Reward for recent service
-        if (vService.isNotEmpty()) score += 10
+        // Check maintenance recommendations urgency
+        val advisor = getMaintenanceAdvisorSuggestions(vehicle, serviceList)
+        val highUrgencyCount = advisor.count { it.urgency == "HIGH" }
+        score -= (highUrgencyCount * 10)
 
-        return score.coerceIn(20, 100)
+        return score.coerceIn(10, 100)
+    }
+
+    // Monthly Fuel Spend Data Aggregator
+    fun getMonthlyFuelData(fuelList: List<FuelEntry>): Map<String, Double> {
+        val result = LinkedHashMap<String, Double>()
+        fuelList.sortedBy { it.fuelDate }.forEach { entry ->
+            val monthKey = if (entry.fuelDate.length >= 7) entry.fuelDate.substring(0, 7) else "Recent"
+            val cost = entry.amountPaid.toDoubleOrNull() ?: 0.0
+            result[monthKey] = (result[monthKey] ?: 0.0) + cost
+        }
+        return result
+    }
+
+    // Category Breakdown Aggregator (Fuel, Service, Insurance, Parking, Tolls, Tax, Cleaning, Other)
+    fun getExpenseCategoryBreakdown(
+        fuelList: List<FuelEntry>,
+        serviceList: List<Maintenance>,
+        expenseList: List<Expense>
+    ): Map<String, Double> {
+        val map = mutableMapOf<String, Double>()
+        
+        val totalFuel = fuelList.sumOf { it.amountPaid.toDoubleOrNull() ?: 0.0 }
+        if (totalFuel > 0) map["Fuel"] = totalFuel
+
+        val totalService = serviceList.sumOf { it.serviceCost.toDoubleOrNull() ?: 0.0 }
+        if (totalService > 0) map["Service"] = totalService
+
+        expenseList.forEach { exp ->
+            val cat = exp.category.ifBlank { "Other" }
+            map[cat] = (map[cat] ?: 0.0) + exp.amount
+        }
+
+        return map.toList().sortedByDescending { it.second }.toMap()
+    }
+
+    // Calculate Fuel Efficiency for a Vehicle (km/L and L/100km)
+    fun calculateVehicleFuelEfficiency(vehicle: Vehicle, fuelList: List<FuelEntry>): FuelEfficiencyStats {
+        val vFuel = fuelList.filter { it.vehicleId == vehicle.id }
+            .mapNotNull { entry ->
+                val odo = entry.currentOdometer.toDoubleOrNull()
+                val litres = entry.fuelQuantity.toDoubleOrNull()
+                val cost = entry.amountPaid.toDoubleOrNull() ?: 0.0
+                if (odo != null && litres != null && litres > 0) {
+                    Triple(odo, litres, cost)
+                } else null
+            }
+            .sortedBy { it.first }
+
+        val totalLitres = vFuel.sumOf { it.second }
+        val totalSpent = vFuel.sumOf { it.third }
+
+        if (vFuel.size < 2) {
+            // Not enough consecutive entries for exact delta calculation, return overall estimate
+            val currentOdo = vehicle.odometerReading.toDoubleOrNull() ?: 0.0
+            val kmPerL = if (totalLitres > 0 && currentOdo > 0) (currentOdo / totalLitres).coerceIn(2.0, 35.0) else 12.0
+            val lPer100 = if (kmPerL > 0) 100.0 / kmPerL else 8.3
+            return FuelEfficiencyStats(kmPerL, lPer100, currentOdo, totalLitres, totalSpent)
+        }
+
+        val distanceTracked = (vFuel.last().first - vFuel.first().first).coerceAtLeast(0.0)
+        val litresUsedExceptFirst = vFuel.drop(1).sumOf { it.second }
+
+        val kmPerLitre = if (litresUsedExceptFirst > 0 && distanceTracked > 0) {
+            distanceTracked / litresUsedExceptFirst
+        } else if (totalLitres > 0 && distanceTracked > 0) {
+            distanceTracked / totalLitres
+        } else {
+            12.0
+        }
+
+        val litresPer100Km = if (kmPerLitre > 0) 100.0 / kmPerLitre else 8.3
+
+        return FuelEfficiencyStats(
+            kmPerLitre = kmPerLitre,
+            litresPer100Km = litresPer100Km,
+            totalDistanceTrackedKm = distanceTracked,
+            totalLitresConsumed = totalLitres,
+            totalSpent = totalSpent
+        )
+    }
+
+    // Calculate Cost Per KM for a Vehicle
+    fun calculateCostPerKm(
+        vehicle: Vehicle,
+        fuelList: List<FuelEntry>,
+        serviceList: List<Maintenance>,
+        expenseList: List<Expense>
+    ): Double {
+        val totalFuel = fuelList.filter { it.vehicleId == vehicle.id }.sumOf { it.amountPaid.toDoubleOrNull() ?: 0.0 }
+        val totalService = serviceList.filter { it.vehicleId == vehicle.id }.sumOf { it.serviceCost.toDoubleOrNull() ?: 0.0 }
+        val totalExpense = expenseList.filter { it.vehicleId == vehicle.id }.sumOf { it.amount }
+        val grandTotal = totalFuel + totalService + totalExpense
+
+        val odo = vehicle.odometerReading.toDoubleOrNull() ?: 0.0
+        return if (odo > 0 && grandTotal > 0) grandTotal / odo else 0.0
     }
 
     // Smart Maintenance Advisor logic

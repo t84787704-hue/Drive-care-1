@@ -215,6 +215,14 @@ fun VehicleCard(
     onDeleteClick: () -> Unit,
     lang: com.drivecare.app.utils.AppLanguage
 ) {
+    val vehicleIcon = when (vehicle.vehicleType.lowercase()) {
+        "suv", "van" -> Icons.Default.AirportShuttle
+        "motorcycle", "bike" -> Icons.Default.TwoWheeler
+        "truck" -> Icons.Default.LocalShipping
+        "electric", "ev" -> Icons.Default.EvStation
+        else -> Icons.Default.DirectionsCar
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -227,12 +235,32 @@ fun VehicleCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(vehicle.vehicleName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("${vehicle.vehicleType} • ${vehicle.brand} ${vehicle.model}", style = MaterialTheme.typography.bodyMedium)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        shape = MaterialTheme.shapes.medium
+                    ) {
+                        Icon(
+                            imageVector = vehicleIcon,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .padding(10.dp)
+                                .size(24.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    Column {
+                        Text(vehicle.vehicleName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("${vehicle.vehicleType} • ${vehicle.brand} ${vehicle.model}", style = MaterialTheme.typography.bodyMedium)
+                    }
                 }
+
                 Surface(
-                    color = if (healthScore >= 80) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer,
+                    color = if (healthScore >= 80) MaterialTheme.colorScheme.primaryContainer else if (healthScore >= 50) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.errorContainer,
                     shape = MaterialTheme.shapes.small
                 ) {
                     Text(
@@ -244,8 +272,14 @@ fun VehicleCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-            Text("${AppStrings.get("plate", lang)}: ${vehicle.registrationNumber} | ${vehicle.fuelType} | ${vehicle.odometerReading} km")
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("${AppStrings.get("plate", lang)}: ${vehicle.registrationNumber.ifBlank { "N/A" }}", style = MaterialTheme.typography.bodySmall)
+                Text("${vehicle.fuelType} • ${vehicle.odometerReading} km", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
@@ -269,14 +303,22 @@ fun VehicleFormDialog(
     onSave: (Vehicle) -> Unit,
     lang: com.drivecare.app.utils.AppLanguage
 ) {
+    val context = LocalContext.current
+
     var name by remember { mutableStateOf(vehicle?.vehicleName ?: "") }
     var type by remember { mutableStateOf(vehicle?.vehicleType ?: "Car") }
     var brand by remember { mutableStateOf(vehicle?.brand ?: "") }
     var model by remember { mutableStateOf(vehicle?.model ?: "") }
-    var year by remember { mutableStateOf(vehicle?.manufacturingYear ?: "") }
+    var year by remember { mutableStateOf(vehicle?.manufacturingYear ?: "2024") }
     var plate by remember { mutableStateOf(vehicle?.registrationNumber ?: "") }
     var fuelType by remember { mutableStateOf(vehicle?.fuelType ?: "Petrol") }
     var odometer by remember { mutableStateOf(vehicle?.odometerReading ?: "0") }
+
+    var expandedTypeDropdown by remember { mutableStateOf(false) }
+    var expandedFuelDropdown by remember { mutableStateOf(false) }
+
+    val vehicleTypes = listOf("Car", "SUV", "Motorcycle", "Van", "Truck", "Electric", "Fleet")
+    val fuelTypes = listOf("Petrol", "Diesel", "Electric", "Hybrid", "CNG", "LPG")
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -286,32 +328,167 @@ fun VehicleFormDialog(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text(AppStrings.get("vehicle_name", lang)) }, singleLine = true)
-                OutlinedTextField(value = type, onValueChange = { type = it }, label = { Text(AppStrings.get("type", lang)) }, singleLine = true)
-                OutlinedTextField(value = brand, onValueChange = { brand = it }, label = { Text(AppStrings.get("brand", lang)) }, singleLine = true)
-                OutlinedTextField(value = model, onValueChange = { model = it }, label = { Text(AppStrings.get("model", lang)) }, singleLine = true)
-                OutlinedTextField(value = year, onValueChange = { year = it }, label = { Text(AppStrings.get("year", lang)) }, singleLine = true)
-                OutlinedTextField(value = plate, onValueChange = { plate = it }, label = { Text(AppStrings.get("plate_no", lang)) }, singleLine = true)
-                OutlinedTextField(value = fuelType, onValueChange = { fuelType = it }, label = { Text(AppStrings.get("fuel_type", lang)) }, singleLine = true)
-                OutlinedTextField(value = odometer, onValueChange = { odometer = it }, label = { Text(AppStrings.get("odometer", lang)) }, singleLine = true)
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text(AppStrings.get("vehicle_name", lang) + " *") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Vehicle Type Dropdown
+                ExposedDropdownMenuBox(
+                    expanded = expandedTypeDropdown,
+                    onExpandedChange = { expandedTypeDropdown = !expandedTypeDropdown }
+                ) {
+                    OutlinedTextField(
+                        value = type,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Vehicle Type") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedTypeDropdown) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedTypeDropdown,
+                        onDismissRequest = { expandedTypeDropdown = false }
+                    ) {
+                        vehicleTypes.forEach { t ->
+                            DropdownMenuItem(
+                                text = { Text(t) },
+                                onClick = {
+                                    type = t
+                                    expandedTypeDropdown = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = brand,
+                        onValueChange = { brand = it },
+                        label = { Text(AppStrings.get("brand", lang) + " *") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = model,
+                        onValueChange = { model = it },
+                        label = { Text(AppStrings.get("model", lang) + " *") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = year,
+                        onValueChange = { input ->
+                            if (input.isEmpty() || input.all { it.isDigit() }) {
+                                year = input.take(4)
+                            }
+                        },
+                        label = { Text(AppStrings.get("year", lang)) },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = plate,
+                        onValueChange = { plate = it.uppercase() },
+                        label = { Text(AppStrings.get("plate_no", lang) + " *") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                // Fuel Type Dropdown
+                ExposedDropdownMenuBox(
+                    expanded = expandedFuelDropdown,
+                    onExpandedChange = { expandedFuelDropdown = !expandedFuelDropdown }
+                ) {
+                    OutlinedTextField(
+                        value = fuelType,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Fuel Type") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedFuelDropdown) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedFuelDropdown,
+                        onDismissRequest = { expandedFuelDropdown = false }
+                    ) {
+                        fuelTypes.forEach { f ->
+                            DropdownMenuItem(
+                                text = { Text(f) },
+                                onClick = {
+                                    fuelType = f
+                                    expandedFuelDropdown = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = odometer,
+                    onValueChange = { input ->
+                        if (input.isEmpty() || input.all { it.isDigit() }) {
+                            odometer = input
+                        }
+                    },
+                    label = { Text(AppStrings.get("odometer", lang) + " (km) *") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    if (name.isNotBlank()) {
-                        val newV = (vehicle ?: Vehicle(vehicleName = name)).copy(
-                            vehicleName = name,
-                            vehicleType = type,
-                            brand = brand,
-                            model = model,
-                            manufacturingYear = year,
-                            registrationNumber = plate,
-                            fuelType = fuelType,
-                            odometerReading = odometer
-                        )
-                        onSave(newV)
+                    val cleanName = name.trim()
+                    if (cleanName.isBlank()) {
+                        Toast.makeText(context, "Please enter vehicle name", Toast.LENGTH_SHORT).show()
+                        return@Button
                     }
+                    val cleanBrand = brand.trim()
+                    if (cleanBrand.isBlank()) {
+                        Toast.makeText(context, "Please enter brand", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+                    val cleanModel = model.trim()
+                    if (cleanModel.isBlank()) {
+                        Toast.makeText(context, "Please enter model", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+                    val cleanPlate = plate.trim()
+                    if (cleanPlate.isBlank()) {
+                        Toast.makeText(context, "Please enter registration plate", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+                    val odoDouble = odometer.toDoubleOrNull()
+                    if (odometer.isBlank() || odoDouble == null || odoDouble < 0) {
+                        Toast.makeText(context, "Please enter valid odometer reading", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+
+                    val newV = (vehicle ?: Vehicle(vehicleName = cleanName)).copy(
+                        vehicleName = cleanName,
+                        vehicleType = type,
+                        brand = cleanBrand,
+                        model = cleanModel,
+                        manufacturingYear = year.ifBlank { "2024" },
+                        registrationNumber = cleanPlate,
+                        fuelType = fuelType,
+                        odometerReading = odometer
+                    )
+                    onSave(newV)
                 }
             ) {
                 Text(AppStrings.get("save", lang))
