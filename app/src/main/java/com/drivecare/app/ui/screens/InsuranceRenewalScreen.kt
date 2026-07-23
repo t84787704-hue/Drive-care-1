@@ -35,7 +35,8 @@ import java.util.Locale
 @Composable
 fun InsuranceRenewalScreen(
     viewModel: DriveCareViewModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    highlightRecordId: Long? = null
 ) {
     val context = LocalContext.current
     val lang = LocalAppLanguage.current
@@ -50,6 +51,17 @@ fun InsuranceRenewalScreen(
     var policyToEdit by remember { mutableStateOf<InsurancePolicy?>(null) }
     var policyToRenew by remember { mutableStateOf<InsurancePolicy?>(null) }
     var policyToDelete by remember { mutableStateOf<InsurancePolicy?>(null) }
+
+    LaunchedEffect(highlightRecordId, insurancePolicies) {
+        if (highlightRecordId != null) {
+            val matchingPolicy = insurancePolicies.find { it.id == highlightRecordId }
+            if (matchingPolicy != null) {
+                selectedStatusFilter = "ALL"
+                selectedVehicleFilter = null
+                policyToRenew = matchingPolicy
+            }
+        }
+    }
 
     val todayStr = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()) }
     val warn30DaysStr = remember {

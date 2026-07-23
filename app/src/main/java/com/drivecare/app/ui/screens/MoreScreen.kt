@@ -45,6 +45,7 @@ fun MoreScreen(
     viewModel: DriveCareViewModel,
     modifier: Modifier = Modifier,
     subSection: MoreSubSection = MoreSubSection.MENU,
+    highlightRecordId: Long? = null,
     onSubSectionSelect: (MoreSubSection) -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -60,12 +61,12 @@ fun MoreScreen(
     if (subSection != MoreSubSection.MENU) {
         Box(modifier = modifier.fillMaxSize()) {
             when (subSection) {
-                MoreSubSection.INSURANCE -> InsuranceRenewalScreen(viewModel = viewModel)
-                MoreSubSection.EXPENSES -> ExpenseManagerScreen(viewModel = viewModel)
+                MoreSubSection.INSURANCE -> InsuranceRenewalScreen(viewModel = viewModel, highlightRecordId = highlightRecordId)
+                MoreSubSection.EXPENSES -> ExpenseManagerScreen(viewModel = viewModel, highlightRecordId = highlightRecordId)
                 MoreSubSection.TIMELINE -> VehicleTimelineScreen(viewModel = viewModel)
                 MoreSubSection.GPS_TRACKING -> GpsTrackingScreen(viewModel = viewModel)
                 MoreSubSection.FAMILY_SHARING -> FamilySharingScreen(viewModel = viewModel)
-                MoreSubSection.DOCUMENTS -> DocumentsScreen(viewModel = viewModel)
+                MoreSubSection.DOCUMENTS -> DocumentsScreen(viewModel = viewModel, highlightRecordId = highlightRecordId)
                 MoreSubSection.EMERGENCY -> EmergencyScreen(viewModel = viewModel)
                 MoreSubSection.ACHIEVEMENTS -> AchievementsScreen(viewModel = viewModel)
                 MoreSubSection.SETTINGS -> SettingsScreen(viewModel = viewModel)

@@ -24,7 +24,8 @@ import com.drivecare.app.utils.LocalAppLanguage
 @Composable
 fun DocumentsScreen(
     viewModel: DriveCareViewModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    highlightRecordId: Long? = null
 ) {
     val lang = LocalAppLanguage.current
     val vehicles by viewModel.vehicles.collectAsState()
@@ -32,6 +33,15 @@ fun DocumentsScreen(
 
     var showAddDialog by remember { mutableStateOf(false) }
     var selectedFilter by remember { mutableStateOf("All") }
+
+    LaunchedEffect(highlightRecordId, documents) {
+        if (highlightRecordId != null) {
+            val doc = documents.find { it.id == highlightRecordId }
+            if (doc != null) {
+                selectedFilter = "All"
+            }
+        }
+    }
 
     val categories = listOf("All", "Registration", "Insurance", "License", "Bill", "Warranty", "Photo")
 

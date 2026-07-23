@@ -28,7 +28,8 @@ import java.util.Locale
 @Composable
 fun MaintenanceScreen(
     viewModel: DriveCareViewModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    highlightRecordId: Long? = null
 ) {
     val lang = LocalAppLanguage.current
     val vehicles by viewModel.vehicles.collectAsState()

@@ -26,7 +26,8 @@ import java.util.Locale
 @Composable
 fun ExpenseManagerScreen(
     viewModel: DriveCareViewModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    highlightRecordId: Long? = null
 ) {
     val context = LocalContext.current
     val lang = LocalAppLanguage.current

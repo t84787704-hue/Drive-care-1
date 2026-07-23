@@ -44,6 +44,7 @@ data class NavDestination(
 
 class MainActivity : ComponentActivity() {
     private val viewModel: DriveCareViewModel by viewModels()
+    private var pendingNavigationExtra by mutableStateOf<Pair<NavDestination, Long?>?>(null)
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -58,6 +59,9 @@ class MainActivity : ComponentActivity() {
 
         // Schedule WorkManager system notification worker
         DriveCareNotificationScheduler.schedulePeriodicCheck(this)
+
+        // Process notification intent if launched from a notification
+        processIntent(intent)
 
         // Request POST_NOTIFICATIONS permission on Android 13+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -94,10 +98,25 @@ class MainActivity : ComponentActivity() {
                 val colorScheme = if (useDarkTheme) darkColorScheme() else lightColorScheme()
                 MaterialTheme(colorScheme = colorScheme) {
                     val backStack = remember { mutableStateListOf(NavDestination(NavTab.SUMMARY)) }
+
+                    // Handle deep link notification navigation while preserving back navigation
+                    val navPair = pendingNavigationExtra
+                    LaunchedEffect(navPair) {
+                        if (navPair != null) {
+                            val (targetDest, _) = navPair
+                            backStack.clear()
+                            backStack.add(NavDestination(NavTab.SUMMARY))
+                            if (targetDest != NavDestination(NavTab.SUMMARY)) {
+                                backStack.add(targetDest)
+                            }
+                        }
+                    }
+
                     val currentDestination = backStack.lastOrNull() ?: NavDestination(NavTab.SUMMARY)
                     val currentTab = currentDestination.tab
                     val currentSubSection = currentDestination.subSection
                     val isSecondary = backStack.size > 1 || currentDestination != NavDestination(NavTab.SUMMARY)
+                    val currentHighlightId = if (navPair != null && navPair.first == currentDestination) navPair.second else null
 
                     val popBackStack: () -> Unit = {
                         if (backStack.size > 1) {
@@ -192,12 +211,21 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                             NavTab.GARAGE -> VehicleListScreen(viewModel = viewModel, modifier = modifier)
-                            NavTab.FUEL -> FuelTrackerScreen(viewModel = viewModel, modifier = modifier)
-                            NavTab.SERVICE -> MaintenanceScreen(viewModel = viewModel, modifier = modifier)
+                            NavTab.FUEL -> FuelTrackerScreen(
+                                viewModel = viewModel,
+                                modifier = modifier,
+                                highlightRecordId = currentHighlightId
+                            )
+                            NavTab.SERVICE -> MaintenanceScreen(
+                                viewModel = viewModel,
+                                modifier = modifier,
+                                highlightRecordId = currentHighlightId
+                            )
                             NavTab.MORE -> MoreScreen(
                                 viewModel = viewModel,
                                 modifier = modifier,
                                 subSection = currentSubSection,
+                                highlightRecordId = currentHighlightId,
                                 onSubSectionSelect = { sub ->
                                     val dest = NavDestination(NavTab.MORE, sub)
                                     if (currentDestination != dest) {
@@ -209,6 +237,57 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        processIntent(intent)
+    }
+
+    private fun processIntent(intent: android.content.Intent?) {
+        if (intent == null) return
+        val tab = intent.getStringExtra(com.drivecare.app.utils.DriveCareNotificationReceiver.EXTRA_TARGET_TAB)
+        val section = intent.getStringExtra(com.drivecare.app.utils.DriveCareNotificationReceiver.EXTRA_TARGET_SECTION)
+        val recId = intent.getLongExtra(com.drivecare.app.utils.DriveCareNotificationReceiver.EXTRA_RECORD_ID, -1L).let {
+            if (it != -1L) it else null
+        }
+        val dest = mapToDestination(tab, section)
+        if (dest != null) {
+            pendingNavigationExtra = Pair(dest, recId)
+        }
+    }
+
+    private fun mapToDestination(tabExtra: String?, sectionExtra: String?): NavDestination? {
+        if (tabExtra == null) return null
+        return when (tabExtra.uppercase(java.util.Locale.US)) {
+            "INSURANCE" -> NavDestination(NavTab.MORE, MoreSubSection.INSURANCE)
+            "DOCUMENTS" -> NavDestination(NavTab.MORE, MoreSubSection.DOCUMENTS)
+            "EXPENSES" -> NavDestination(NavTab.MORE, MoreSubSection.EXPENSES)
+            "SERVICE", "SERVICES", "MAINTENANCE" -> NavDestination(NavTab.SERVICE)
+            "FUEL" -> NavDestination(NavTab.FUEL)
+            "GARAGE" -> NavDestination(NavTab.GARAGE)
+            "SUMMARY", "DASHBOARD" -> NavDestination(NavTab.SUMMARY)
+            "MORE" -> {
+                val sec = sectionExtra?.uppercase(java.util.Locale.US)
+                val sub = when (sec) {
+                    "INSURANCE" -> MoreSubSection.INSURANCE
+                    "DOCUMENTS" -> MoreSubSection.DOCUMENTS
+                    "EXPENSES" -> MoreSubSection.EXPENSES
+                    "TIMELINE" -> MoreSubSection.TIMELINE
+                    "GPS", "GPS_TRACKING" -> MoreSubSection.GPS_TRACKING
+                    "SHARING", "FAMILY_SHARING" -> MoreSubSection.FAMILY_SHARING
+                    "EMERGENCY" -> MoreSubSection.EMERGENCY
+                    "ACHIEVEMENTS" -> MoreSubSection.ACHIEVEMENTS
+                    "SETTINGS" -> MoreSubSection.SETTINGS
+                    "PROFILE" -> MoreSubSection.PROFILE
+                    "AUTH" -> MoreSubSection.AUTH
+                    else -> MoreSubSection.MENU
+                }
+                NavDestination(NavTab.MORE, sub)
+            }
+            else -> null
         }
     }
 

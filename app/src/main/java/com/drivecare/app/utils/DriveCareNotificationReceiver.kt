@@ -37,6 +37,9 @@ class DriveCareNotificationReceiver : BroadcastReceiver() {
 
     companion object {
         const val CHANNEL_ID = "drivecare_vehicle_alerts"
+        const val EXTRA_TARGET_TAB = "EXTRA_TARGET_TAB"
+        const val EXTRA_TARGET_SECTION = "EXTRA_TARGET_SECTION"
+        const val EXTRA_RECORD_ID = "EXTRA_RECORD_ID"
 
         suspend fun executeNotificationCheck(context: Context) {
             createNotificationChannel(context)
@@ -53,9 +56,11 @@ class DriveCareNotificationReceiver : BroadcastReceiver() {
                 if (r.dueDate.isNotBlank() && r.dueDate <= todayStr) {
                     showNotification(
                         context = context,
-                        id = notificationId++,
+                        id = (10000 + r.id).toInt(),
                         title = "Service Due: ${r.vehicleName}",
-                        message = "${r.reminderTitle} is due on ${r.dueDate}. Keep your vehicle maintained!"
+                        message = "${r.reminderTitle} is due on ${r.dueDate}. Keep your vehicle maintained!",
+                        targetTab = "SERVICE",
+                        recordId = r.id
                     )
                 }
             }
@@ -70,16 +75,22 @@ class DriveCareNotificationReceiver : BroadcastReceiver() {
                     if (doc.expiryDate < todayStr) {
                         showNotification(
                             context = context,
-                            id = notificationId++,
+                            id = (20000 + doc.id).toInt(),
                             title = "Document Expired: ${doc.docTitle}",
-                            message = "${doc.docType} for ${doc.vehicleName} expired on ${doc.expiryDate}. Please renew immediately."
+                            message = "${doc.docType} for ${doc.vehicleName} expired on ${doc.expiryDate}. Please renew immediately.",
+                            targetTab = "MORE",
+                            targetSection = "DOCUMENTS",
+                            recordId = doc.id
                         )
                     } else if (doc.expiryDate <= warnDateStr) {
                         showNotification(
                             context = context,
-                            id = notificationId++,
+                            id = (20000 + doc.id).toInt(),
                             title = "Document Expiring Soon: ${doc.docTitle}",
-                            message = "${doc.docType} for ${doc.vehicleName} expires on ${doc.expiryDate}."
+                            message = "${doc.docType} for ${doc.vehicleName} expires on ${doc.expiryDate}.",
+                            targetTab = "MORE",
+                            targetSection = "DOCUMENTS",
+                            recordId = doc.id
                         )
                     }
                 }
@@ -95,16 +106,22 @@ class DriveCareNotificationReceiver : BroadcastReceiver() {
                     if (policy.expiryDate < todayStr) {
                         showNotification(
                             context = context,
-                            id = notificationId++,
+                            id = (30000 + policy.id).toInt(),
                             title = "Insurance Expired: ${policy.vehicleName}",
-                            message = "Insurance Policy #${policy.policyNumber} (${policy.providerName}) expired on ${policy.expiryDate}!"
+                            message = "Insurance Policy #${policy.policyNumber} (${policy.providerName}) expired on ${policy.expiryDate}!",
+                            targetTab = "MORE",
+                            targetSection = "INSURANCE",
+                            recordId = policy.id
                         )
                     } else if (policy.expiryDate <= insWarnDateStr) {
                         showNotification(
                             context = context,
-                            id = notificationId++,
+                            id = (30000 + policy.id).toInt(),
                             title = "Insurance Renewal Alert",
-                            message = "${policy.vehicleName} policy #${policy.policyNumber} expires in less than 30 days (${policy.expiryDate})."
+                            message = "${policy.vehicleName} policy #${policy.policyNumber} expires in less than 30 days (${policy.expiryDate}).",
+                            targetTab = "MORE",
+                            targetSection = "INSURANCE",
+                            recordId = policy.id
                         )
                     }
                 }
@@ -125,13 +142,28 @@ class DriveCareNotificationReceiver : BroadcastReceiver() {
             }
         }
 
-        private fun showNotification(context: Context, id: Int, title: String, message: String) {
+        fun showNotification(
+            context: Context,
+            id: Int,
+            title: String,
+            message: String,
+            targetTab: String,
+            targetSection: String? = null,
+            recordId: Long? = null
+        ) {
             val intent = Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                putExtra(EXTRA_TARGET_TAB, targetTab)
+                if (targetSection != null) {
+                    putExtra(EXTRA_TARGET_SECTION, targetSection)
+                }
+                if (recordId != null) {
+                    putExtra(EXTRA_RECORD_ID, recordId)
+                }
             }
             val pendingIntent: PendingIntent = PendingIntent.getActivity(
                 context,
-                0,
+                id,
                 intent,
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
