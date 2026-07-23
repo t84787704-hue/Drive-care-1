@@ -240,7 +240,62 @@ object AppStrings {
         "btn_sign_in" to "Sign In",
         "btn_profile" to "Profile",
         "user_profile_title" to "User Profile",
-        "cloud_signin_title" to "Cloud Account Sign In"
+        "cloud_signin_title" to "Cloud Account Sign In",
+
+        "got_it" to "Got It",
+        "dont_show_again" to "Don't Show Again",
+        "reset_feature_guides" to "Reset Feature Guides",
+        "reset_feature_guides_desc" to "Re-enable first-time introduction popups for all app features.",
+        "guides_reset_toast" to "Feature introduction guides reset successfully!",
+        "guide_main_benefits" to "Key Benefits & Capabilities",
+
+        "guide_dashboard_title" to "Dashboard Overview",
+        "guide_dashboard_desc" to "Your central command center for fleet status, expense summaries, and recent activity.",
+        "guide_dashboard_benefits" to "• View fleet health score & active vehicles\n• Monitor monthly fuel & total expenses\n• Access trip cost estimator & recent timeline",
+
+        "guide_garage_title" to "My Vehicles (Garage)",
+        "guide_garage_desc" to "Manage your vehicle profiles, specifications, odometer readings, and health status.",
+        "guide_garage_benefits" to "• Track vehicle specs & license plates\n• Update mileage and odometer readings\n• Generate & share PDF vehicle reports",
+
+        "guide_fuel_title" to "Fuel Tracker",
+        "guide_fuel_desc" to "Log gas refuels, calculate real fuel efficiency, and monitor gas station expenses.",
+        "guide_fuel_benefits" to "• Track fuel consumption (km/L)\n• Monitor cost per kilometer\n• Analyze monthly gas station expenditure",
+
+        "guide_services_title" to "Maintenance History",
+        "guide_services_desc" to "Record oil changes, tire rotations, brake repairs, and upcoming service schedules.",
+        "guide_services_benefits" to "• AI smart maintenance recommendations\n• Keep detailed workshop & service logs\n• Track parts replacement history",
+
+        "guide_expenses_title" to "Expense Manager",
+        "guide_expenses_desc" to "Track non-fuel vehicle expenses like parking, highway tolls, taxes, and repairs.",
+        "guide_expenses_benefits" to "• Categorize parking, tolls, taxes & repairs\n• Expense breakdown per vehicle\n• Visual spending category progress charts",
+
+        "guide_documents_title" to "Vehicle Documents",
+        "guide_documents_desc" to "Store registration certificates, PUC licenses, driver's licenses, and permits securely.",
+        "guide_documents_benefits" to "• Save issue & expiry dates for documents\n• Expiry warning badges and alerts\n• Keep digital document access on the go",
+
+        "guide_insurance_title" to "Insurance Policies",
+        "guide_insurance_desc" to "Track active policy numbers, coverage details, agent hotlines, and renewal dates.",
+        "guide_insurance_benefits" to "• Automatic policy expiration warnings\n• One-tap renewal & expense logging\n• Direct agent hotline calling",
+
+        "guide_reminders_title" to "Service Reminders",
+        "guide_reminders_desc" to "Set custom due dates for oil changes, tire inspection, battery checks, and renewals.",
+        "guide_reminders_benefits" to "• Never miss critical maintenance tasks\n• Integrated with Android system notifications\n• Quick mark completed status",
+
+        "guide_notifications_title" to "Notification Engine",
+        "guide_notifications_desc" to "Automated background alerts delivered via Android WorkManager for pending tasks.",
+        "guide_notifications_benefits" to "• System alerts for expiring insurance & docs\n• Customizable notification categories\n• Background check even when app is closed",
+
+        "guide_gps_tracking_title" to "GPS Live Tracking",
+        "guide_gps_tracking_desc" to "Simulate live vehicle location tracking, geofence alerts, and trip route logs.",
+        "guide_gps_tracking_benefits" to "• View live map location & speed\n• Geofence boundary breach alerts\n• Historical trip route analysis",
+
+        "guide_family_sharing_title" to "Family Sharing & Drivers",
+        "guide_family_sharing_desc" to "Share vehicle access with family members, manage driver profiles, and assign permissions.",
+        "guide_family_sharing_benefits" to "• Multi-user vehicle sharing\n• Driver profiles & contact details\n• Seamless ownership & key transfers",
+
+        "guide_settings_title" to "Settings & Preferences",
+        "guide_settings_desc" to "Customize regional units, currency symbols, theme modes, and cloud database sync.",
+        "guide_settings_benefits" to "• Multi-currency ($ € £ ₹ ¥) & language options\n• Light & Dark theme preferences\n• JSON data backup & restore"
     )
 
     private val urduMap = mapOf(

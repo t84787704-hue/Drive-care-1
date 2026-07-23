@@ -23,10 +23,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.core.content.ContextCompat
 import com.drivecare.app.ui.DriveCareViewModel
+import com.drivecare.app.ui.components.FeatureGuideDialog
 import com.drivecare.app.ui.screens.*
+import com.drivecare.app.utils.AppFeature
 import com.drivecare.app.utils.AppLanguage
 import com.drivecare.app.utils.AppStrings
 import com.drivecare.app.utils.DriveCareNotificationScheduler
+import com.drivecare.app.utils.FeatureGuideManager
 import com.drivecare.app.utils.LocalAppLanguage
 import com.drivecare.app.utils.LocaleManager
 
@@ -130,6 +133,48 @@ class MainActivity : ComponentActivity() {
 
                     BackHandler(enabled = isSecondary) {
                         popBackStack()
+                    }
+
+                    // Feature Guide Popup System
+                    val context = androidx.compose.ui.platform.LocalContext.current
+                    var activeGuideFeature by remember { mutableStateOf<AppFeature?>(null) }
+
+                    LaunchedEffect(currentTab, currentSubSection) {
+                        val primary = when (currentTab) {
+                            NavTab.SUMMARY -> AppFeature.DASHBOARD
+                            NavTab.GARAGE -> AppFeature.GARAGE
+                            NavTab.FUEL -> AppFeature.FUEL
+                            NavTab.SERVICE -> AppFeature.SERVICES
+                            NavTab.MORE -> when (currentSubSection) {
+                                MoreSubSection.EXPENSES -> AppFeature.EXPENSES
+                                MoreSubSection.DOCUMENTS -> AppFeature.DOCUMENTS
+                                MoreSubSection.INSURANCE -> AppFeature.INSURANCE
+                                MoreSubSection.GPS_TRACKING -> AppFeature.GPS_TRACKING
+                                MoreSubSection.FAMILY_SHARING -> AppFeature.FAMILY_SHARING
+                                MoreSubSection.SETTINGS -> AppFeature.SETTINGS
+                                else -> null
+                            }
+                        }
+
+                        if (primary != null && !FeatureGuideManager.isGuideShown(context, primary)) {
+                            activeGuideFeature = primary
+                        } else if (currentTab == NavTab.SERVICE && !FeatureGuideManager.isGuideShown(context, AppFeature.REMINDERS)) {
+                            activeGuideFeature = AppFeature.REMINDERS
+                        } else if (currentSubSection == MoreSubSection.SETTINGS && !FeatureGuideManager.isGuideShown(context, AppFeature.NOTIFICATIONS)) {
+                            activeGuideFeature = AppFeature.NOTIFICATIONS
+                        } else {
+                            activeGuideFeature = null
+                        }
+                    }
+
+                    if (activeGuideFeature != null) {
+                        FeatureGuideDialog(
+                            feature = activeGuideFeature!!,
+                            lang = currentLang,
+                            onDismiss = {
+                                activeGuideFeature = null
+                            }
+                        )
                     }
 
                     val titleText = if (currentTab == NavTab.MORE && currentSubSection != MoreSubSection.MENU) {

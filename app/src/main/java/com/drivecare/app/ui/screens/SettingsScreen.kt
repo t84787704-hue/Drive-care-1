@@ -424,6 +424,50 @@ fun SettingsScreen(
             }
         }
 
+        // 5. Feature Guides Section
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.HelpOutline, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Text(
+                        text = AppStrings.get("reset_feature_guides", currentLang),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Text(
+                    text = AppStrings.get("reset_feature_guides_desc", currentLang),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Divider()
+
+                OutlinedButton(
+                    onClick = {
+                        com.drivecare.app.utils.FeatureGuideManager.resetAllGuides(context)
+                        Toast.makeText(
+                            context,
+                            AppStrings.get("guides_reset_toast", currentLang),
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.RestartAlt, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(AppStrings.get("reset_feature_guides", currentLang))
+                }
+            }
+        }
+
         // About DriveCare
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp)) {
