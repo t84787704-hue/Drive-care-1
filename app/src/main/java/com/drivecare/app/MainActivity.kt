@@ -19,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.core.content.ContextCompat
 import com.drivecare.app.ui.DriveCareViewModel
@@ -133,17 +134,17 @@ class MainActivity : ComponentActivity() {
 
                     val titleText = if (currentTab == NavTab.MORE && currentSubSection != MoreSubSection.MENU) {
                         when (currentSubSection) {
-                            MoreSubSection.INSURANCE -> "Insurance & Renewals"
-                            MoreSubSection.EXPENSES -> "Expense Manager"
-                            MoreSubSection.TIMELINE -> "Vehicle Timeline"
-                            MoreSubSection.GPS_TRACKING -> "GPS Live Tracking & Trips"
-                            MoreSubSection.FAMILY_SHARING -> "Family Sharing & Drivers"
+                            MoreSubSection.INSURANCE -> AppStrings.get("insurance_policies_title", currentLang)
+                            MoreSubSection.EXPENSES -> AppStrings.get("expense_manager_title", currentLang)
+                            MoreSubSection.TIMELINE -> AppStrings.get("timeline_title", currentLang)
+                            MoreSubSection.GPS_TRACKING -> AppStrings.get("gps_title", currentLang)
+                            MoreSubSection.FAMILY_SHARING -> AppStrings.get("family_sharing_title", currentLang)
                             MoreSubSection.DOCUMENTS -> AppStrings.get("tab_documents", currentLang)
                             MoreSubSection.EMERGENCY -> AppStrings.get("tab_emergency", currentLang)
                             MoreSubSection.ACHIEVEMENTS -> AppStrings.get("tab_achievements", currentLang)
                             MoreSubSection.SETTINGS -> AppStrings.get("settings_title", currentLang)
-                            MoreSubSection.PROFILE -> "User Profile"
-                            MoreSubSection.AUTH -> "Cloud Account Sign In"
+                            MoreSubSection.PROFILE -> AppStrings.get("user_profile_title", currentLang)
+                            MoreSubSection.AUTH -> AppStrings.get("cloud_signin_title", currentLang)
                             else -> AppStrings.get("tab_more", currentLang)
                         }
                     } else {
@@ -179,7 +180,14 @@ class MainActivity : ComponentActivity() {
                                                 }
                                             }
                                         },
-                                        label = { Text(localizedTitle) },
+                                        label = {
+                                            Text(
+                                                text = localizedTitle,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                softWrap = false
+                                            )
+                                        },
                                         icon = { Icon(tab.icon, contentDescription = localizedTitle) }
                                     )
                                 }
@@ -304,7 +312,12 @@ class MainActivity : ComponentActivity() {
 
         TopAppBar(
             title = {
-                Text(titleText)
+                Text(
+                    text = titleText,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    softWrap = false
+                )
             },
             navigationIcon = {
                 if (showBackButton) {

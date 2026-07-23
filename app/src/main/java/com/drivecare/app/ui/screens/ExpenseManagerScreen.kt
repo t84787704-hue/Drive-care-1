@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.drivecare.app.data.model.Expense
@@ -45,7 +46,7 @@ fun ExpenseManagerScreen(
             ExtendedFloatingActionButton(
                 onClick = { showAddDialog = true },
                 icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                text = { Text("Add Expense") }
+                text = { Text(AppStrings.get("add_expense", lang), maxLines = 1, overflow = TextOverflow.Ellipsis) }
             )
         }
     ) { innerPadding ->
@@ -64,15 +65,19 @@ fun ExpenseManagerScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "Total Vehicle Expenses",
+                            text = AppStrings.get("total_vehicle_expenses", lang),
                             style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             text = "$${String.format(Locale.US, "%.2f", totalExpensesAmount)}",
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(
@@ -80,14 +85,18 @@ fun ExpenseManagerScreen(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = "${expenses.size} total expense logs",
+                                text = "${expenses.size} ${AppStrings.get("total_fuel_entries", lang)}",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = "${vehicles.size} vehicles tracked",
+                                text = "${vehicles.size} ${AppStrings.get("vehicles_count", lang)}",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -98,9 +107,11 @@ fun ExpenseManagerScreen(
             if (categoriesMap.isNotEmpty()) {
                 item {
                     Text(
-                        text = "Category Breakdown",
+                        text = AppStrings.get("category_breakdown", lang),
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
                 item {
@@ -117,8 +128,8 @@ fun ExpenseManagerScreen(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Text(category, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
-                                        Text("$${String.format(Locale.US, "%.2f", catSum)} (${String.format(Locale.US, "%.1f", pct)}%)", style = MaterialTheme.typography.bodyMedium)
+                                        Text(category, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text("$${String.format(Locale.US, "%.2f", catSum)} (${String.format(Locale.US, "%.1f", pct)}%)", style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     }
                                     Spacer(modifier = Modifier.height(4.dp))
                                     LinearProgressIndicator(
@@ -138,9 +149,11 @@ fun ExpenseManagerScreen(
             // Expense Logs List
             item {
                 Text(
-                    text = "Expense History",
+                    text = AppStrings.get("expense_history", lang),
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 
@@ -156,8 +169,8 @@ fun ExpenseManagerScreen(
                         ) {
                             Icon(Icons.Default.AttachMoney, contentDescription = null, modifier = Modifier.size(48.dp))
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text("No expenses logged yet", fontWeight = FontWeight.SemiBold)
-                            Text("Tap '+ Add Expense' to log parking, tolls, taxes, or insurance.", style = MaterialTheme.typography.bodySmall)
+                            Text(AppStrings.get("no_expenses_found", lang), fontWeight = FontWeight.SemiBold)
+                            Text(AppStrings.get("no_expenses_desc", lang), style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
@@ -222,11 +235,11 @@ fun ExpenseCard(expense: Expense, onDelete: () -> Unit) {
                         )
                     }
                 }
-                Column {
-                    Text(expense.title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
-                    Text("${expense.vehicleName} • ${expense.category} • ${expense.date}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(expense.title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("${expense.vehicleName} • ${expense.category} • ${expense.date}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (expense.notes.isNotBlank()) {
-                        Text(expense.notes, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f))
+                        Text(expense.notes, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }

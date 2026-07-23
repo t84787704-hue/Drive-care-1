@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.drivecare.app.data.model.Vehicle
 import com.drivecare.app.ui.DriveCareViewModel
@@ -238,7 +239,8 @@ fun VehicleCard(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.weight(1f)
                 ) {
                     Surface(
                         color = MaterialTheme.colorScheme.primaryContainer,
@@ -254,9 +256,9 @@ fun VehicleCard(
                         )
                     }
 
-                    Column {
-                        Text(vehicle.vehicleName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text("${vehicle.vehicleType} • ${vehicle.brand} ${vehicle.model}", style = MaterialTheme.typography.bodyMedium)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(vehicle.vehicleName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("${vehicle.vehicleType} • ${vehicle.brand} ${vehicle.model}", style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
 

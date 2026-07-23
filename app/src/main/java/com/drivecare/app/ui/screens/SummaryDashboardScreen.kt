@@ -17,6 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.drivecare.app.data.model.Vehicle
 import com.drivecare.app.ui.DriveCareViewModel
@@ -89,17 +90,21 @@ fun SummaryDashboardScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = AppStrings.get("overview_title", lang),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = if (vehicles.isNotEmpty()) "${vehicles.size} Vehicles Active in Fleet" else "No vehicles registered yet",
+                            text = if (vehicles.isNotEmpty()) "${vehicles.size} ${AppStrings.get("vehicles_active_fleet", lang)}" else AppStrings.get("no_vehicles_registered", lang),
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
 
@@ -135,15 +140,19 @@ fun SummaryDashboardScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Fleet Health: ${AppStrings.get(healthLabelKey, lang)}",
+                        text = "${AppStrings.get("fleet_health_label", lang)}: ${AppStrings.get(healthLabelKey, lang)}",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = if (activeRemindersCount > 0) "$activeRemindersCount tasks pending" else "All tasks up to date",
+                        text = if (activeRemindersCount > 0) "$activeRemindersCount ${AppStrings.get("tasks_pending", lang)}" else AppStrings.get("all_tasks_up_to_date", lang),
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
@@ -197,7 +206,7 @@ fun SummaryDashboardScreen(
                     onClick = { onNavigateTab?.invoke("FUEL") }
                 )
                 DashboardKpiCard(
-                    title = "Total Expense Logged",
+                    title = AppStrings.get("total_expense_logged", lang),
                     value = "$${String.format(Locale.US, "%.2f", grandTotalSpent)}",
                     icon = Icons.Default.AttachMoney,
                     modifier = Modifier.weight(1f),
@@ -209,9 +218,11 @@ fun SummaryDashboardScreen(
         // Analytics & Charts Section
         if (monthlyFuelData.isNotEmpty() || expenseCategories.isNotEmpty()) {
             Text(
-                text = "Analytics & Cost Breakdown",
+                text = AppStrings.get("analytics_cost_breakdown", lang),
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
 
             // Monthly Fuel Cost Bar Chart
@@ -229,7 +240,9 @@ fun SummaryDashboardScreen(
         Text(
             text = AppStrings.get("fleet_summary", lang),
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
 
         if (vehicles.isEmpty()) {
@@ -293,13 +306,20 @@ fun SummaryDashboardScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Recent Timeline Activity",
+                text = AppStrings.get("recent_timeline_activity", lang),
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
             )
             if (recentTimeline.isNotEmpty()) {
                 TextButton(onClick = { onNavigateTab?.invoke("TIMELINE") }) {
-                    Text("View All")
+                    Text(
+                        text = AppStrings.get("view_all", lang),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
         }
@@ -316,7 +336,7 @@ fun SummaryDashboardScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        "No recent activity logged yet. Refuel or log maintenance to see history.",
+                        text = AppStrings.get("no_recent_activity", lang),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -365,16 +385,20 @@ fun DashboardKpiCard(
                     tint = MaterialTheme.colorScheme.primary
                 )
             }
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = value,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
@@ -383,6 +407,7 @@ fun DashboardKpiCard(
 
 @Composable
 fun MonthlyFuelChartCard(monthlyFuelData: Map<String, Double>) {
+    val lang = LocalAppLanguage.current
     val maxCost = (monthlyFuelData.values.maxOrNull() ?: 1.0).coerceAtLeast(1.0)
     val entries = monthlyFuelData.entries.toList().takeLast(6)
 
@@ -397,9 +422,11 @@ fun MonthlyFuelChartCard(monthlyFuelData: Map<String, Double>) {
             ) {
                 Icon(Icons.Default.BarChart, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 Text(
-                    text = "Monthly Fuel Expenditure ($)",
+                    text = AppStrings.get("monthly_fuel_expenditure", lang),
                     style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 
@@ -449,6 +476,7 @@ fun MonthlyFuelChartCard(monthlyFuelData: Map<String, Double>) {
 
 @Composable
 fun ExpenseCategoryBreakdownCard(expenseCategories: Map<String, Double>, totalSpent: Double) {
+    val lang = LocalAppLanguage.current
     val categoriesList = expenseCategories.entries.toList().take(5)
 
     Card(
@@ -462,9 +490,11 @@ fun ExpenseCategoryBreakdownCard(expenseCategories: Map<String, Double>, totalSp
             ) {
                 Icon(Icons.Default.PieChart, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
                 Text(
-                    text = "Expense Category Breakdown",
+                    text = AppStrings.get("expense_category_breakdown", lang),
                     style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 
@@ -589,9 +619,11 @@ fun VehicleHealthCard(
                     shape = MaterialTheme.shapes.extraSmall
                 ) {
                     Text(
-                        text = "Fuel Efficiency: ${String.format(Locale.US, "%.1f", efficiency.kmPerLitre)} km/L",
+                        text = "${AppStrings.get("fuel_efficiency", lang)}: ${String.format(Locale.US, "%.1f", efficiency.kmPerLitre)} km/L",
                         style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
@@ -600,10 +632,12 @@ fun VehicleHealthCard(
                     shape = MaterialTheme.shapes.extraSmall
                 ) {
                     Text(
-                        text = "Cost: ${if (costPerKm > 0) String.format(Locale.US, "$%.2f/km", costPerKm) else "N/A"}",
+                        text = "${AppStrings.get("cost_label", lang)}: ${if (costPerKm > 0) String.format(Locale.US, "$%.2f/km", costPerKm) else "N/A"}",
                         style = MaterialTheme.typography.labelSmall,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }

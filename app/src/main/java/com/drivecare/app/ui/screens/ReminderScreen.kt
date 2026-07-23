@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.drivecare.app.data.model.Reminder
 import com.drivecare.app.data.model.Vehicle
@@ -91,15 +92,16 @@ fun ReminderScreen(
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    modifier = Modifier.weight(1f)
                                 ) {
                                     Checkbox(
                                         checked = rem.isCompleted,
                                         onCheckedChange = { viewModel.toggleReminder(rem) }
                                     )
-                                    Column {
-                                        Text(rem.reminderTitle, fontWeight = FontWeight.Bold)
-                                        Text("${rem.vehicleName} • ${rem.dueDate}")
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(rem.reminderTitle, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text("${rem.vehicleName} • ${rem.dueDate}", maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     }
                                 }
 

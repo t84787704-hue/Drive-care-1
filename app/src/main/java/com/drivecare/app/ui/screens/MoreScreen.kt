@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.drivecare.app.ui.DriveCareViewModel
 import com.drivecare.app.utils.AppLanguage
@@ -145,7 +146,7 @@ fun MoreScreen(
             ) {
                 Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = "MANAGEMENT & SERVICES",
+                        text = AppStrings.get("management_services", lang),
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -153,8 +154,8 @@ fun MoreScreen(
 
                     MoreMenuItem(
                         icon = Icons.Default.VerifiedUser,
-                        title = "Insurance & Renewals",
-                        subtitle = "Policy Details, Renewal Reminders & Coverage Tracking",
+                        title = AppStrings.get("insurance_renewals_menu", lang),
+                        subtitle = AppStrings.get("insurance_policies_sub", lang),
                         onClick = { onSubSectionSelect(MoreSubSection.INSURANCE) }
                     )
 
@@ -162,8 +163,8 @@ fun MoreScreen(
 
                     MoreMenuItem(
                         icon = Icons.Default.AttachMoney,
-                        title = "Expense Manager",
-                        subtitle = "Track Parking, Tolls, Insurance & Taxes",
+                        title = AppStrings.get("expense_manager_menu", lang),
+                        subtitle = AppStrings.get("expense_manager_sub", lang),
                         onClick = { onSubSectionSelect(MoreSubSection.EXPENSES) }
                     )
 
@@ -171,8 +172,8 @@ fun MoreScreen(
 
                     MoreMenuItem(
                         icon = Icons.Default.Timeline,
-                        title = "Vehicle Timeline",
-                        subtitle = "Chronological History of Refills, Services & Expenses",
+                        title = AppStrings.get("vehicle_timeline_menu", lang),
+                        subtitle = AppStrings.get("vehicle_timeline_sub", lang),
                         onClick = { onSubSectionSelect(MoreSubSection.TIMELINE) }
                     )
 
@@ -180,8 +181,8 @@ fun MoreScreen(
 
                     MoreMenuItem(
                         icon = Icons.Default.GpsFixed,
-                        title = "GPS Tracking & Route History",
-                        subtitle = "Live Vehicle Location, Trip Logs & Geofencing",
+                        title = AppStrings.get("gps_tracking_menu", lang),
+                        subtitle = AppStrings.get("gps_tracking_sub", lang),
                         onClick = { onSubSectionSelect(MoreSubSection.GPS_TRACKING) }
                     )
 
@@ -189,8 +190,8 @@ fun MoreScreen(
 
                     MoreMenuItem(
                         icon = Icons.Default.Group,
-                        title = "Family Sharing & Drivers",
-                        subtitle = "Multi-User Vehicle Sharing, Driver Profiles & Transfers",
+                        title = AppStrings.get("family_sharing_menu", lang),
+                        subtitle = AppStrings.get("family_sharing_sub", lang),
                         onClick = { onSubSectionSelect(MoreSubSection.FAMILY_SHARING) }
                     )
 
@@ -199,7 +200,7 @@ fun MoreScreen(
                     MoreMenuItem(
                         icon = Icons.Default.FolderOpen,
                         title = AppStrings.get("tab_documents", lang),
-                        subtitle = "Manage Insurance, Registration, PUC & Licenses",
+                        subtitle = AppStrings.get("documents_sub", lang),
                         onClick = { onSubSectionSelect(MoreSubSection.DOCUMENTS) }
                     )
 
@@ -208,7 +209,7 @@ fun MoreScreen(
                     MoreMenuItem(
                         icon = Icons.Default.Emergency,
                         title = AppStrings.get("tab_emergency", lang),
-                        subtitle = "One-tap Calling for Towing, Mechanics & Contacts",
+                        subtitle = AppStrings.get("emergency_sub", lang),
                         iconTint = MaterialTheme.colorScheme.error,
                         onClick = { onSubSectionSelect(MoreSubSection.EMERGENCY) }
                     )
@@ -218,7 +219,7 @@ fun MoreScreen(
                     MoreMenuItem(
                         icon = Icons.Default.EmojiEvents,
                         title = AppStrings.get("tab_achievements", lang),
-                        subtitle = "Milestone Badges & Driving Gamification",
+                        subtitle = AppStrings.get("achievements_sub", lang),
                         onClick = { onSubSectionSelect(MoreSubSection.ACHIEVEMENTS) }
                     )
                 }
@@ -231,7 +232,7 @@ fun MoreScreen(
             ) {
                 Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = "APP PREFERENCES & TOOLS",
+                        text = AppStrings.get("app_preferences_tools", lang),
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -240,7 +241,7 @@ fun MoreScreen(
                     MoreMenuItem(
                         icon = Icons.Default.Settings,
                         title = AppStrings.get("settings_title", lang),
-                        subtitle = "Language, Notifications & Preferences",
+                        subtitle = AppStrings.get("settings_sub", lang),
                         onClick = { onSubSectionSelect(MoreSubSection.SETTINGS) }
                     )
 
@@ -249,7 +250,7 @@ fun MoreScreen(
                     MoreMenuItem(
                         icon = Icons.Default.Language,
                         title = AppStrings.get("language", lang),
-                        subtitle = "Current: ${lang.displayName}",
+                        subtitle = "${AppStrings.get("current_language", lang)}: ${lang.displayName}",
                         onClick = { onSubSectionSelect(MoreSubSection.SETTINGS) }
                     )
 
@@ -420,8 +421,8 @@ fun MoreMenuItem(
         }
 
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
 
         Icon(

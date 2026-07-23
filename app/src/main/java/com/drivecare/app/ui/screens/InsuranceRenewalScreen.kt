@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.drivecare.app.data.model.InsurancePolicy
@@ -126,12 +127,14 @@ fun InsuranceRenewalScreen(
                 ) {
                     Column {
                         Text(
-                            text = "Insurance & Policies",
+                            text = AppStrings.get("insurance_policies_title", lang),
                             style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = "Policy Details, Renewal Reminders & Coverage Tracking",
+                            text = AppStrings.get("insurance_policies_sub", lang),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -146,21 +149,21 @@ fun InsuranceRenewalScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     InsuranceMetricCard(
-                        title = "Active",
+                        title = AppStrings.get("status_active", lang),
                         count = activeCount,
                         containerColor = Color(0xFFE8F5E9),
                         contentColor = Color(0xFF2E7D32),
                         modifier = Modifier.weight(1f)
                     )
                     InsuranceMetricCard(
-                        title = "Expiring Soon",
+                        title = AppStrings.get("status_expiring_soon", lang),
                         count = expiringCount,
                         containerColor = Color(0xFFFFF8E1),
                         contentColor = Color(0xFFF57F17),
                         modifier = Modifier.weight(1f)
                     )
                     InsuranceMetricCard(
-                        title = "Expired",
+                        title = AppStrings.get("status_expired", lang),
                         count = expiredCount,
                         containerColor = Color(0xFFFFEBEE),
                         contentColor = Color(0xFFC62828),
@@ -178,22 +181,22 @@ fun InsuranceRenewalScreen(
                     FilterChip(
                         selected = selectedStatusFilter == "ALL",
                         onClick = { selectedStatusFilter = "ALL" },
-                        label = { Text("All (${insurancePolicies.size})") }
+                        label = { Text("${AppStrings.get("filter_all", lang)} (${insurancePolicies.size})", maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     )
                     FilterChip(
                         selected = selectedStatusFilter == "ACTIVE",
                         onClick = { selectedStatusFilter = "ACTIVE" },
-                        label = { Text("Active ($activeCount)") }
+                        label = { Text("${AppStrings.get("status_active", lang)} ($activeCount)", maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     )
                     FilterChip(
                         selected = selectedStatusFilter == "EXPIRING",
                         onClick = { selectedStatusFilter = "EXPIRING" },
-                        label = { Text("Expiring ($expiringCount)") }
+                        label = { Text("${AppStrings.get("filter_expiring", lang)} ($expiringCount)", maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     )
                     FilterChip(
                         selected = selectedStatusFilter == "EXPIRED",
                         onClick = { selectedStatusFilter = "EXPIRED" },
-                        label = { Text("Expired ($expiredCount)") }
+                        label = { Text("${AppStrings.get("status_expired", lang)} ($expiredCount)", maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     )
                 }
             }
@@ -378,7 +381,7 @@ fun InsuranceMetricCard(
         colors = CardDefaults.cardColors(containerColor = containerColor)
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
@@ -390,7 +393,10 @@ fun InsuranceMetricCard(
             Text(
                 text = title,
                 style = MaterialTheme.typography.labelSmall,
-                color = contentColor
+                color = contentColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                softWrap = false
             )
         }
     }
@@ -407,6 +413,7 @@ fun InsurancePolicyCard(
     onDelete: () -> Unit,
     onCallAgent: () -> Unit
 ) {
+    val lang = LocalAppLanguage.current
     val isExpired = policy.expiryDate.isNotBlank() && policy.expiryDate < todayStr
     val isExpiringSoon = !isExpired && policy.expiryDate.isNotBlank() && policy.expiryDate <= warn30DaysStr
 
@@ -421,9 +428,9 @@ fun InsurancePolicyCard(
         else -> Color(0xFF2E7D32)
     }
     val statusText = when {
-        isExpired -> "EXPIRED"
-        isExpiringSoon -> "EXPIRING SOON"
-        else -> "ACTIVE"
+        isExpired -> AppStrings.get("status_expired", lang)
+        isExpiringSoon -> AppStrings.get("status_expiring_soon", lang)
+        else -> AppStrings.get("status_active", lang)
     }
 
     Card(
@@ -442,7 +449,8 @@ fun InsurancePolicyCard(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f)
                 ) {
                     Icon(
                         Icons.Default.VerifiedUser,
@@ -453,12 +461,16 @@ fun InsurancePolicyCard(
                         Text(
                             text = policy.providerName,
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = "Policy #${policy.policyNumber}",
+                            text = "${AppStrings.get("policy_no_prefix", lang)} ${policy.policyNumber}",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -472,7 +484,10 @@ fun InsurancePolicyCard(
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
-                        color = statusFg
+                        color = statusFg,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        softWrap = false
                     )
                 }
             }
@@ -485,16 +500,16 @@ fun InsurancePolicyCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Text("Vehicle Linked", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(policy.vehicleName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                    Text(AppStrings.get("vehicle_linked", lang), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(policy.vehicleName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 Column {
-                    Text("Coverage Type", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(policy.coverageType, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                    Text(AppStrings.get("coverage_type", lang), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(policy.coverageType, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 Column {
-                    Text("Premium", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("$currencySymbol${policy.premiumAmount}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text(AppStrings.get("premium", lang), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("$currencySymbol${policy.premiumAmount}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
 
