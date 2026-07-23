@@ -9,6 +9,9 @@ interface DocumentDao {
     @Query("SELECT * FROM documents ORDER BY createdAt DESC")
     fun getAllDocuments(): Flow<List<Document>>
 
+    @Query("SELECT * FROM documents ORDER BY createdAt DESC")
+    suspend fun getAllDocumentsSync(): List<Document>
+
     @Query("SELECT * FROM documents WHERE vehicleId = :vehicleId ORDER BY createdAt DESC")
     fun getDocumentsByVehicle(vehicleId: Long): Flow<List<Document>>
 

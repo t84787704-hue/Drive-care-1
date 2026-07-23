@@ -24,6 +24,7 @@ import com.drivecare.app.utils.LocalAppLanguage
 
 enum class MoreSubSection {
     MENU,
+    INSURANCE,
     EXPENSES,
     TIMELINE,
     GPS_TRACKING,
@@ -58,6 +59,7 @@ fun MoreScreen(
                 title = {
                     Text(
                         when (currentSubSection) {
+                            MoreSubSection.INSURANCE -> "Insurance & Renewals"
                             MoreSubSection.EXPENSES -> "Expense Manager"
                             MoreSubSection.TIMELINE -> "Vehicle Timeline"
                             MoreSubSection.GPS_TRACKING -> "GPS Live Tracking & Trips"
@@ -78,6 +80,7 @@ fun MoreScreen(
             )
             Box(modifier = Modifier.weight(1f)) {
                 when (currentSubSection) {
+                    MoreSubSection.INSURANCE -> InsuranceRenewalScreen(viewModel = viewModel)
                     MoreSubSection.EXPENSES -> ExpenseManagerScreen(viewModel = viewModel)
                     MoreSubSection.TIMELINE -> VehicleTimelineScreen(viewModel = viewModel)
                     MoreSubSection.GPS_TRACKING -> GpsTrackingScreen(viewModel = viewModel)
@@ -116,6 +119,15 @@ fun MoreScreen(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
                     )
+
+                    MoreMenuItem(
+                        icon = Icons.Default.VerifiedUser,
+                        title = "Insurance & Renewals",
+                        subtitle = "Policy Details, Renewal Reminders & Coverage Tracking",
+                        onClick = { currentSubSection = MoreSubSection.INSURANCE }
+                    )
+
+                    Divider()
 
                     MoreMenuItem(
                         icon = Icons.Default.AttachMoney,

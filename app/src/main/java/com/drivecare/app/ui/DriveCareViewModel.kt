@@ -11,6 +11,7 @@ import com.drivecare.app.data.model.EmergencyContact
 import com.drivecare.app.data.model.Expense
 import com.drivecare.app.data.model.FuelEntry
 import com.drivecare.app.data.model.GeofenceZone
+import com.drivecare.app.data.model.InsurancePolicy
 import com.drivecare.app.data.model.Maintenance
 import com.drivecare.app.data.model.Reminder
 import com.drivecare.app.data.model.TripLog
@@ -18,6 +19,7 @@ import com.drivecare.app.data.model.Vehicle
 import com.drivecare.app.data.model.VehicleShare
 import com.drivecare.app.data.model.VehicleTelemetry
 import com.drivecare.app.utils.AppLanguage
+import com.drivecare.app.utils.DriveCareNotificationScheduler
 import com.drivecare.app.utils.LocaleManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -73,6 +75,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     private val tripLogDao = db.tripLogDao()
     private val geofenceZoneDao = db.geofenceZoneDao()
     private val vehicleTelemetryDao = db.vehicleTelemetryDao()
+    private val insurancePolicyDao = db.insurancePolicyDao()
 
     val vehicles: StateFlow<List<Vehicle>> = vehicleDao.getAllVehicles()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -110,10 +113,35 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     val recentTelemetry: StateFlow<List<VehicleTelemetry>> = vehicleTelemetryDao.getRecentTelemetry()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val insurancePolicies: StateFlow<List<InsurancePolicy>> = insurancePolicyDao.getAllInsurancePolicies()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     private val _selectedFuelVehicle = MutableStateFlow<Vehicle?>(null)
     val selectedFuelVehicle: StateFlow<Vehicle?> = _selectedFuelVehicle.asStateFlow()
 
     private val prefs = application.getSharedPreferences("drivecare_prefs", Context.MODE_PRIVATE)
+
+    private val _currentCurrencySymbol = MutableStateFlow(
+        prefs.getString("selected_currency_symbol", "$") ?: "$"
+    )
+    val currentCurrencySymbol: StateFlow<String> = _currentCurrencySymbol.asStateFlow()
+
+    private val _themeMode = MutableStateFlow(
+        prefs.getString("theme_mode", "SYSTEM") ?: "SYSTEM"
+    )
+    val themeMode: StateFlow<String> = _themeMode.asStateFlow()
+
+    private val _notifyService = MutableStateFlow(prefs.getBoolean("notify_service", true))
+    val notifyService: StateFlow<Boolean> = _notifyService.asStateFlow()
+
+    private val _notifyInsurance = MutableStateFlow(prefs.getBoolean("notify_insurance", true))
+    val notifyInsurance: StateFlow<Boolean> = _notifyInsurance.asStateFlow()
+
+    private val _notifyDocuments = MutableStateFlow(prefs.getBoolean("notify_documents", true))
+    val notifyDocuments: StateFlow<Boolean> = _notifyDocuments.asStateFlow()
+
+    private val _notifyExpenses = MutableStateFlow(prefs.getBoolean("notify_expenses", true))
+    val notifyExpenses: StateFlow<Boolean> = _notifyExpenses.asStateFlow()
 
     private val _currentLanguage = MutableStateFlow(
         try {
@@ -720,6 +748,26 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         }
         root.put("trip_logs", tlArray)
 
+        // Insurance Policies
+        val insArray = JSONArray()
+        insurancePolicies.value.forEach { ins ->
+            insArray.put(JSONObject().apply {
+                put("id", ins.id)
+                put("vehicleId", ins.vehicleId)
+                put("vehicleName", ins.vehicleName)
+                put("providerName", ins.providerName)
+                put("policyNumber", ins.policyNumber)
+                put("coverageType", ins.coverageType)
+                put("premiumAmount", ins.premiumAmount)
+                put("startDate", ins.startDate)
+                put("expiryDate", ins.expiryDate)
+                put("agentContact", ins.agentContact)
+                put("notes", ins.notes)
+                put("isAutoRenewEnabled", ins.isAutoRenewEnabled)
+            })
+        }
+        root.put("insurance_policies", insArray)
+
         return root.toString(2)
     }
 
@@ -906,11 +954,120 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                     }
                 }
 
+                if (root.has("insurance_policies")) {
+                    val arr = root.getJSONArray("insurance_policies")
+                    for (i in 0 until arr.length()) {
+                        val obj = arr.getJSONObject(i)
+                        val ins = InsurancePolicy(
+                            vehicleId = obj.optLong("vehicleId", 1),
+                            vehicleName = obj.optString("vehicleName", ""),
+                            providerName = obj.optString("providerName", "Insurance"),
+                            policyNumber = obj.optString("policyNumber", ""),
+                            coverageType = obj.optString("coverageType", "Comprehensive"),
+                            premiumAmount = obj.optDouble("premiumAmount", 0.0),
+                            startDate = obj.optString("startDate", ""),
+                            expiryDate = obj.optString("expiryDate", ""),
+                            agentContact = obj.optString("agentContact", ""),
+                            notes = obj.optString("notes", ""),
+                            isAutoRenewEnabled = obj.optBoolean("isAutoRenewEnabled", false)
+                        )
+                        insurancePolicyDao.insertPolicy(ins)
+                    }
+                }
+
                 onComplete(true, "Data restored successfully!")
             } catch (e: Exception) {
                 e.printStackTrace()
                 onComplete(false, "Failed to restore data: ${e.localizedMessage}")
             }
+        }
+    }
+
+    // Insurance Methods
+    fun addInsurancePolicy(policy: InsurancePolicy) {
+        viewModelScope.launch {
+            insurancePolicyDao.insertPolicy(policy)
+            DriveCareNotificationScheduler.triggerImmediateCheck(getApplication())
+        }
+    }
+
+    fun updateInsurancePolicy(policy: InsurancePolicy) {
+        viewModelScope.launch {
+            insurancePolicyDao.updatePolicy(policy)
+        }
+    }
+
+    fun deleteInsurancePolicy(policy: InsurancePolicy) {
+        viewModelScope.launch {
+            insurancePolicyDao.deletePolicy(policy)
+        }
+    }
+
+    fun renewInsurancePolicy(
+        policy: InsurancePolicy,
+        newStartDate: String,
+        newExpiryDate: String,
+        newPremium: Double
+    ) {
+        viewModelScope.launch {
+            val updated = policy.copy(
+                startDate = newStartDate,
+                expiryDate = newExpiryDate,
+                premiumAmount = newPremium
+            )
+            insurancePolicyDao.updatePolicy(updated)
+
+            if (newPremium > 0) {
+                val expense = Expense(
+                    vehicleId = policy.vehicleId,
+                    vehicleName = policy.vehicleName,
+                    title = "Insurance Renewal (${policy.providerName})",
+                    category = "Insurance",
+                    amount = newPremium,
+                    date = newStartDate,
+                    notes = "Policy #${policy.policyNumber} renewed until $newExpiryDate"
+                )
+                expenseDao.insertExpense(expense)
+            }
+        }
+    }
+
+    // Settings & Preferences Methods
+    fun setCurrencySymbol(symbol: String) {
+        _currentCurrencySymbol.value = symbol
+        prefs.edit().putString("selected_currency_symbol", symbol).apply()
+    }
+
+    fun setThemeMode(mode: String) {
+        _themeMode.value = mode
+        prefs.edit().putString("theme_mode", mode).apply()
+    }
+
+    fun setNotificationPreference(key: String, enabled: Boolean) {
+        when (key) {
+            "service" -> {
+                _notifyService.value = enabled
+                prefs.edit().putBoolean("notify_service", enabled).apply()
+            }
+            "insurance" -> {
+                _notifyInsurance.value = enabled
+                prefs.edit().putBoolean("notify_insurance", enabled).apply()
+            }
+            "documents" -> {
+                _notifyDocuments.value = enabled
+                prefs.edit().putBoolean("notify_documents", enabled).apply()
+            }
+            "expenses" -> {
+                _notifyExpenses.value = enabled
+                prefs.edit().putBoolean("notify_expenses", enabled).apply()
+            }
+        }
+    }
+
+    fun resetAllData(onComplete: () -> Unit) {
+        viewModelScope.launch {
+            db.clearAllTables()
+            onComplete()
         }
     }
 }

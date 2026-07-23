@@ -22,9 +22,10 @@ import com.drivecare.app.data.model.*
         VehicleShare::class,
         TripLog::class,
         GeofenceZone::class,
-        VehicleTelemetry::class
+        VehicleTelemetry::class,
+        InsurancePolicy::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -40,6 +41,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun tripLogDao(): TripLogDao
     abstract fun geofenceZoneDao(): GeofenceZoneDao
     abstract fun vehicleTelemetryDao(): VehicleTelemetryDao
+    abstract fun insurancePolicyDao(): InsurancePolicyDao
 
     companion object {
         @Volatile
@@ -120,6 +122,28 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `insurance_policies` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `vehicleId` INTEGER NOT NULL,
+                        `vehicleName` TEXT NOT NULL,
+                        `providerName` TEXT NOT NULL,
+                        `policyNumber` TEXT NOT NULL,
+                        `coverageType` TEXT NOT NULL,
+                        `premiumAmount` REAL NOT NULL,
+                        `startDate` TEXT NOT NULL,
+                        `expiryDate` TEXT NOT NULL,
+                        `agentContact` TEXT NOT NULL,
+                        `notes` TEXT NOT NULL,
+                        `isAutoRenewEnabled` INTEGER NOT NULL,
+                        `createdAt` INTEGER NOT NULL
+                    )"""
+                )
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -127,7 +151,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "drivecare_database"
                 )
-                    .addMigrations(MIGRATION_3_4)
+                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5)
                     .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
