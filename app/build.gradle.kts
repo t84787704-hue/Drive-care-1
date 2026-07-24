@@ -1,8 +1,21 @@
+import java.util.Base64
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.devtools.ksp")
+}
+
+val keystoreFile = rootProject.file("debug.keystore")
+val base64KeystoreFile = rootProject.file("debug.keystore.base64")
+
+if (!keystoreFile.exists() && base64KeystoreFile.exists()) {
+    try {
+        val bytes = Base64.getDecoder().decode(base64KeystoreFile.readText().trim())
+        keystoreFile.writeBytes(bytes)
+    } catch (_: Exception) {
+    }
 }
 
 android {
@@ -11,7 +24,7 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = rootProject.file("debug.keystore")
+            storeFile = keystoreFile
             storePassword = "android"
             keyAlias = "androiddebugkey"
             keyPassword = "android"
@@ -19,7 +32,7 @@ android {
             enableV2Signing = true
         }
         getByName("debug") {
-            storeFile = rootProject.file("debug.keystore")
+            storeFile = keystoreFile
             storePassword = "android"
             keyAlias = "androiddebugkey"
             keyPassword = "android"
