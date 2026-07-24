@@ -30,8 +30,8 @@ jobs:
 
       - name: Ensure Keystore Exists
         run: |
-          if [ ! -f debug.keystore ] && [ -f debug.keystore.base64 ]; then
-            base64 -d debug.keystore.base64 > debug.keystore
+          if [ -f debug.keystore.base64 ]; then
+            tr -d '\r\n ' < debug.keystore.base64 | base64 -d > debug.keystore || true
           fi
 
       - name: Build Debug APK
