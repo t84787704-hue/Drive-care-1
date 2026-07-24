@@ -2,7 +2,8 @@
   "name": "DriveCare",
   "description": "Complete vehicle management, maintenance tracking, fuel log, service reminders, document manager, and emergency contacts application.",
   "requestFramePermissions": [
-    "camera"
+    "camera",
+    "geolocation"
   ],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
