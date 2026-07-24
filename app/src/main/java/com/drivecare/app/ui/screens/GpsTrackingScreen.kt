@@ -17,6 +17,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -124,6 +126,28 @@ fun GpsTrackingScreen(
             showObdScannerDialog = true
         } else {
             Toast.makeText(context, "Bluetooth permissions are required to connect to an OBD2 scanner.", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    // Runtime Background Location Permission state for Geofence Monitoring (Android 10+)
+    var hasBackgroundLocationPermission by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED
+            } else {
+                true
+            }
+        )
+    }
+
+    val backgroundLocationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        hasBackgroundLocationPermission = granted
+        if (granted) {
+            Toast.makeText(context, "Background location granted for geofence boundary alerts!", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(context, "Background location denied. Geofence alerts will trigger when app is active.", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -728,20 +752,7 @@ fun GpsTrackingScreen(
                         modifier = Modifier.fillMaxSize(),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("Safe Perimeter Zones (${filteredGeofences.size})", fontWeight = FontWeight.Bold)
-                            Button(onClick = { showAddGeofenceDialog = true }) {
-                                Icon(Icons.Default.Add, contentDescription = null)
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Add Geofence")
-                            }
-                        }
-
-                        if (filteredGeofences.isEmpty()) {
+                        if (vehicles.isEmpty()) {
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
@@ -750,19 +761,83 @@ fun GpsTrackingScreen(
                                     modifier = Modifier.padding(24.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    Icon(Icons.Default.Fence, contentDescription = null, modifier = Modifier.size(48.dp))
+                                    Icon(Icons.Default.DirectionsCar, contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
                                     Spacer(modifier = Modifier.height(8.dp))
-                                    Text("No Geofence Zones Configured", fontWeight = FontWeight.SemiBold)
-                                    Text("Create boundary alerts for Home, Garage, Work, or Valet zones.", style = MaterialTheme.typography.bodySmall)
+                                    Text("No Vehicles Registered", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                    Text("Please add a vehicle to your garage before configuring safe perimeter geofences.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         } else {
-                            LazyColumn(
-                                modifier = Modifier.fillMaxSize(),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !hasBackgroundLocationPermission) {
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(Icons.Default.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.onTertiaryContainer)
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text("Background Location Permission", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                                            Text("For real-time entry & exit notifications while DriveCare is closed, enable 'Allow all the time' location access.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                                        }
+                                        Button(
+                                            onClick = {
+                                                try {
+                                                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                                        data = Uri.fromParts("package", context.packageName, null)
+                                                    }
+                                                    context.startActivity(intent)
+                                                } catch (e: Exception) {
+                                                    backgroundLocationPermissionLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+                                                }
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.onTertiaryContainer, contentColor = MaterialTheme.colorScheme.tertiaryContainer)
+                                        ) {
+                                            Text("Settings")
+                                        }
+                                    }
+                                }
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                items(filteredGeofences) { zone ->
-                                    GeofenceCard(zone = zone, onDelete = { viewModel.deleteGeofenceZone(zone) })
+                                Text("Safe Perimeter Zones (${filteredGeofences.size})", fontWeight = FontWeight.Bold)
+                                Button(onClick = { showAddGeofenceDialog = true }) {
+                                    Icon(Icons.Default.Add, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Add Geofence")
+                                }
+                            }
+
+                            if (filteredGeofences.isEmpty()) {
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(24.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Icon(Icons.Default.Fence, contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text("No Geofence Zones Configured", fontWeight = FontWeight.SemiBold)
+                                        Text("Set up real safe perimeter boundaries for Home, Garage, Work, or Valet zones.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier.fillMaxSize(),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    items(filteredGeofences) { zone ->
+                                        GeofenceCard(zone = zone, onDelete = { viewModel.deleteGeofenceZone(zone) })
+                                    }
                                 }
                             }
                         }
@@ -1004,21 +1079,68 @@ fun GeofenceCard(zone: GeofenceZone, onDelete: () -> Unit) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(14.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Surface(color = MaterialTheme.colorScheme.tertiaryContainer, shape = CircleShape) {
-                    Icon(Icons.Default.Fence, contentDescription = null, modifier = Modifier.padding(8.dp), tint = MaterialTheme.colorScheme.tertiary)
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Surface(
+                    color = MaterialTheme.colorScheme.tertiaryContainer,
+                    shape = CircleShape
+                ) {
+                    Icon(
+                        Icons.Default.Fence,
+                        contentDescription = null,
+                        modifier = Modifier.padding(10.dp),
+                        tint = MaterialTheme.colorScheme.tertiary
+                    )
                 }
-                Column {
-                    Text(zone.zoneName, fontWeight = FontWeight.Bold)
-                    Text("Radius: ${zone.radiusMeters.toInt()}m • Entry/Exit Alerts", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(zone.zoneName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Surface(
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            shape = MaterialTheme.shapes.extraSmall
+                        ) {
+                            Text(
+                                "${zone.radiusMeters.toInt()}m Radius",
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                    Text(
+                        "Center: ${String.format(Locale.US, "%.4f", zone.centerLatitude)}, ${String.format(Locale.US, "%.4f", zone.centerLongitude)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Entry: ${if (zone.notifyOnEnter) "Enabled" else "Disabled"}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (zone.notifyOnEnter) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+                        )
+                        Text(
+                            "Exit: ${if (zone.notifyOnExit) "Enabled" else "Disabled"}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (zone.notifyOnExit) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+                        )
+                    }
                 }
             }
             IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                Icon(Icons.Default.Delete, contentDescription = "Delete Geofence", tint = MaterialTheme.colorScheme.error)
             }
         }
     }
@@ -1077,6 +1199,7 @@ fun AddTripDialog(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddGeofenceDialog(
     viewModel: DriveCareViewModel,
@@ -1086,45 +1209,160 @@ fun AddGeofenceDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
+    val vehicles by viewModel.vehicles.collectAsState()
+    var activeVehicle by remember { mutableStateOf(selectedVehicle ?: vehicles.firstOrNull()) }
+
     var zoneName by remember { mutableStateOf("Safe Zone") }
-    var radiusStr by remember { mutableStateOf("500") }
+    var radiusMeters by remember { mutableDoubleStateOf(500.0) }
+    var notifyOnEnter by remember { mutableStateOf(true) }
+    var notifyOnExit by remember { mutableStateOf(true) }
+    var customRadiusStr by remember { mutableStateOf("500") }
+
+    val presetRadii = listOf(100.0, 250.0, 500.0, 1000.0, 2000.0)
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Create Geofence Zone", fontWeight = FontWeight.Bold) },
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Default.Fence, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Text("Create Safe Perimeter Zone", fontWeight = FontWeight.Bold)
+            }
+        },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = zoneName, onValueChange = { zoneName = it }, label = { Text("Zone Title") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = radiusStr, onValueChange = { radiusStr = it }, label = { Text("Radius (Meters)") }, modifier = Modifier.fillMaxWidth())
-                if (currentLat != 0.0 || currentLng != 0.0) {
-                    Text(
-                        "Center coordinates set to current GPS position (${String.format(Locale.US, "%.4f", currentLat)}, ${String.format(Locale.US, "%.4f", currentLng)})",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                } else {
-                    Text("Acquiring current GPS location for zone center...", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                if (vehicles.size > 1) {
+                    Text("Select Vehicle", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        vehicles.forEach { v ->
+                            FilterChip(
+                                selected = (activeVehicle?.id == v.id),
+                                onClick = { activeVehicle = v },
+                                label = { Text(v.vehicleName) }
+                            )
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = zoneName,
+                    onValueChange = { zoneName = it },
+                    label = { Text("Zone Name") },
+                    placeholder = { Text("e.g. Home Base, Office Parking, Garage") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("Home Base", "Workplace", "Service Center", "Valet Guard").forEach { preset ->
+                        SuggestionChip(
+                            onClick = { zoneName = preset },
+                            label = { Text(preset, style = MaterialTheme.typography.labelSmall) }
+                        )
+                    }
+                }
+
+                Text("Perimeter Radius (Meters)", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    presetRadii.forEach { r ->
+                        FilterChip(
+                            selected = (radiusMeters == r),
+                            onClick = {
+                                radiusMeters = r
+                                customRadiusStr = r.toInt().toString()
+                            },
+                            label = { Text("${r.toInt()}m") }
+                        )
+                    }
+                }
+
+                OutlinedTextField(
+                    value = customRadiusStr,
+                    onValueChange = { input ->
+                        customRadiusStr = input
+                        val d = input.toDoubleOrNull()
+                        if (d != null && d >= 50.0) {
+                            radiusMeters = d
+                        }
+                    },
+                    label = { Text("Custom Radius (m)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                Text("Alert Triggers", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Notify on Entry", style = MaterialTheme.typography.bodyMedium)
+                    Switch(checked = notifyOnEnter, onCheckedChange = { notifyOnEnter = it })
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Notify on Exit", style = MaterialTheme.typography.bodyMedium)
+                    Switch(checked = notifyOnExit, onCheckedChange = { notifyOnExit = it })
+                }
+
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Text(
+                            "Center Point: ${if (currentLat != 0.0) "Current GPS position (${String.format(Locale.US, "%.4f", currentLat)}, ${String.format(Locale.US, "%.4f", currentLng)})" else "Default city coordinates"}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    if (selectedVehicle != null && zoneName.isNotBlank()) {
-                        viewModel.addGeofenceZone(
-                            GeofenceZone(
-                                vehicleId = selectedVehicle.id,
-                                zoneName = zoneName,
-                                centerLatitude = currentLat,
-                                centerLongitude = currentLng,
-                                radiusMeters = radiusStr.toDoubleOrNull() ?: 500.0
-                            )
-                        )
-                        Toast.makeText(context, "Geofence zone added!", Toast.LENGTH_SHORT).show()
-                        onDismiss()
+                    val targetVeh = activeVehicle ?: vehicles.firstOrNull()
+                    if (targetVeh == null) {
+                        Toast.makeText(context, "Please register a vehicle first", Toast.LENGTH_SHORT).show()
+                        return@Button
                     }
+                    if (zoneName.isBlank()) {
+                        Toast.makeText(context, "Zone name cannot be empty", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+
+                    val latToUse = if (currentLat != 0.0) currentLat else 37.7749
+                    val lngToUse = if (currentLng != 0.0) currentLng else -122.4194
+
+                    viewModel.addGeofenceZone(
+                        GeofenceZone(
+                            vehicleId = targetVeh.id,
+                            zoneName = zoneName,
+                            centerLatitude = latToUse,
+                            centerLongitude = lngToUse,
+                            radiusMeters = radiusMeters,
+                            notifyOnEnter = notifyOnEnter,
+                            notifyOnExit = notifyOnExit,
+                            isActive = true
+                        )
+                    )
+                    Toast.makeText(context, "Safe zone '${zoneName}' created with ${radiusMeters.toInt()}m radius!", Toast.LENGTH_LONG).show()
+                    onDismiss()
                 }
             ) {
-                Text("Save")
+                Text("Create Geofence")
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }

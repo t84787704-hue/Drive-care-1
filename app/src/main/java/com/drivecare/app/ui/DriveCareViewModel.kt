@@ -25,6 +25,7 @@ import com.drivecare.app.data.model.VehicleShare
 import com.drivecare.app.data.model.VehicleTelemetry
 import com.drivecare.app.utils.AppLanguage
 import com.drivecare.app.utils.DriveCareNotificationScheduler
+import com.drivecare.app.utils.GeofenceManager
 import com.drivecare.app.utils.LocaleManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -159,6 +160,13 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     val currentLanguage: StateFlow<AppLanguage> = _currentLanguage.asStateFlow()
 
     init {
+        // Synchronize Geofences with Google Play Services GeofencingClient
+        viewModelScope.launch {
+            geofenceZones.collect { zones ->
+                GeofenceManager.syncAllGeofences(getApplication(), zones)
+            }
+        }
+
         // Seed default emergency contacts if none exist
         viewModelScope.launch {
             try {
@@ -311,11 +319,18 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
 
     // Geofences
     fun addGeofenceZone(geofence: GeofenceZone) {
-        viewModelScope.launch { geofenceZoneDao.insertGeofence(geofence) }
+        viewModelScope.launch {
+            val generatedId = geofenceZoneDao.insertGeofence(geofence)
+            val updatedZone = if (geofence.id == 0L) geofence.copy(id = generatedId) else geofence
+            GeofenceManager.registerGeofence(getApplication(), updatedZone)
+        }
     }
 
     fun deleteGeofenceZone(geofence: GeofenceZone) {
-        viewModelScope.launch { geofenceZoneDao.deleteGeofence(geofence) }
+        viewModelScope.launch {
+            geofenceZoneDao.deleteGeofence(geofence)
+            GeofenceManager.unregisterGeofence(getApplication(), geofence.id)
+        }
     }
 
     // Telemetry

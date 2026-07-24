@@ -515,6 +515,9 @@ fun VehicleDetailDialog(
     val vReminders = reminders.filter { it.vehicleId == vehicle.id && !it.isCompleted }
     val vExpenses = expenses.filter { it.vehicleId == vehicle.id }
 
+    val geofences by viewModel.geofenceZones.collectAsState()
+    val vGeofences = geofences.filter { it.vehicleId == vehicle.id }
+
     val fuelStats = viewModel.calculateVehicleFuelEfficiency(vehicle, fuelEntries)
     val totalFuelSpent = vFuel.sumOf { it.amountPaid.toDoubleOrNull() ?: 0.0 }
     val totalServiceSpent = vService.sumOf { it.serviceCost.toDoubleOrNull() ?: 0.0 }
@@ -619,6 +622,27 @@ fun VehicleDetailDialog(
                             Text("Coverage: ${activePolicy.coverageType} • Expires: ${activePolicy.expiryDate}", style = MaterialTheme.typography.bodySmall)
                         } else {
                             Text("No active insurance policy configured.", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+
+                // 4b. Geofence Safe Zones Summary
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Icon(Icons.Default.Fence, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Text("Geofence Safe Zones", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                            }
+                            TextButton(onClick = { onNavigateToSection(NavTab.MORE, MoreSubSection.GPS_TRACKING, vehicle.id) }) {
+                                Text(if (vGeofences.isEmpty()) "Add Zone" else "Manage", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                        if (vGeofences.isNotEmpty()) {
+                            Text("${vGeofences.size} Active Safe Zone(s) Monitored", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                            Text("Zones: ${vGeofences.joinToString { "${it.zoneName} (${it.radiusMeters.toInt()}m)" }}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        } else {
+                            Text("No safe perimeter zones active for this vehicle.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
