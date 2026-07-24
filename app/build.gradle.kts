@@ -5,50 +5,26 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
-val keystorePath = System.getenv("KEYSTORE_PATH")
-    ?: System.getenv("KEYSTORE_FILE")
-    ?: System.getenv("RELEASE_KEYSTORE_PATH")
-val storePasswordEnv = System.getenv("KEYSTORE_PASSWORD")
-    ?: System.getenv("STORE_PASSWORD")
-    ?: System.getenv("RELEASE_STORE_PASSWORD")
-val keyAliasEnv = System.getenv("KEY_ALIAS")
-    ?: System.getenv("RELEASE_KEY_ALIAS")
-val keyPasswordEnv = System.getenv("KEY_PASSWORD")
-    ?: System.getenv("RELEASE_KEY_PASSWORD")
-
-val envKeystore = keystorePath?.let { file(it) }
-val rootDebugKeystore = rootProject.file("debug.keystore")
-val localDebugKeystore = file("debug.keystore")
-
-val resolvedKeystoreFile = when {
-    envKeystore != null && envKeystore.exists() -> envKeystore
-    rootDebugKeystore.exists() -> rootDebugKeystore
-    localDebugKeystore.exists() -> localDebugKeystore
-    else -> null
-}
-
 android {
     namespace = "com.drivecare.app"
     compileSdk = 35
 
     signingConfigs {
-        if (resolvedKeystoreFile != null) {
-            create("release") {
-                storeFile = resolvedKeystoreFile
-                storePassword = storePasswordEnv ?: "android"
-                keyAlias = keyAliasEnv ?: "androiddebugkey"
-                keyPassword = keyPasswordEnv ?: "android"
-                enableV1Signing = true
-                enableV2Signing = true
-            }
-            getByName("debug") {
-                storeFile = resolvedKeystoreFile
-                storePassword = storePasswordEnv ?: "android"
-                keyAlias = keyAliasEnv ?: "androiddebugkey"
-                keyPassword = keyPasswordEnv ?: "android"
-                enableV1Signing = true
-                enableV2Signing = true
-            }
+        create("release") {
+            storeFile = rootProject.file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+            enableV1Signing = true
+            enableV2Signing = true
+        }
+        getByName("debug") {
+            storeFile = rootProject.file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+            enableV1Signing = true
+            enableV2Signing = true
         }
     }
 
@@ -69,22 +45,14 @@ android {
         release {
             isMinifyEnabled = false
             isShrinkResources = false
-            val releaseSigning = signingConfigs.findByName("release")
-            if (releaseSigning != null && releaseSigning.storeFile?.exists() == true) {
-                signingConfig = releaseSigning
-            } else {
-                signingConfig = signingConfigs.getByName("debug")
-            }
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
         }
         debug {
-            val debugSigning = signingConfigs.getByName("debug")
-            if (debugSigning.storeFile?.exists() == true) {
-                signingConfig = debugSigning
-            }
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
     compileOptions {
