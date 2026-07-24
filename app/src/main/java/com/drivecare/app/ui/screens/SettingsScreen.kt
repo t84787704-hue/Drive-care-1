@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import com.drivecare.app.ui.DriveCareViewModel
 import com.drivecare.app.utils.AppLanguage
 import com.drivecare.app.utils.AppStrings
@@ -43,6 +44,7 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
+    val coroutineScope = rememberCoroutineScope()
     val currentLang by viewModel.currentLanguage.collectAsState()
     val currencySymbol by viewModel.currentCurrencySymbol.collectAsState()
     val themeMode by viewModel.themeMode.collectAsState()
@@ -392,8 +394,10 @@ fun SettingsScreen(
                 ) {
                     Button(
                         onClick = {
-                            backupJsonText = viewModel.exportBackupJson()
-                            showBackupDialog = true
+                            coroutineScope.launch {
+                                backupJsonText = viewModel.exportBackupJson()
+                                showBackupDialog = true
+                            }
                         },
                         modifier = Modifier.weight(1f)
                     ) {

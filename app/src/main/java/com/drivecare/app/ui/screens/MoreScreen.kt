@@ -20,6 +20,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import com.drivecare.app.ui.DriveCareViewModel
 import com.drivecare.app.utils.AppLanguage
 import com.drivecare.app.utils.AppStrings
@@ -52,6 +53,7 @@ fun MoreScreen(
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val lang = LocalAppLanguage.current
+    val coroutineScope = rememberCoroutineScope()
 
     var showBackupDialog by remember { mutableStateOf(false) }
     var showRestoreDialog by remember { mutableStateOf(false) }
@@ -261,8 +263,10 @@ fun MoreScreen(
                         title = AppStrings.get("backup_restore", lang),
                         subtitle = "Export JSON Backup or Restore Records",
                         onClick = {
-                            backupJsonText = viewModel.exportBackupJson()
-                            showBackupDialog = true
+                            coroutineScope.launch {
+                                backupJsonText = viewModel.exportBackupJson()
+                                showBackupDialog = true
+                            }
                         }
                     )
 
