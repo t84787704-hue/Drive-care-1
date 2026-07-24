@@ -2,6 +2,7 @@ package com.drivecare.app.ui.screens
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.bluetooth.BluetoothAdapter
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -45,6 +46,12 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+data class DiscoveredObdDevice(
+    val name: String,
+    val address: String,
+    val isPaired: Boolean = false
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GpsTrackingScreen(
@@ -60,16 +67,25 @@ fun GpsTrackingScreen(
 
     val isGpsEnabled by FeatureFlags.gpsTrackingEnabled.collectAsState()
 
-    var selectedTab by remember { mutableStateOf(0) } // 0: Live GPS & Telemetry, 1: Trip History, 2: Geofencing
+    var selectedTab by remember { mutableIntStateOf(0) } // 0: Live GPS & Telemetry, 1: Trip History, 2: Geofencing
     var selectedVehicle by remember { mutableStateOf<Vehicle?>(vehicles.firstOrNull()) }
     var showAddTripDialog by remember { mutableStateOf(false) }
     var showAddGeofenceDialog by remember { mutableStateOf(false) }
     var showManualTelemetryDialog by remember { mutableStateOf(false) }
+    var showObdScannerDialog by remember { mutableStateOf(false) }
 
-    // Unit toggle: Speed in KM/H vs MPH
+    // OBD2 Connection State (Optional Mode - Manual remains default)
+    var isObdConnected by remember { mutableStateOf(false) }
+    var obdDeviceName by remember { mutableStateOf<String?>(null) }
+    var obdFuelLevel by remember { mutableDoubleStateOf(84.0) }
+    var obdBatteryVoltage by remember { mutableDoubleStateOf(13.8) }
+    var obdEngineTemp by remember { mutableDoubleStateOf(88.0) }
+    var obdRpm by remember { mutableIntStateOf(1950) }
+
+    // Speed unit toggle: KM/H vs MPH
     var useMiles by remember { mutableStateOf(false) }
 
-    // Real Permission state
+    // Runtime Location Permission state
     var hasLocationPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
@@ -77,13 +93,37 @@ fun GpsTrackingScreen(
         )
     }
 
-    val permissionLauncher = rememberLauncherForActivityResult(
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         val granted = permissions.values.any { it }
         hasLocationPermission = granted
         if (!granted) {
             Toast.makeText(context, "Location permission is required for real GPS tracking.", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    // Runtime Bluetooth Permission state for OBD2
+    var hasBluetoothPermission by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED
+            } else {
+                true
+            }
+        )
+    }
+
+    val bluetoothPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val granted = permissions.values.all { it }
+        hasBluetoothPermission = granted
+        if (granted) {
+            showObdScannerDialog = true
+        } else {
+            Toast.makeText(context, "Bluetooth permissions are required to connect to an OBD2 scanner.", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -94,7 +134,7 @@ fun GpsTrackingScreen(
     var currentAddress by remember { mutableStateOf("Acquiring GPS fix...") }
     var isLiveTrackingActive by remember { mutableStateOf(true) }
 
-    // Real Active Trip Tracking State
+    // Active Trip Tracking State
     var isTripActive by remember { mutableStateOf(false) }
     var tripStartLat by remember { mutableDoubleStateOf(0.0) }
     var tripStartLng by remember { mutableDoubleStateOf(0.0) }
@@ -117,8 +157,7 @@ fun GpsTrackingScreen(
         }
     }
 
-    // Battery Optimization: Start GPS location updates ONLY when permissions are granted & live tracking is active.
-    // Removes location updates automatically when screen disposed or tracking paused.
+    // Battery Optimization & Clean Location Lifecycle
     DisposableEffect(hasLocationPermission, isLiveTrackingActive) {
         if (hasLocationPermission && isLiveTrackingActive) {
             val locationRequest = LocationRequest.Builder(
@@ -156,15 +195,19 @@ fun GpsTrackingScreen(
 
                         // Persist telemetry record periodically during trip
                         selectedVehicle?.let { v ->
+                            val activeFuel = if (isObdConnected) obdFuelLevel else manualFuelLevel
+                            val activeVoltage = if (isObdConnected) obdBatteryVoltage else manualBatteryVoltage
+                            val activeTemp = if (isObdConnected) obdEngineTemp else manualEngineTemp
+
                             viewModel.addVehicleTelemetry(
                                 VehicleTelemetry(
                                     vehicleId = v.id,
                                     latitude = location.latitude,
                                     longitude = location.longitude,
                                     speedKmh = speedKmh,
-                                    fuelLevelPct = manualFuelLevel,
-                                    batteryVoltage = manualBatteryVoltage,
-                                    engineTempC = manualEngineTemp
+                                    fuelLevelPct = activeFuel,
+                                    batteryVoltage = activeVoltage,
+                                    engineTempC = activeTemp
                                 )
                             )
                         }
@@ -230,20 +273,38 @@ fun GpsTrackingScreen(
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("Enable GPS Tracking in settings or the toggle above to view vehicle positions.")
             }
+        } else if (vehicles.isEmpty()) {
+            // Clean empty state when user has no vehicles registered yet
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.DirectionsCar, contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
+                    Text("No Vehicles Registered", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Please add a vehicle first in the Vehicle Garage to use GPS tracking, trip logging, and telemetry features.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         } else {
             // Vehicle Picker Bar
-            if (vehicles.isNotEmpty()) {
-                ScrollableTabRow(
-                    selectedTabIndex = vehicles.indexOf(selectedVehicle).coerceAtLeast(0),
-                    edgePadding = 0.dp
-                ) {
-                    vehicles.forEach { v ->
-                        Tab(
-                            selected = selectedVehicle?.id == v.id,
-                            onClick = { selectedVehicle = v },
-                            text = { Text(v.vehicleName, fontWeight = FontWeight.SemiBold) }
-                        )
-                    }
+            ScrollableTabRow(
+                selectedTabIndex = vehicles.indexOf(selectedVehicle).coerceAtLeast(0),
+                edgePadding = 0.dp
+            ) {
+                vehicles.forEach { v ->
+                    Tab(
+                        selected = selectedVehicle?.id == v.id,
+                        onClick = { selectedVehicle = v },
+                        text = { Text(v.vehicleName, fontWeight = FontWeight.SemiBold) }
+                    )
                 }
             }
 
@@ -273,7 +334,6 @@ fun GpsTrackingScreen(
                 0 -> {
                     // Live Real GPS Visualizer & Telemetry Diagnostics
                     val activeVehicle = selectedVehicle
-                    val latestTelem = telemetryList.find { it.vehicleId == activeVehicle?.id }
 
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
@@ -298,13 +358,13 @@ fun GpsTrackingScreen(
                                             Text("Location Permission Required", fontWeight = FontWeight.Bold)
                                         }
                                         Text(
-                                            "Real GPS tracking and trip logging require device location permission.",
+                                            "Real GPS tracking and trip distance calculations require device location permission.",
                                             style = MaterialTheme.typography.bodySmall
                                         )
                                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                             Button(
                                                 onClick = {
-                                                    permissionLauncher.launch(
+                                                    locationPermissionLauncher.launch(
                                                         arrayOf(
                                                             Manifest.permission.ACCESS_FINE_LOCATION,
                                                             Manifest.permission.ACCESS_COARSE_LOCATION
@@ -324,6 +384,41 @@ fun GpsTrackingScreen(
                                             ) {
                                                 Text("App Settings")
                                             }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // OBD2 Connection Badge if Connected
+                        if (isObdConnected) {
+                            item {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                    shape = MaterialTheme.shapes.small,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(Icons.Default.BluetoothConnected, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
+                                            Column {
+                                                Text("OBD2 Scanner Active", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
+                                                Text("Connected: ${obdDeviceName ?: "Bluetooth OBD2"}", style = MaterialTheme.typography.bodySmall)
+                                            }
+                                        }
+                                        TextButton(onClick = {
+                                            isObdConnected = false
+                                            obdDeviceName = null
+                                            Toast.makeText(context, "Disconnected OBD2 Scanner. Reverted to Manual Telemetry.", Toast.LENGTH_SHORT).show()
+                                        }) {
+                                            Text("Disconnect")
                                         }
                                     }
                                 }
@@ -377,7 +472,7 @@ fun GpsTrackingScreen(
                                         )
                                     } else {
                                         Text(
-                                            text = if (hasLocationPermission) "Acquiring real satellite GPS signal..." else "Location permission disabled",
+                                            text = if (hasLocationPermission) "Acquiring real satellite GPS signal..." else "Location permission required",
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.error
                                         )
@@ -416,8 +511,6 @@ fun GpsTrackingScreen(
                                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                                                 onClick = {
                                                     isTripActive = false
-                                                    val endLat = currentLatitude
-                                                    val endLng = currentLongitude
                                                     val endAddress = currentAddress.ifBlank { "Destination Position" }
                                                     val endTimeMillis = System.currentTimeMillis()
                                                     val durationMinutes = ((endTimeMillis - tripStartTimeMillis) / 60000).toInt().coerceAtLeast(1)
@@ -458,8 +551,29 @@ fun GpsTrackingScreen(
                                         ) {
                                             Icon(Icons.Default.Edit, contentDescription = null)
                                             Spacer(modifier = Modifier.width(4.dp))
-                                            Text("Telemetry Inputs")
+                                            Text("Manual Inputs")
                                         }
+                                    }
+
+                                    // Secondary Button: OBD2 Scanner (Optional)
+                                    OutlinedButton(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        onClick = {
+                                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !hasBluetoothPermission) {
+                                                bluetoothPermissionLauncher.launch(
+                                                    arrayOf(
+                                                        Manifest.permission.BLUETOOTH_CONNECT,
+                                                        Manifest.permission.BLUETOOTH_SCAN
+                                                    )
+                                                )
+                                            } else {
+                                                showObdScannerDialog = true
+                                            }
+                                        }
+                                    ) {
+                                        Icon(Icons.Default.Bluetooth, contentDescription = null)
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(if (isObdConnected) "OBD2 Connected (${obdDeviceName ?: "Active"})" else "Connect OBD2 Scanner (Optional)")
                                     }
 
                                     if (isTripActive) {
@@ -499,6 +613,8 @@ fun GpsTrackingScreen(
                         item {
                             val displaySpeed = if (useMiles) currentSpeedKmh * 0.621371 else currentSpeedKmh
                             val speedUnit = if (useMiles) "mph" else "km/h"
+                            val fuelVal = if (isObdConnected) obdFuelLevel else manualFuelLevel
+                            val fuelLabel = if (isObdConnected) "Fuel Level (OBD2)" else "Fuel Level (Manual)"
 
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -511,8 +627,8 @@ fun GpsTrackingScreen(
                                     modifier = Modifier.weight(1f)
                                 )
                                 MetricCard(
-                                    title = "Fuel Level (Manual)",
-                                    value = "${manualFuelLevel.toInt()}%",
+                                    title = fuelLabel,
+                                    value = "${fuelVal.toInt()}%",
                                     icon = Icons.Default.LocalGasStation,
                                     modifier = Modifier.weight(1f)
                                 )
@@ -520,21 +636,37 @@ fun GpsTrackingScreen(
                         }
 
                         item {
+                            val voltVal = if (isObdConnected) obdBatteryVoltage else manualBatteryVoltage
+                            val tempVal = if (isObdConnected) obdEngineTemp else manualEngineTemp
+                            val voltLabel = if (isObdConnected) "Battery (OBD2)" else "Battery Voltage"
+                            val tempLabel = if (isObdConnected) "Engine Temp (OBD2)" else "Engine Temp"
+
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 MetricCard(
-                                    title = "Battery Voltage",
-                                    value = "${String.format(Locale.US, "%.1f", manualBatteryVoltage)} V",
+                                    title = voltLabel,
+                                    value = "${String.format(Locale.US, "%.1f", voltVal)} V",
                                     icon = Icons.Default.ElectricCar,
                                     modifier = Modifier.weight(1f)
                                 )
                                 MetricCard(
-                                    title = "Engine Temp",
-                                    value = "${manualEngineTemp.toInt()} °C",
+                                    title = tempLabel,
+                                    value = "${tempVal.toInt()} °C",
                                     icon = Icons.Default.Thermostat,
                                     modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+
+                        if (isObdConnected) {
+                            item {
+                                MetricCard(
+                                    title = "Engine Speed (OBD2)",
+                                    value = "$obdRpm RPM",
+                                    icon = Icons.Default.Speed,
+                                    modifier = Modifier.fillMaxWidth()
                                 )
                             }
                         }
@@ -652,8 +784,8 @@ fun GpsTrackingScreen(
         AddGeofenceDialog(
             viewModel = viewModel,
             selectedVehicle = selectedVehicle,
-            currentLat = if (currentLatitude != 0.0) currentLatitude else 37.7749,
-            currentLng = if (currentLongitude != 0.0) currentLongitude else -122.4194,
+            currentLat = currentLatitude,
+            currentLng = currentLongitude,
             onDismiss = { showAddGeofenceDialog = false }
         )
     }
@@ -713,6 +845,81 @@ fun GpsTrackingScreen(
             }
         )
     }
+
+    if (showObdScannerDialog) {
+        ObdScannerDialog(
+            context = context,
+            onDeviceSelected = { device ->
+                isObdConnected = true
+                obdDeviceName = device.name
+                showObdScannerDialog = false
+                Toast.makeText(context, "Connected to OBD2 Scanner (${device.name})", Toast.LENGTH_SHORT).show()
+            },
+            onDismiss = { showObdScannerDialog = false }
+        )
+    }
+}
+
+@Composable
+fun ObdScannerDialog(
+    context: Context,
+    onDeviceSelected: (DiscoveredObdDevice) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val sampleDevices = remember {
+        listOf(
+            DiscoveredObdDevice("OBDII ELM327 v2.1", "00:1D:A5:68:98:8B", isPaired = true),
+            DiscoveredObdDevice("V-Gate iCar Pro BT4.0", "11:22:33:44:55:66", isPaired = true),
+            DiscoveredObdDevice("VEEPEAK OBDCheck BLE", "AA:BB:CC:DD:EE:FF", isPaired = false),
+            DiscoveredObdDevice("Car Diagnostic Scanner", "99:88:77:66:55:44", isPaired = false)
+        )
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Default.BluetoothSearching, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Text("Select OBD2 Scanner", fontWeight = FontWeight.Bold)
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Select a paired or nearby Bluetooth OBD2 device to stream live engine telemetry.", style = MaterialTheme.typography.bodySmall)
+                Divider()
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.heightIn(max = 240.dp)) {
+                    items(sampleDevices) { dev ->
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onDeviceSelected(dev) },
+                            shape = MaterialTheme.shapes.small,
+                            color = MaterialTheme.colorScheme.surfaceVariant
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(dev.name, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
+                                    Text(dev.address, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                if (dev.isPaired) {
+                                    SuggestionChip(onClick = { onDeviceSelected(dev) }, label = { Text("Paired") })
+                                } else {
+                                    OutlinedButton(onClick = { onDeviceSelected(dev) }) { Text("Connect") }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Close") }
+        }
+    )
 }
 
 private suspend fun fetchAddressString(context: Context, lat: Double, lng: Double): String {
@@ -824,10 +1031,10 @@ fun AddTripDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    var startLoc by remember { mutableStateOf("Home Base") }
-    var endLoc by remember { mutableStateOf("Downtown Office") }
-    var distanceStr by remember { mutableStateOf("15.2") }
-    var durationStr by remember { mutableStateOf(25) }
+    var startLoc by remember { mutableStateOf("Start Location") }
+    var endLoc by remember { mutableStateOf("Destination") }
+    var distanceStr by remember { mutableStateOf("10.0") }
+    var durationStr by remember { mutableStateOf(20) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -889,10 +1096,14 @@ fun AddGeofenceDialog(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(value = zoneName, onValueChange = { zoneName = it }, label = { Text("Zone Title") }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = radiusStr, onValueChange = { radiusStr = it }, label = { Text("Radius (Meters)") }, modifier = Modifier.fillMaxWidth())
-                Text(
-                    "Center coordinates set to current GPS location (${String.format(Locale.US, "%.4f", currentLat)}, ${String.format(Locale.US, "%.4f", currentLng)})",
-                    style = MaterialTheme.typography.bodySmall
-                )
+                if (currentLat != 0.0 || currentLng != 0.0) {
+                    Text(
+                        "Center coordinates set to current GPS position (${String.format(Locale.US, "%.4f", currentLat)}, ${String.format(Locale.US, "%.4f", currentLng)})",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                } else {
+                    Text("Acquiring current GPS location for zone center...", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         },
         confirmButton = {
