@@ -67,6 +67,30 @@ fun FuelTrackerScreen(
             contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 88.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Vehicle Filter Chip Bar
+            if (vehicles.isNotEmpty()) {
+                item {
+                    androidx.compose.foundation.lazy.LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        item {
+                            FilterChip(
+                                selected = selectedVehicle == null,
+                                onClick = { viewModel.selectFuelVehicle(null) },
+                                label = { Text(AppStrings.get("all_vehicles", lang)) }
+                            )
+                        }
+                        items(vehicles, key = { it.id }) { v ->
+                            FilterChip(
+                                selected = selectedVehicle?.id == v.id,
+                                onClick = { viewModel.selectFuelVehicle(v) },
+                                label = { Text(v.vehicleName) }
+                            )
+                        }
+                    }
+                }
+            }
+
             // Fuel Analytics Header Cards
             item {
                 Row(

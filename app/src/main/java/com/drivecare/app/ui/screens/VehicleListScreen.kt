@@ -16,17 +16,22 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.drivecare.app.NavTab
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import com.drivecare.app.data.model.Vehicle
 import com.drivecare.app.ui.DriveCareViewModel
 import com.drivecare.app.utils.AppStrings
 import com.drivecare.app.utils.LocalAppLanguage
 import com.drivecare.app.utils.PdfReportGenerator
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VehicleListScreen(
     viewModel: DriveCareViewModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onNavigateToSection: ((NavTab, MoreSubSection?, Long?) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val lang = LocalAppLanguage.current
@@ -34,6 +39,9 @@ fun VehicleListScreen(
     val fuelEntries by viewModel.fuelEntries.collectAsState()
     val maintenanceLogs by viewModel.maintenanceLogs.collectAsState()
     val reminders by viewModel.reminders.collectAsState()
+    val documents by viewModel.documents.collectAsState()
+    val insurancePolicies by viewModel.insurancePolicies.collectAsState()
+    val expenses by viewModel.expenses.collectAsState()
 
     var showAddDialog by remember { mutableStateOf(false) }
     var selectedVehicleForProfile by remember { mutableStateOf<Vehicle?>(null) }
@@ -96,7 +104,7 @@ fun VehicleListScreen(
                     modifier = Modifier.fillMaxSize()
                 ) {
                     items(filteredVehicles, key = { it.id }) { v ->
-                        val health = viewModel.calculateHealthScore(v, reminders, fuelEntries, maintenanceLogs)
+                        val health = viewModel.calculateHealthScore(v, reminders, fuelEntries, maintenanceLogs, documents)
                         VehicleCard(
                             vehicle = v,
                             healthScore = health,
@@ -113,44 +121,20 @@ fun VehicleListScreen(
 
     // Vehicle Detail / Profile Modal
     selectedVehicleForProfile?.let { v ->
-        val health = viewModel.calculateHealthScore(v, reminders, fuelEntries, maintenanceLogs)
-        val vFuel = fuelEntries.filter { it.vehicleId == v.id }
-        val vService = maintenanceLogs.filter { it.vehicleId == v.id }
-
-        AlertDialog(
-            onDismissRequest = { selectedVehicleForProfile = null },
-            title = { Text(AppStrings.get("vehicle_profile", lang), fontWeight = FontWeight.Bold) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(v.vehicleName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("Type: ${v.vehicleType} • Brand: ${v.brand} • Model: ${v.model}")
-                    Text("Year: ${v.manufacturingYear} • Fuel: ${v.fuelType}")
-                    Text("Registration Plate: ${v.registrationNumber}")
-                    Text("Odometer Reading: ${v.odometerReading} km")
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Health Score: $health / 100", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    Text("Fuel Logs Count: ${vFuel.size}")
-                    Text("Service Logs Count: ${vService.size}")
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val file = PdfReportGenerator.generateAndShareReport(context, v, health, vFuel, vService)
-                        if (file != null) {
-                            Toast.makeText(context, AppStrings.get("pdf_generated", lang), Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                ) {
-                    Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(AppStrings.get("export_pdf", lang))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { selectedVehicleForProfile = null }) {
-                    Text(AppStrings.get("cancel", lang))
-                }
+        VehicleDetailDialog(
+            vehicle = v,
+            viewModel = viewModel,
+            fuelEntries = fuelEntries,
+            maintenanceLogs = maintenanceLogs,
+            reminders = reminders,
+            documents = documents,
+            insurancePolicies = insurancePolicies,
+            expenses = expenses,
+            lang = lang,
+            onDismiss = { selectedVehicleForProfile = null },
+            onNavigateToSection = { tab, subSection, vehicleId ->
+                selectedVehicleForProfile = null
+                onNavigateToSection?.invoke(tab, subSection, vehicleId)
             }
         )
     }
@@ -500,6 +484,199 @@ fun VehicleFormDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text(AppStrings.get("cancel", lang))
+            }
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun VehicleDetailDialog(
+    vehicle: Vehicle,
+    viewModel: DriveCareViewModel,
+    fuelEntries: List<com.drivecare.app.data.model.FuelEntry>,
+    maintenanceLogs: List<com.drivecare.app.data.model.Maintenance>,
+    reminders: List<com.drivecare.app.data.model.Reminder>,
+    documents: List<com.drivecare.app.data.model.Document>,
+    insurancePolicies: List<com.drivecare.app.data.model.InsurancePolicy>,
+    expenses: List<com.drivecare.app.data.model.Expense>,
+    lang: com.drivecare.app.utils.AppLanguage,
+    onDismiss: () -> Unit,
+    onNavigateToSection: (NavTab, MoreSubSection?, Long) -> Unit
+) {
+    val context = LocalContext.current
+    val health = viewModel.calculateHealthScore(vehicle, reminders, fuelEntries, maintenanceLogs, documents)
+
+    val vFuel = fuelEntries.filter { it.vehicleId == vehicle.id }
+    val vService = maintenanceLogs.filter { it.vehicleId == vehicle.id }
+    val vInsurance = insurancePolicies.filter { it.vehicleId == vehicle.id }
+    val vDocs = documents.filter { it.vehicleId == vehicle.id }
+    val vReminders = reminders.filter { it.vehicleId == vehicle.id && !it.isCompleted }
+    val vExpenses = expenses.filter { it.vehicleId == vehicle.id }
+
+    val fuelStats = viewModel.calculateVehicleFuelEfficiency(vehicle, fuelEntries)
+    val totalFuelSpent = vFuel.sumOf { it.amountPaid.toDoubleOrNull() ?: 0.0 }
+    val totalServiceSpent = vService.sumOf { it.serviceCost.toDoubleOrNull() ?: 0.0 }
+    val totalInsuranceSpent = vInsurance.sumOf { it.premiumAmount }
+    val totalCustomExpenses = vExpenses.sumOf { it.amount }
+    val grandTotalExpenses = totalFuelSpent + totalServiceSpent + totalInsuranceSpent + totalCustomExpenses
+
+    val latestService = vService.maxByOrNull { it.serviceDate }
+    val activePolicy = vInsurance.firstOrNull()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(vehicle.vehicleName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text("${vehicle.brand} ${vehicle.model} (${vehicle.manufacturingYear})", style = MaterialTheme.typography.bodySmall)
+                }
+                Surface(
+                    color = if (health >= 80) MaterialTheme.colorScheme.primaryContainer else if (health >= 50) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.errorContainer,
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Text(
+                        text = "Health: $health%",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // 1. Vehicle Specs Info Card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                ) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Vehicle Details", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
+                        Text("Registration Plate: ${vehicle.registrationNumber.ifBlank { "N/A" }}", style = MaterialTheme.typography.bodyMedium)
+                        Text("Vehicle Type: ${vehicle.vehicleType} • Fuel: ${vehicle.fuelType}", style = MaterialTheme.typography.bodySmall)
+                        Text("Odometer Reading: ${vehicle.odometerReading} km", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                        if (vehicle.notes.isNotBlank()) {
+                            Text("Notes: ${vehicle.notes}", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+
+                // 2. Fuel Tracker Summary
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text("Fuel Analytics", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                            TextButton(onClick = { onNavigateToSection(NavTab.FUEL, null, vehicle.id) }) {
+                                Text("Log Fuel", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                        Text("Total Fuel Spent: ${String.format(Locale.US, "%.2f", totalFuelSpent)} (${vFuel.size} Refills)", style = MaterialTheme.typography.bodySmall)
+                        Text("Avg Fuel Efficiency: ${String.format(Locale.US, "%.1f", fuelStats.kmPerLitre)} km/L (${String.format(Locale.US, "%.1f", fuelStats.litresPer100Km)} L/100km)", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
+                    }
+                }
+
+                // 3. Maintenance History Summary
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text("Maintenance History", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                            TextButton(onClick = { onNavigateToSection(NavTab.SERVICE, null, vehicle.id) }) {
+                                Text("Add Service", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                        Text("Total Service Cost: ${String.format(Locale.US, "%.2f", totalServiceSpent)} (${vService.size} Logs)", style = MaterialTheme.typography.bodySmall)
+                        if (latestService != null) {
+                            Text("Latest Service: ${latestService.serviceTitle} on ${latestService.serviceDate}", style = MaterialTheme.typography.bodySmall)
+                        } else {
+                            Text("No service logs recorded yet.", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+
+                // 4. Insurance Status Summary
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text("Insurance Status", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                            TextButton(onClick = { onNavigateToSection(NavTab.MORE, MoreSubSection.INSURANCE, vehicle.id) }) {
+                                Text("Manage", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                        if (activePolicy != null) {
+                            Text("Provider: ${activePolicy.providerName} (#${activePolicy.policyNumber})", style = MaterialTheme.typography.bodySmall)
+                            Text("Coverage: ${activePolicy.coverageType} • Expires: ${activePolicy.expiryDate}", style = MaterialTheme.typography.bodySmall)
+                        } else {
+                            Text("No active insurance policy configured.", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+
+                // 5. Documents & Reminders
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Card(modifier = Modifier.weight(1f).clickable { onNavigateToSection(NavTab.MORE, MoreSubSection.DOCUMENTS, vehicle.id) }) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text("Documents", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
+                            Text("${vDocs.size} Attached Files", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    Card(modifier = Modifier.weight(1f).clickable { onNavigateToSection(NavTab.SERVICE, null, vehicle.id) }) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text("Reminders", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
+                            Text("${vReminders.size} Due / Pending", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+
+                // 6. Total Expenses Breakdown
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text("Total Vehicle Expenses", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Text(
+                            "${String.format(Locale.US, "%.2f", grandTotalExpenses)}",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Text(
+                            "Fuel: ${String.format(Locale.US, "%.0f", totalFuelSpent)} • Service: ${String.format(Locale.US, "%.0f", totalServiceSpent)} • Insurance: ${String.format(Locale.US, "%.0f", totalInsuranceSpent)} • Other: ${String.format(Locale.US, "%.0f", totalCustomExpenses)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val file = PdfReportGenerator.generateAndShareReport(context, vehicle, health, vFuel, vService)
+                    if (file != null) {
+                        Toast.makeText(context, AppStrings.get("pdf_generated", lang), Toast.LENGTH_SHORT).show()
+                    }
+                }
+            ) {
+                Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(AppStrings.get("export_pdf", lang))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
             }
         }
     )

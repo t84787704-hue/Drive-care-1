@@ -31,6 +31,13 @@ fun ReminderScreen(
     val reminders by viewModel.reminders.collectAsState()
 
     var showAddDialog by remember { mutableStateOf(false) }
+    var selectedVehicleIdFilter by remember { mutableStateOf<Long?>(null) }
+
+    val filteredReminders = if (selectedVehicleIdFilter == null) {
+        reminders
+    } else {
+        reminders.filter { it.vehicleId == selectedVehicleIdFilter }
+    }
 
     Scaffold(
         modifier = modifier,
@@ -59,7 +66,31 @@ fun ReminderScreen(
                 )
             }
 
-            if (reminders.isEmpty()) {
+            // Vehicle Filter Chips
+            if (vehicles.isNotEmpty()) {
+                item {
+                    androidx.compose.foundation.lazy.LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        item {
+                            FilterChip(
+                                selected = selectedVehicleIdFilter == null,
+                                onClick = { selectedVehicleIdFilter = null },
+                                label = { Text(AppStrings.get("all_vehicles", lang)) }
+                            )
+                        }
+                        items(vehicles, key = { it.id }) { v ->
+                            FilterChip(
+                                selected = selectedVehicleIdFilter == v.id,
+                                onClick = { selectedVehicleIdFilter = v.id },
+                                label = { Text(v.vehicleName) }
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (filteredReminders.isEmpty()) {
                 item {
                     Box(
                         modifier = Modifier
@@ -76,7 +107,7 @@ fun ReminderScreen(
                     }
                 }
             } else {
-                items(reminders, key = { it.id }) { rem ->
+                items(filteredReminders, key = { it.id }) { rem ->
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(

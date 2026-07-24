@@ -36,9 +36,16 @@ fun ExpenseManagerScreen(
     val vehicles by viewModel.vehicles.collectAsState()
 
     var showAddDialog by remember { mutableStateOf(false) }
+    var selectedVehicleIdFilter by remember { mutableStateOf<Long?>(null) }
 
-    val totalExpensesAmount = expenses.sumOf { it.amount }
-    val categoriesMap = expenses.groupBy { it.category }
+    val filteredExpenses = if (selectedVehicleIdFilter == null) {
+        expenses
+    } else {
+        expenses.filter { it.vehicleId == selectedVehicleIdFilter }
+    }
+
+    val totalExpensesAmount = filteredExpenses.sumOf { it.amount }
+    val categoriesMap = filteredExpenses.groupBy { it.category }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -57,6 +64,29 @@ fun ExpenseManagerScreen(
             contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 88.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Vehicle Filter Chips
+            if (vehicles.isNotEmpty()) {
+                item {
+                    androidx.compose.foundation.lazy.LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        item {
+                            FilterChip(
+                                selected = selectedVehicleIdFilter == null,
+                                onClick = { selectedVehicleIdFilter = null },
+                                label = { Text(AppStrings.get("all_vehicles", lang)) }
+                            )
+                        }
+                        items(vehicles, key = { it.id }) { v ->
+                            FilterChip(
+                                selected = selectedVehicleIdFilter == v.id,
+                                onClick = { selectedVehicleIdFilter = v.id },
+                                label = { Text(v.vehicleName) }
+                            )
+                        }
+                    }
+                }
+            }
             // Overall Financial Header Card
             item {
                 Card(
@@ -157,7 +187,7 @@ fun ExpenseManagerScreen(
                 )
             }
 
-            if (expenses.isEmpty()) {
+            if (filteredExpenses.isEmpty()) {
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -175,7 +205,7 @@ fun ExpenseManagerScreen(
                     }
                 }
             } else {
-                items(expenses) { expense ->
+                items(filteredExpenses) { expense ->
                     ExpenseCard(
                         expense = expense,
                         onDelete = {

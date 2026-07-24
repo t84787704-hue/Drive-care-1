@@ -64,6 +64,7 @@ fun DocumentsScreen(
 
     var showAddDialog by remember { mutableStateOf(false) }
     var selectedFilter by remember { mutableStateOf("All") }
+    var selectedVehicleIdFilter by remember { mutableStateOf<Long?>(null) }
     var previewImageDoc by remember { mutableStateOf<Document?>(null) }
 
     LaunchedEffect(highlightRecordId, documents) {
@@ -71,16 +72,16 @@ fun DocumentsScreen(
             val doc = documents.find { it.id == highlightRecordId }
             if (doc != null) {
                 selectedFilter = "All"
+                selectedVehicleIdFilter = null
             }
         }
     }
 
     val categories = listOf("All", "Registration", "Insurance", "License", "Bill", "Warranty", "Photo")
 
-    val filteredDocs = if (selectedFilter == "All") {
-        documents
-    } else {
-        documents.filter { it.docType.equals(selectedFilter, ignoreCase = true) }
+    val filteredDocs = documents.filter { doc ->
+        (selectedVehicleIdFilter == null || doc.vehicleId == selectedVehicleIdFilter) &&
+                (selectedFilter == "All" || doc.docType.equals(selectedFilter, ignoreCase = true))
     }
 
     Scaffold(
@@ -110,6 +111,28 @@ fun DocumentsScreen(
                 )
             }
 
+            // Vehicle filter chips
+            if (vehicles.isNotEmpty()) {
+                item {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        item {
+                            FilterChip(
+                                selected = selectedVehicleIdFilter == null,
+                                onClick = { selectedVehicleIdFilter = null },
+                                label = { Text(AppStrings.get("all_vehicles", lang)) }
+                            )
+                        }
+                        items(vehicles, key = { it.id }) { v ->
+                            FilterChip(
+                                selected = selectedVehicleIdFilter == v.id,
+                                onClick = { selectedVehicleIdFilter = v.id },
+                                label = { Text(v.vehicleName) }
+                            )
+                        }
+                    }
+                }
+            }
+
             // Category filter chips
             item {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -117,7 +140,7 @@ fun DocumentsScreen(
                         FilterChip(
                             selected = selectedFilter == cat,
                             onClick = { selectedFilter = cat },
-                            label = { Text(if (cat == "All") AppStrings.get("all_vehicles", lang) else cat) }
+                            label = { Text(cat) }
                         )
                     }
                 }

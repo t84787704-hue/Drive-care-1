@@ -36,10 +36,21 @@ fun MaintenanceScreen(
     val maintenanceLogs by viewModel.maintenanceLogs.collectAsState()
 
     var showAddDialog by remember { mutableStateOf(false) }
+    var selectedFilterVehicleId by remember { mutableStateOf<Long?>(null) }
 
-    val advisorSuggestions = remember(vehicles, maintenanceLogs) {
-        if (vehicles.isNotEmpty()) {
-            viewModel.getMaintenanceAdvisorSuggestions(vehicles.first(), maintenanceLogs)
+    val filteredLogs = if (selectedFilterVehicleId == null) {
+        maintenanceLogs
+    } else {
+        maintenanceLogs.filter { it.vehicleId == selectedFilterVehicleId }
+    }
+
+    val advisorSuggestions = remember(vehicles, maintenanceLogs, selectedFilterVehicleId) {
+        val targetVehicle = if (selectedFilterVehicleId != null) {
+            vehicles.find { it.id == selectedFilterVehicleId }
+        } else vehicles.firstOrNull()
+
+        if (targetVehicle != null) {
+            viewModel.getMaintenanceAdvisorSuggestions(targetVehicle, maintenanceLogs)
         } else emptyList()
     }
 
@@ -62,6 +73,29 @@ fun MaintenanceScreen(
             contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 88.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Vehicle Filter Chip Bar
+            if (vehicles.isNotEmpty()) {
+                item {
+                    androidx.compose.foundation.lazy.LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        item {
+                            FilterChip(
+                                selected = selectedFilterVehicleId == null,
+                                onClick = { selectedFilterVehicleId = null },
+                                label = { Text(AppStrings.get("all_vehicles", lang)) }
+                            )
+                        }
+                        items(vehicles, key = { it.id }) { v ->
+                            FilterChip(
+                                selected = selectedFilterVehicleId == v.id,
+                                onClick = { selectedFilterVehicleId = v.id },
+                                label = { Text(v.vehicleName) }
+                            )
+                        }
+                    }
+                }
+            }
             // Smart Maintenance Advisor Section
             item {
                 Card(
@@ -134,7 +168,7 @@ fun MaintenanceScreen(
                 )
             }
 
-            if (maintenanceLogs.isEmpty()) {
+            if (filteredLogs.isEmpty()) {
                 item {
                     Box(
                         modifier = Modifier
@@ -151,7 +185,7 @@ fun MaintenanceScreen(
                     }
                 }
             } else {
-                items(maintenanceLogs, key = { it.id }) { log ->
+                items(filteredLogs, key = { it.id }) { log ->
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)

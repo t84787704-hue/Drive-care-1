@@ -265,7 +265,22 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             )
-                            NavTab.GARAGE -> VehicleListScreen(viewModel = viewModel, modifier = modifier)
+                            NavTab.GARAGE -> VehicleListScreen(
+                                viewModel = viewModel,
+                                modifier = modifier,
+                                onNavigateToSection = { tab, subSection, vehicleId ->
+                                    if (vehicleId != null) {
+                                        val v = viewModel.vehicles.value.find { it.id == vehicleId }
+                                        if (v != null) {
+                                            viewModel.selectFuelVehicle(v)
+                                        }
+                                    }
+                                    val dest = NavDestination(tab, subSection ?: MoreSubSection.MENU)
+                                    if (currentDestination != dest) {
+                                        backStack.add(dest)
+                                    }
+                                }
+                            )
                             NavTab.FUEL -> FuelTrackerScreen(
                                 viewModel = viewModel,
                                 modifier = modifier,
