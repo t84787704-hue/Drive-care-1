@@ -204,6 +204,8 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
             maintenanceDao.deleteByVehicle(vehicle.id)
             reminderDao.deleteByVehicle(vehicle.id)
             documentDao.deleteByVehicle(vehicle.id)
+            expenseDao.deleteByVehicle(vehicle.id)
+            insurancePolicyDao.deleteByVehicle(vehicle.id)
             if (_selectedFuelVehicle.value?.id == vehicle.id) {
                 _selectedFuelVehicle.value = null
             }

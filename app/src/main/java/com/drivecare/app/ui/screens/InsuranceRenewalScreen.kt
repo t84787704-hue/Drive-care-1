@@ -172,6 +172,30 @@ fun InsuranceRenewalScreen(
                 }
             }
 
+            // Vehicle Filter Chips
+            if (vehicles.isNotEmpty()) {
+                item {
+                    androidx.compose.foundation.lazy.LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        item {
+                            FilterChip(
+                                selected = selectedVehicleFilter == null,
+                                onClick = { selectedVehicleFilter = null },
+                                label = { Text(AppStrings.get("all_vehicles", lang)) }
+                            )
+                        }
+                        items(vehicles, key = { it.id }) { v ->
+                            FilterChip(
+                                selected = selectedVehicleFilter == v.id,
+                                onClick = { selectedVehicleFilter = v.id },
+                                label = { Text(v.vehicleName) }
+                            )
+                        }
+                    }
+                }
+            }
+
             // Status Filter Chips
             item {
                 Row(

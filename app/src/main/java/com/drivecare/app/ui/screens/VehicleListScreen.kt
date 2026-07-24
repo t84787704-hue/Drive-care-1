@@ -505,6 +505,7 @@ fun VehicleDetailDialog(
     onNavigateToSection: (NavTab, MoreSubSection?, Long) -> Unit
 ) {
     val context = LocalContext.current
+    val currencySymbol by viewModel.currentCurrencySymbol.collectAsState()
     val health = viewModel.calculateHealthScore(vehicle, reminders, fuelEntries, maintenanceLogs, documents)
 
     val vFuel = fuelEntries.filter { it.vehicleId == vehicle.id }
@@ -646,13 +647,13 @@ fun VehicleDetailDialog(
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text("Total Vehicle Expenses", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
                         Text(
-                            "${String.format(Locale.US, "%.2f", grandTotalExpenses)}",
+                            "$currencySymbol${String.format(Locale.US, "%.2f", grandTotalExpenses)}",
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                         Text(
-                            "Fuel: ${String.format(Locale.US, "%.0f", totalFuelSpent)} • Service: ${String.format(Locale.US, "%.0f", totalServiceSpent)} • Insurance: ${String.format(Locale.US, "%.0f", totalInsuranceSpent)} • Other: ${String.format(Locale.US, "%.0f", totalCustomExpenses)}",
+                            "Fuel: $currencySymbol${String.format(Locale.US, "%.0f", totalFuelSpent)} • Service: $currencySymbol${String.format(Locale.US, "%.0f", totalServiceSpent)} • Insurance: $currencySymbol${String.format(Locale.US, "%.0f", totalInsuranceSpent)} • Other: $currencySymbol${String.format(Locale.US, "%.0f", totalCustomExpenses)}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                         )

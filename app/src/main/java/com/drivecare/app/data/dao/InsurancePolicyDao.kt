@@ -12,6 +12,9 @@ interface InsurancePolicyDao {
     @Query("SELECT * FROM insurance_policies WHERE vehicleId = :vehicleId ORDER BY expiryDate ASC")
     fun getPoliciesForVehicle(vehicleId: Long): Flow<List<InsurancePolicy>>
 
+    @Query("DELETE FROM insurance_policies WHERE vehicleId = :vehicleId")
+    suspend fun deleteByVehicle(vehicleId: Long)
+
     @Query("SELECT * FROM insurance_policies ORDER BY expiryDate ASC")
     suspend fun getAllInsurancePoliciesSync(): List<InsurancePolicy>
 

@@ -12,6 +12,9 @@ interface ExpenseDao {
     @Query("SELECT * FROM expenses WHERE vehicleId = :vehicleId ORDER BY id DESC")
     fun getExpensesForVehicle(vehicleId: Long): Flow<List<Expense>>
 
+    @Query("DELETE FROM expenses WHERE vehicleId = :vehicleId")
+    suspend fun deleteByVehicle(vehicleId: Long)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertExpense(expense: Expense): Long
 
