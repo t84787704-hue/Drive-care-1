@@ -10,6 +10,15 @@ android {
     namespace = "com.drivecare.app"
     compileSdk = 35
 
+    signingConfigs {
+        create("customSigning") {
+            storeFile = file("../debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     defaultConfig {
         applicationId = "com.drivecare.app"
         minSdk = 24
@@ -27,6 +36,7 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            signingConfig = signingConfigs.getByName("customSigning")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -34,6 +44,7 @@ android {
         }
         debug {
             applicationIdSuffix = ""
+            signingConfig = signingConfigs.getByName("customSigning")
         }
     }
     compileOptions {

@@ -1,9 +1,13 @@
 package com.drivecare.app.ui.screens
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -35,6 +39,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.drivecare.app.data.model.Document
 import com.drivecare.app.data.model.Vehicle
@@ -335,7 +340,56 @@ fun AddDocumentDialog(
     var attachedFileInfo by remember { mutableStateOf<SavedFileInfo?>(null) }
     var isProcessingFile by remember { mutableStateOf(false) }
 
-    val imagePickerLauncher = rememberLauncherForActivityResult(
+    var showPermissionDeniedDialog by remember { mutableStateOf(false) }
+    var permissionDeniedReason by remember { mutableStateOf("") }
+    var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success: Boolean ->
+        val uri = tempCameraUri
+        if (success && uri != null) {
+            isProcessingFile = true
+            val saved = DocumentFileHelper.saveFileToInternalStorage(context, uri)
+            isProcessingFile = false
+            if (saved != null) {
+                attachedFileInfo = saved
+                Toast.makeText(context, "Photo captured successfully", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, "Failed to process photo", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    fun launchCameraCapture() {
+        try {
+            val cacheDir = File(context.cacheDir, "camera_photos").apply { if (!exists()) mkdirs() }
+            val tempFile = File(cacheDir, "doc_photo_${System.currentTimeMillis()}.jpg")
+            val uri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                tempFile
+            )
+            tempCameraUri = uri
+            cameraLauncher.launch(uri)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(context, "Could not launch camera: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            launchCameraCapture()
+        } else {
+            permissionDeniedReason = "Camera permission is required to take photo attachments for your vehicle documents."
+            showPermissionDeniedDialog = true
+        }
+    }
+
+    val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         if (uri != null) {
@@ -344,10 +398,21 @@ fun AddDocumentDialog(
             isProcessingFile = false
             if (saved != null) {
                 attachedFileInfo = saved
-                Toast.makeText(context, "Image attached successfully", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Image selected from gallery successfully", Toast.LENGTH_SHORT).show()
             } else {
-                Toast.makeText(context, "Failed to process image", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Failed to process gallery image", Toast.LENGTH_SHORT).show()
             }
+        }
+    }
+
+    val galleryPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            galleryLauncher.launch("image/*")
+        } else {
+            permissionDeniedReason = "Photos and media access permission is required to select document images from your gallery."
+            showPermissionDeniedDialog = true
         }
     }
 
@@ -519,25 +584,59 @@ fun AddDocumentDialog(
                         }
                     }
                 } else {
-                    Row(
+                    Column(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        OutlinedButton(
-                            onClick = { imagePickerLauncher.launch("image/*") },
-                            modifier = Modifier.weight(1f)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Attach Photo")
+                            OutlinedButton(
+                                onClick = {
+                                    val cameraPermission = Manifest.permission.CAMERA
+                                    if (ContextCompat.checkSelfPermission(context, cameraPermission) == PackageManager.PERMISSION_GRANTED) {
+                                        launchCameraCapture()
+                                    } else {
+                                        cameraPermissionLauncher.launch(cameraPermission)
+                                    }
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Take Photo")
+                            }
+
+                            OutlinedButton(
+                                onClick = {
+                                    val galleryPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                        Manifest.permission.READ_MEDIA_IMAGES
+                                    } else {
+                                        Manifest.permission.READ_EXTERNAL_STORAGE
+                                    }
+
+                                    if (ContextCompat.checkSelfPermission(context, galleryPermission) == PackageManager.PERMISSION_GRANTED) {
+                                        galleryLauncher.launch("image/*")
+                                    } else {
+                                        galleryPermissionLauncher.launch(galleryPermission)
+                                    }
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Choose Gallery")
+                            }
                         }
+
                         OutlinedButton(
                             onClick = { docPickerLauncher.launch("*/*") },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Attach File/PDF")
+                            Text("Attach Document File / PDF")
                         }
                     }
                 }
@@ -587,6 +686,33 @@ fun AddDocumentDialog(
             }
         }
     )
+
+    if (showPermissionDeniedDialog) {
+        AlertDialog(
+            onDismissRequest = { showPermissionDeniedDialog = false },
+            title = { Text("Permission Required", fontWeight = FontWeight.Bold) },
+            text = { Text(permissionDeniedReason) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showPermissionDeniedDialog = false
+                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = Uri.fromParts("package", context.packageName, null)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(intent)
+                    }
+                ) {
+                    Text("Open Settings")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPermissionDeniedDialog = false }) {
+                    Text(AppStrings.get("cancel", lang))
+                }
+            }
+        )
+    }
 }
 
 @Composable
