@@ -495,7 +495,7 @@ fun SettingsScreen(
             title = { Text(AppStrings.get("backup_data", currentLang), fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Copy your JSON backup string:")
+                    Text("Copy your JSON backup string below to save or transfer to another device:")
                     OutlinedTextField(
                         value = backupJsonText,
                         onValueChange = {},
@@ -507,14 +507,24 @@ fun SettingsScreen(
                 }
             },
             confirmButton = {
-                Button(
-                    onClick = {
-                        clipboardManager.setText(AnnotatedString(backupJsonText))
-                        Toast.makeText(context, "Backup copied to clipboard!", Toast.LENGTH_SHORT).show()
-                        showBackupDialog = false
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = {
+                            clipboardManager.setText(AnnotatedString(backupJsonText))
+                            Toast.makeText(context, "Backup copied to clipboard!", Toast.LENGTH_SHORT).show()
+                            // Keep dialog open as requested
+                        }
+                    ) {
+                        Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Copy to Clipboard")
                     }
-                ) {
-                    Text("Copy to Clipboard")
+
+                    Button(
+                        onClick = { showBackupDialog = false }
+                    ) {
+                        Text("Done")
+                    }
                 }
             },
             dismissButton = {
@@ -531,12 +541,44 @@ fun SettingsScreen(
             onDismissRequest = { showRestoreDialog = false },
             title = { Text("Restore JSON Backup", fontWeight = FontWeight.Bold) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Paste your DriveCare JSON backup string below:")
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Paste your DriveCare JSON backup string below or tap 'Paste from Clipboard':", style = MaterialTheme.typography.bodyMedium)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                val clipText = clipboardManager.getText()?.text
+                                if (!clipText.isNullOrBlank()) {
+                                    restoreJsonInput = clipText
+                                    Toast.makeText(context, "Pasted from clipboard", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "Clipboard is empty", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.ContentPaste, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Paste Clipboard")
+                        }
+
+                        AssistChip(
+                            onClick = {
+                                restoreJsonInput = viewModel.getSampleBackupJson()
+                                Toast.makeText(context, "Loaded Sample Backup JSON", Toast.LENGTH_SHORT).show()
+                            },
+                            label = { Text("Load Sample") },
+                            leadingIcon = { Icon(Icons.Default.DataObject, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                        )
+                    }
+
                     OutlinedTextField(
                         value = restoreJsonInput,
                         onValueChange = { restoreJsonInput = it },
-                        placeholder = { Text("Paste JSON here...") },
+                        placeholder = { Text("Paste JSON backup here...") },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(180.dp)
@@ -554,9 +596,13 @@ fun SettingsScreen(
                                     restoreJsonInput = ""
                                 }
                             }
+                        } else {
+                            Toast.makeText(context, "Please paste JSON backup text first", Toast.LENGTH_SHORT).show()
                         }
                     }
                 ) {
+                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text("Restore Data")
                 }
             },

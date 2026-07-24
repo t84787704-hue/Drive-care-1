@@ -308,7 +308,7 @@ fun MoreScreen(
                         onClick = {
                             clipboardManager.setText(AnnotatedString(backupJsonText))
                             Toast.makeText(context, "Backup copied to clipboard!", Toast.LENGTH_SHORT).show()
-                            showBackupDialog = false
+                            // Do not close dialog as requested
                         }
                     ) {
                         Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -339,12 +339,44 @@ fun MoreScreen(
             onDismissRequest = { showRestoreDialog = false },
             title = { Text(AppStrings.get("restore_data", lang), fontWeight = FontWeight.Bold) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Paste your JSON backup string below to restore records:")
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Paste your JSON backup string below or tap 'Paste from Clipboard':")
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                val clipText = clipboardManager.getText()?.text
+                                if (!clipText.isNullOrBlank()) {
+                                    restoreJsonInput = clipText
+                                    Toast.makeText(context, "Pasted from clipboard", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "Clipboard is empty", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.ContentPaste, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Paste Clipboard")
+                        }
+
+                        AssistChip(
+                            onClick = {
+                                restoreJsonInput = viewModel.getSampleBackupJson()
+                                Toast.makeText(context, "Loaded Sample Backup JSON", Toast.LENGTH_SHORT).show()
+                            },
+                            label = { Text("Sample") },
+                            leadingIcon = { Icon(Icons.Default.DataObject, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                        )
+                    }
+
                     OutlinedTextField(
                         value = restoreJsonInput,
                         onValueChange = { restoreJsonInput = it },
-                        placeholder = { Text("Paste JSON here...") },
+                        placeholder = { Text("Paste JSON backup here...") },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(160.dp)
@@ -362,9 +394,13 @@ fun MoreScreen(
                                     restoreJsonInput = ""
                                 }
                             }
+                        } else {
+                            Toast.makeText(context, "Please paste JSON backup text first", Toast.LENGTH_SHORT).show()
                         }
                     }
                 ) {
+                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(AppStrings.get("restore_data", lang))
                 }
             },

@@ -169,6 +169,108 @@ fun SummaryDashboardScreen(
             }
         }
 
+        // Quick Language & Theme Controls Card (Front Screen)
+        val currentThemeMode by viewModel.themeMode.collectAsState()
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Language Selector
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Language,
+                        contentDescription = "Language",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    var langExpanded by remember { mutableStateOf(false) }
+                    Box {
+                        AssistChip(
+                            onClick = { langExpanded = true },
+                            label = { Text(lang.displayName, style = MaterialTheme.typography.labelMedium) },
+                            trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                        )
+                        DropdownMenu(
+                            expanded = langExpanded,
+                            onDismissRequest = { langExpanded = false }
+                        ) {
+                            com.drivecare.app.utils.AppLanguage.entries.forEach { langOption ->
+                                DropdownMenuItem(
+                                    text = { Text("${langOption.displayName}${if (lang == langOption) " ✓" else ""}") },
+                                    onClick = {
+                                        viewModel.setLanguage(langOption)
+                                        langExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Theme Mode Selector
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    val themeIcon = when (currentThemeMode) {
+                        "DARK" -> Icons.Default.DarkMode
+                        "LIGHT" -> Icons.Default.LightMode
+                        else -> Icons.Default.SettingsBrightness
+                    }
+                    val themeLabel = when (currentThemeMode) {
+                        "DARK" -> "Dark Mode"
+                        "LIGHT" -> "Light Mode"
+                        else -> "System Theme"
+                    }
+                    var themeExpanded by remember { mutableStateOf(false) }
+                    Box {
+                        AssistChip(
+                            onClick = { themeExpanded = true },
+                            leadingIcon = { Icon(themeIcon, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                            label = { Text(themeLabel, style = MaterialTheme.typography.labelMedium) },
+                            trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                        )
+                        DropdownMenu(
+                            expanded = themeExpanded,
+                            onDismissRequest = { themeExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("System Theme ${if (currentThemeMode == "SYSTEM") "✓" else ""}") },
+                                onClick = {
+                                    viewModel.setThemeMode("SYSTEM")
+                                    themeExpanded = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Light Mode ${if (currentThemeMode == "LIGHT") "✓" else ""}") },
+                                onClick = {
+                                    viewModel.setThemeMode("LIGHT")
+                                    themeExpanded = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Dark Mode ${if (currentThemeMode == "DARK") "✓" else ""}") },
+                                onClick = {
+                                    viewModel.setThemeMode("DARK")
+                                    themeExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         // Quick Actions Shortcut Bar
         QuickActionRow(viewModel = viewModel)
 

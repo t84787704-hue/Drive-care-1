@@ -203,7 +203,9 @@ class MainActivity : ComponentActivity() {
                                 showBackButton = isSecondary,
                                 onBackClick = popBackStack,
                                 currentLanguage = currentLang,
-                                onLanguageSelected = { viewModel.setLanguage(it) }
+                                onLanguageSelected = { viewModel.setLanguage(it) },
+                                currentThemeMode = themeMode,
+                                onThemeModeSelected = { viewModel.setThemeMode(it) }
                             )
                         },
                         bottomBar = {
@@ -351,9 +353,18 @@ class MainActivity : ComponentActivity() {
         showBackButton: Boolean,
         onBackClick: () -> Unit,
         currentLanguage: AppLanguage,
-        onLanguageSelected: (AppLanguage) -> Unit
+        onLanguageSelected: (AppLanguage) -> Unit,
+        currentThemeMode: String,
+        onThemeModeSelected: (String) -> Unit
     ) {
-        var menuExpanded by remember { mutableStateOf(false) }
+        var langMenuExpanded by remember { mutableStateOf(false) }
+        var themeMenuExpanded by remember { mutableStateOf(false) }
+
+        val themeIcon = when (currentThemeMode) {
+            "DARK" -> Icons.Default.DarkMode
+            "LIGHT" -> Icons.Default.LightMode
+            else -> Icons.Default.SettingsBrightness
+        }
 
         TopAppBar(
             title = {
@@ -372,19 +383,51 @@ class MainActivity : ComponentActivity() {
                 }
             },
             actions = {
-                IconButton(onClick = { menuExpanded = true }) {
+                // Theme Mode Selector
+                IconButton(onClick = { themeMenuExpanded = true }) {
+                    Icon(themeIcon, contentDescription = "App Theme")
+                }
+                DropdownMenu(
+                    expanded = themeMenuExpanded,
+                    onDismissRequest = { themeMenuExpanded = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("System Default ${if (currentThemeMode == "SYSTEM") "✓" else ""}") },
+                        onClick = {
+                            onThemeModeSelected("SYSTEM")
+                            themeMenuExpanded = false
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Light Mode ${if (currentThemeMode == "LIGHT") "✓" else ""}") },
+                        onClick = {
+                            onThemeModeSelected("LIGHT")
+                            themeMenuExpanded = false
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Dark Mode ${if (currentThemeMode == "DARK") "✓" else ""}") },
+                        onClick = {
+                            onThemeModeSelected("DARK")
+                            themeMenuExpanded = false
+                        }
+                    )
+                }
+
+                // Language Selector
+                IconButton(onClick = { langMenuExpanded = true }) {
                     Icon(Icons.Default.Language, contentDescription = "Language")
                 }
                 DropdownMenu(
-                    expanded = menuExpanded,
-                    onDismissRequest = { menuExpanded = false }
+                    expanded = langMenuExpanded,
+                    onDismissRequest = { langMenuExpanded = false }
                 ) {
                     AppLanguage.entries.forEach { lang ->
                         DropdownMenuItem(
-                            text = { Text(lang.displayName) },
+                            text = { Text("${lang.displayName}${if (currentLanguage == lang) " ✓" else ""}") },
                             onClick = {
                                 onLanguageSelected(lang)
-                                menuExpanded = false
+                                langMenuExpanded = false
                             }
                         )
                     }

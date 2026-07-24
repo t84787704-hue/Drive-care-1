@@ -806,12 +806,128 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         return root.toString(2)
     }
 
+    // Sample Backup Generator for quick test restores
+    fun getSampleBackupJson(): String {
+        val root = JSONObject()
+        val vArr = JSONArray().apply {
+            put(JSONObject().apply {
+                put("id", 101L)
+                put("vehicleName", "Toyota Camry Hybrid")
+                put("vehicleType", "Sedan")
+                put("brand", "Toyota")
+                put("model", "Camry SE")
+                put("manufacturingYear", "2023")
+                put("registrationNumber", "ABC-9876")
+                put("fuelType", "Hybrid")
+                put("odometerReading", "24500")
+                put("notes", "Sample Restored Vehicle")
+            })
+        }
+        root.put("vehicles", vArr)
+
+        val fArr = JSONArray().apply {
+            put(JSONObject().apply {
+                put("id", 201L)
+                put("vehicleId", 101L)
+                put("vehicleName", "Toyota Camry Hybrid")
+                put("fuelDate", "2026-07-20")
+                put("fuelType", "Hybrid Petrol")
+                put("fuelQuantity", "45.0")
+                put("amountPaid", "68.50")
+                put("currentOdometer", "24500")
+                put("fuelStationName", "Shell Express")
+                put("notes", "Full tank refill")
+            })
+        }
+        root.put("fuel_entries", fArr)
+
+        val mArr = JSONArray().apply {
+            put(JSONObject().apply {
+                put("id", 301L)
+                put("vehicleId", 101L)
+                put("vehicleName", "Toyota Camry Hybrid")
+                put("serviceTitle", "Synthetic Oil & Filter Replacement")
+                put("serviceType", "Routine Service")
+                put("serviceDate", "2026-06-15")
+                put("currentOdometer", "23000")
+                put("serviceCost", "120.00")
+                put("workshopName", "Toyota Authorized Service")
+                put("notes", "Oil filter, air filter replaced")
+            })
+        }
+        root.put("maintenance", mArr)
+
+        val rArr = JSONArray().apply {
+            put(JSONObject().apply {
+                put("id", 401L)
+                put("vehicleId", 101L)
+                put("vehicleName", "Toyota Camry Hybrid")
+                put("reminderTitle", "Tire Rotation & Alignment")
+                put("reminderType", "Maintenance")
+                put("dueDate", "2026-09-01")
+                put("isCompleted", false)
+            })
+        }
+        root.put("reminders", rArr)
+
+        val expArr = JSONArray().apply {
+            put(JSONObject().apply {
+                put("id", 501L)
+                put("vehicleId", 101L)
+                put("vehicleName", "Toyota Camry Hybrid")
+                put("title", "City Parking Permit")
+                put("category", "Parking")
+                put("amount", 45.00)
+                put("date", "2026-07-01")
+                put("notes", "Monthly permit")
+            })
+        }
+        root.put("expenses", expArr)
+
+        val insArr = JSONArray().apply {
+            put(JSONObject().apply {
+                put("id", 601L)
+                put("vehicleId", 101L)
+                put("vehicleName", "Toyota Camry Hybrid")
+                put("providerName", "Allstate Insurance")
+                put("policyNumber", "POL-8839201")
+                put("coverageType", "Comprehensive")
+                put("premiumAmount", 850.00)
+                put("startDate", "2026-01-01")
+                put("expiryDate", "2026-12-31")
+                put("notes", "Auto-renewal enabled")
+                put("isAutoRenewEnabled", true)
+            })
+        }
+        root.put("insurance_policies", insArr)
+
+        return root.toString(2)
+    }
+
     // Comprehensive Restore JSON Parser
     fun restoreBackupJson(jsonString: String, onComplete: (Boolean, String) -> Unit) {
         viewModelScope.launch {
+            val cleanJson = jsonString.trim()
+            if (cleanJson.isBlank()) {
+                onComplete(false, "Restore failed: Input JSON is empty.")
+                return@launch
+            }
+
             try {
-                val root = JSONObject(jsonString)
+                val root = JSONObject(cleanJson)
                 val vehicleIdMap = mutableMapOf<Long, Long>()
+
+                var countVehicles = 0
+                var countFuel = 0
+                var countMaintenance = 0
+                var countReminders = 0
+                var countDocuments = 0
+                var countContacts = 0
+                var countExpenses = 0
+                var countProfiles = 0
+                var countShares = 0
+                var countTrips = 0
+                var countInsurance = 0
 
                 if (root.has("vehicles")) {
                     val arr = root.getJSONArray("vehicles")
@@ -819,7 +935,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                         val obj = arr.getJSONObject(i)
                         val oldId = obj.optLong("id", 0L)
                         val v = Vehicle(
-                            id = oldId,
+                            id = if (oldId > 0) oldId else 0L,
                             vehicleName = obj.optString("vehicleName", "Vehicle"),
                             vehicleType = obj.optString("vehicleType", "Car"),
                             brand = obj.optString("brand", ""),
@@ -832,10 +948,11 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                             createdAt = obj.optLong("createdAt", System.currentTimeMillis())
                         )
                         val insertedId = vehicleDao.insertVehicle(v)
-                        val newVehicleId = if (insertedId > 0) insertedId else oldId
+                        val targetId = if (insertedId > 0) insertedId else oldId
                         if (oldId > 0) {
-                            vehicleIdMap[oldId] = newVehicleId
+                            vehicleIdMap[oldId] = targetId
                         }
+                        countVehicles++
                     }
                 }
 
@@ -845,8 +962,9 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                         val obj = arr.getJSONObject(i)
                         val rawVehicleId = obj.optLong("vehicleId", 1L)
                         val targetVehicleId = vehicleIdMap[rawVehicleId] ?: rawVehicleId
+                        val entryId = obj.optLong("id", 0L)
                         val f = FuelEntry(
-                            id = obj.optLong("id", 0L),
+                            id = if (entryId > 0) entryId else 0L,
                             vehicleId = targetVehicleId,
                             vehicleName = obj.optString("vehicleName", ""),
                             fuelDate = obj.optString("fuelDate", "2026-07-22"),
@@ -859,6 +977,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                             createdAt = obj.optLong("createdAt", System.currentTimeMillis())
                         )
                         fuelDao.insertFuelEntry(f)
+                        countFuel++
                     }
                 }
 
@@ -868,8 +987,9 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                         val obj = arr.getJSONObject(i)
                         val rawVehicleId = obj.optLong("vehicleId", 1L)
                         val targetVehicleId = vehicleIdMap[rawVehicleId] ?: rawVehicleId
+                        val maintId = obj.optLong("id", 0L)
                         val m = Maintenance(
-                            id = obj.optLong("id", 0L),
+                            id = if (maintId > 0) maintId else 0L,
                             vehicleId = targetVehicleId,
                             vehicleName = obj.optString("vehicleName", ""),
                             serviceTitle = obj.optString("serviceTitle", "Service"),
@@ -882,6 +1002,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                             createdAt = obj.optLong("createdAt", System.currentTimeMillis())
                         )
                         maintenanceDao.insertMaintenance(m)
+                        countMaintenance++
                     }
                 }
 
@@ -891,8 +1012,9 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                         val obj = arr.getJSONObject(i)
                         val rawVehicleId = obj.optLong("vehicleId", 1L)
                         val targetVehicleId = vehicleIdMap[rawVehicleId] ?: rawVehicleId
+                        val remId = obj.optLong("id", 0L)
                         val r = Reminder(
-                            id = obj.optLong("id", 0L),
+                            id = if (remId > 0) remId else 0L,
                             vehicleId = targetVehicleId,
                             vehicleName = obj.optString("vehicleName", ""),
                             reminderTitle = obj.optString("reminderTitle", "Reminder"),
@@ -902,6 +1024,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                             createdAt = obj.optLong("createdAt", System.currentTimeMillis())
                         )
                         reminderDao.insertReminder(r)
+                        countReminders++
                     }
                 }
 
@@ -911,8 +1034,9 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                         val obj = arr.getJSONObject(i)
                         val rawVehicleId = obj.optLong("vehicleId", 1L)
                         val targetVehicleId = vehicleIdMap[rawVehicleId] ?: rawVehicleId
+                        val docId = obj.optLong("id", 0L)
                         val d = Document(
-                            id = obj.optLong("id", 0L),
+                            id = if (docId > 0) docId else 0L,
                             vehicleId = targetVehicleId,
                             vehicleName = obj.optString("vehicleName", ""),
                             docTitle = obj.optString("docTitle", "Document"),
@@ -926,6 +1050,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                             createdAt = obj.optLong("createdAt", System.currentTimeMillis())
                         )
                         documentDao.insertDocument(d)
+                        countDocuments++
                     }
                 }
 
@@ -933,14 +1058,16 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                     val arr = root.getJSONArray("emergency_contacts")
                     for (i in 0 until arr.length()) {
                         val obj = arr.getJSONObject(i)
+                        val contactId = obj.optLong("id", 0L)
                         val c = EmergencyContact(
-                            id = obj.optLong("id", 0L),
+                            id = if (contactId > 0) contactId else 0L,
                             name = obj.optString("name", "Contact"),
                             category = obj.optString("category", "Mechanic"),
                             phoneNumber = obj.optString("phoneNumber", ""),
                             notes = obj.optString("notes", "")
                         )
                         emergencyContactDao.insertContact(c)
+                        countContacts++
                     }
                 }
 
@@ -950,8 +1077,9 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                         val obj = arr.getJSONObject(i)
                         val rawVehicleId = obj.optLong("vehicleId", 1L)
                         val targetVehicleId = vehicleIdMap[rawVehicleId] ?: rawVehicleId
+                        val expId = obj.optLong("id", 0L)
                         val exp = Expense(
-                            id = obj.optLong("id", 0L),
+                            id = if (expId > 0) expId else 0L,
                             vehicleId = targetVehicleId,
                             vehicleName = obj.optString("vehicleName", ""),
                             title = obj.optString("title", "Expense"),
@@ -962,6 +1090,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                             createdAt = obj.optLong("createdAt", System.currentTimeMillis())
                         )
                         expenseDao.insertExpense(exp)
+                        countExpenses++
                     }
                 }
 
@@ -969,8 +1098,9 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                     val arr = root.getJSONArray("driver_profiles")
                     for (i in 0 until arr.length()) {
                         val obj = arr.getJSONObject(i)
+                        val profId = obj.optLong("id", 0L)
                         val dp = DriverProfile(
-                            id = obj.optLong("id", 0L),
+                            id = if (profId > 0) profId else 0L,
                             name = obj.optString("name", "Driver"),
                             email = obj.optString("email", ""),
                             phone = obj.optString("phone", ""),
@@ -982,6 +1112,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                             lastLoginAt = obj.optLong("lastLoginAt", System.currentTimeMillis())
                         )
                         driverProfileDao.insertProfile(dp)
+                        countProfiles++
                     }
                 }
 
@@ -991,8 +1122,9 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                         val obj = arr.getJSONObject(i)
                         val rawVehicleId = obj.optLong("vehicleId", 1L)
                         val targetVehicleId = vehicleIdMap[rawVehicleId] ?: rawVehicleId
+                        val shareId = obj.optLong("id", 0L)
                         val vs = VehicleShare(
-                            id = obj.optLong("id", 0L),
+                            id = if (shareId > 0) shareId else 0L,
                             vehicleId = targetVehicleId,
                             vehicleName = obj.optString("vehicleName", ""),
                             sharedWithEmail = obj.optString("sharedWithEmail", ""),
@@ -1000,6 +1132,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                             status = obj.optString("status", "ACTIVE")
                         )
                         vehicleShareDao.insertShare(vs)
+                        countShares++
                     }
                 }
 
@@ -1009,8 +1142,9 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                         val obj = arr.getJSONObject(i)
                         val rawVehicleId = obj.optLong("vehicleId", 1L)
                         val targetVehicleId = vehicleIdMap[rawVehicleId] ?: rawVehicleId
+                        val tripId = obj.optLong("id", 0L)
                         val tl = TripLog(
-                            id = obj.optLong("id", 0L),
+                            id = if (tripId > 0) tripId else 0L,
                             vehicleId = targetVehicleId,
                             vehicleName = obj.optString("vehicleName", ""),
                             driverName = obj.optString("driverName", "Primary Driver"),
@@ -1027,6 +1161,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                             routePointsJson = obj.optString("routePointsJson", "[]")
                         )
                         tripLogDao.insertTrip(tl)
+                        countTrips++
                     }
                 }
 
@@ -1036,8 +1171,9 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                         val obj = arr.getJSONObject(i)
                         val rawVehicleId = obj.optLong("vehicleId", 1L)
                         val targetVehicleId = vehicleIdMap[rawVehicleId] ?: rawVehicleId
+                        val policyId = obj.optLong("id", 0L)
                         val ins = InsurancePolicy(
-                            id = obj.optLong("id", 0L),
+                            id = if (policyId > 0) policyId else 0L,
                             vehicleId = targetVehicleId,
                             vehicleName = obj.optString("vehicleName", ""),
                             providerName = obj.optString("providerName", "Insurance"),
@@ -1052,7 +1188,17 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                             createdAt = obj.optLong("createdAt", System.currentTimeMillis())
                         )
                         insurancePolicyDao.insertPolicy(ins)
+                        countInsurance++
                     }
+                }
+
+                val totalRestored = countVehicles + countFuel + countMaintenance + countReminders +
+                        countDocuments + countContacts + countExpenses + countProfiles +
+                        countShares + countTrips + countInsurance
+
+                if (totalRestored == 0) {
+                    onComplete(false, "No valid DriveCare data records found in JSON.")
+                    return@launch
                 }
 
                 val restoredVehicles = vehicleDao.getAllVehicles().first()
@@ -1060,10 +1206,22 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                     _selectedFuelVehicle.value = restoredVehicles.first()
                 }
 
-                onComplete(true, "Data restored successfully!")
+                DriveCareNotificationScheduler.triggerImmediateCheck(getApplication())
+
+                val summaryMsg = buildString {
+                    append("Restore Successful! ")
+                    append("$countVehicles vehicle(s), ")
+                    append("$countFuel fuel log(s), ")
+                    append("$countMaintenance service record(s), ")
+                    append("$countExpenses expense(s), ")
+                    append("$countReminders reminder(s), ")
+                    append("$countInsurance insurance policy(ies) restored.")
+                }
+
+                onComplete(true, summaryMsg)
             } catch (e: Exception) {
                 e.printStackTrace()
-                onComplete(false, "Failed to restore data: ${e.localizedMessage}")
+                onComplete(false, "Failed to restore data: ${e.localizedMessage ?: "Invalid or corrupt JSON format"}")
             }
         }
     }
