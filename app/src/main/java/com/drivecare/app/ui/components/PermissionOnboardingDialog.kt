@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -446,24 +447,12 @@ fun PermissionOnboardingDialog(
                             )
 
                             Button(
-                                onClick = {
-                                    try {
-                                        val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                                            data = Uri.parse("package:${context.packageName}")
-                                        }
-                                        context.startActivity(intent)
-                                    } catch (e: Exception) {
-                                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                            data = Uri.fromParts("package", context.packageName, null)
-                                        }
-                                        context.startActivity(intent)
-                                    }
-                                },
+                                onClick = { openBatterySettings(context) },
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = if (statusState.isIgnoringBatteryOptimizations) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
                                 )
                             ) {
-                                Text(if (statusState.isIgnoringBatteryOptimizations) "Open Settings" else "Configure Battery")
+                                Text(if (statusState.isIgnoringBatteryOptimizations) "Battery Setting Opening" else "Battery Setting Kholein")
                             }
                         }
                     }
@@ -485,5 +474,57 @@ fun PermissionOnboardingDialog(
             }
         }
     )
+}
+
+fun openBatterySettings(context: Context) {
+    var opened = false
+    // 1. First try direct battery optimization request
+    try {
+        val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+            data = Uri.parse("package:${context.packageName}")
+        }
+        context.startActivity(intent)
+        opened = true
+    } catch (e: Exception) {
+        // Fallback 1
+    }
+
+    if (!opened) {
+        // 2. Try general battery optimization settings screen
+        try {
+            val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+            context.startActivity(intent)
+            opened = true
+        } catch (e: Exception) {
+            // Fallback 2
+        }
+    }
+
+    if (!opened) {
+        // 3. Fall back to application details settings
+        try {
+            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.fromParts("package", context.packageName, null)
+            }
+            context.startActivity(intent)
+            opened = true
+        } catch (e: Exception) {
+            // Fallback 3
+        }
+    }
+
+    if (opened) {
+        Toast.makeText(
+            context,
+            "Battery settings: Set Battery to 'Unrestricted' for reliable alerts.",
+            Toast.LENGTH_LONG
+        ).show()
+    } else {
+        Toast.makeText(
+            context,
+            "Please go to Device Settings > Apps > DriveCare > Battery > Select 'Unrestricted'",
+            Toast.LENGTH_LONG
+        ).show()
+    }
 }
 
