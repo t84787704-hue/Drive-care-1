@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
@@ -267,12 +268,19 @@ fun PermissionOnboardingDialog(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = if (statusState.hasFineLocation) "• ${AppStrings.get("fine_location", lang)}: ${AppStrings.get("granted", lang)}" else "• ${AppStrings.get("fine_location", lang)}",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = if (statusState.hasFineLocation) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.weight(1f)
-                            )
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = if (statusState.hasFineLocation) "${AppStrings.get("fine_location", lang)}: ${AppStrings.get("granted", lang)}" else AppStrings.get("fine_location", lang),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = if (statusState.hasFineLocation) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    softWrap = false
+                                )
+                            }
 
                             Spacer(modifier = Modifier.width(8.dp))
 
@@ -286,12 +294,14 @@ fun PermissionOnboardingDialog(
                                     )
                                 },
                                 enabled = !statusState.hasFineLocation,
-                                modifier = Modifier.defaultMinSize(minWidth = 80.dp),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                                modifier = Modifier.defaultMinSize(minWidth = 120.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                             ) {
                                 Text(
                                     text = if (statusState.hasFineLocation) AppStrings.get("granted", lang) else AppStrings.get("grant_location", lang),
+                                    style = MaterialTheme.typography.labelMedium,
                                     maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
                                     softWrap = false
                                 )
                             }
@@ -335,12 +345,19 @@ fun PermissionOnboardingDialog(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = if (statusState.hasBackgroundLocation) "• ${AppStrings.get("background_gps", lang)}: ${AppStrings.get("granted", lang)}" else "• ${AppStrings.get("background_gps", lang)}",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = if (statusState.hasBackgroundLocation) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.weight(1f)
-                            )
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = if (statusState.hasBackgroundLocation) "${AppStrings.get("background_gps", lang)}: ${AppStrings.get("granted", lang)}" else AppStrings.get("background_gps", lang),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = if (statusState.hasBackgroundLocation) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    softWrap = false
+                                )
+                            }
 
                             Spacer(modifier = Modifier.width(8.dp))
 
@@ -358,12 +375,14 @@ fun PermissionOnboardingDialog(
                                     }
                                 },
                                 enabled = !statusState.hasBackgroundLocation,
-                                modifier = Modifier.defaultMinSize(minWidth = 80.dp),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                                modifier = Modifier.defaultMinSize(minWidth = 120.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                             ) {
                                 Text(
                                     text = if (statusState.hasBackgroundLocation) AppStrings.get("granted", lang) else AppStrings.get("allow_background", lang),
+                                    style = MaterialTheme.typography.labelMedium,
                                     maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
                                     softWrap = false
                                 )
                             }
@@ -407,12 +426,19 @@ fun PermissionOnboardingDialog(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = if (statusState.canScheduleExactAlarms) "• ${AppStrings.get("exact_alarms", lang)}: ${AppStrings.get("granted", lang)}" else "• ${AppStrings.get("exact_alarms", lang)}",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = if (statusState.canScheduleExactAlarms) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.weight(1f)
-                            )
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = if (statusState.canScheduleExactAlarms) "${AppStrings.get("exact_alarms", lang)}: ${AppStrings.get("granted", lang)}" else AppStrings.get("exact_alarms", lang),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = if (statusState.canScheduleExactAlarms) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    softWrap = false
+                                )
+                            }
 
                             Spacer(modifier = Modifier.width(8.dp))
 
@@ -433,12 +459,14 @@ fun PermissionOnboardingDialog(
                                     }
                                 },
                                 enabled = !statusState.canScheduleExactAlarms,
-                                modifier = Modifier.defaultMinSize(minWidth = 80.dp),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                                modifier = Modifier.defaultMinSize(minWidth = 120.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                             ) {
                                 Text(
                                     text = if (statusState.canScheduleExactAlarms) AppStrings.get("granted", lang) else AppStrings.get("enable_alarms", lang),
+                                    style = MaterialTheme.typography.labelMedium,
                                     maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
                                     softWrap = false
                                 )
                             }
@@ -467,7 +495,9 @@ fun PermissionOnboardingDialog(
                             Text(
                                 text = AppStrings.get("step_battery", lang),
                                 fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.titleSmall
+                                style = MaterialTheme.typography.titleSmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
 
@@ -482,32 +512,39 @@ fun PermissionOnboardingDialog(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = if (statusState.isIgnoringBatteryOptimizations)
-                                    "• ${AppStrings.get("battery_optimization_disabled", lang)}"
-                                else
-                                    "• ${AppStrings.get("unrestricted_battery", lang)}",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = if (statusState.isIgnoringBatteryOptimizations) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.weight(1f)
-                            )
-
-                            Spacer(modifier = Modifier.width(8.dp))
-
-                            Button(
-                                onClick = { openBatterySettings(context) },
-                                modifier = Modifier.defaultMinSize(minWidth = 80.dp),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (statusState.isIgnoringBatteryOptimizations) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
-                                )
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
                                     text = if (statusState.isIgnoringBatteryOptimizations)
                                         AppStrings.get("battery_optimization_disabled", lang)
                                     else
-                                        AppStrings.get("open_battery_settings", lang),
+                                        AppStrings.get("status_disabled", lang),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    color = if (statusState.isIgnoringBatteryOptimizations) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    softWrap = false
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            Button(
+                                onClick = { openBatterySettings(context) },
+                                modifier = Modifier.defaultMinSize(minWidth = 120.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (statusState.isIgnoringBatteryOptimizations) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
+                                )
+                            ) {
+                                Text(
+                                    text = AppStrings.get("open_battery_settings", lang),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
                                     softWrap = false
                                 )
                             }
