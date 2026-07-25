@@ -117,8 +117,11 @@ fun PermissionOnboardingDialog(
     // Launcher for Background Location
     val bgLocationLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
-    ) {
+    ) { isGranted ->
         statusState = checkGeofencePermissionStatus(context)
+        if (!isGranted && !statusState.hasBackgroundLocation) {
+            openBackgroundLocationSettings(context)
+        }
     }
 
     // Re-check state automatically when Activity resumes from Settings
@@ -363,15 +366,16 @@ fun PermissionOnboardingDialog(
 
                             Button(
                                 onClick = {
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                    if (!statusState.hasFineLocation) {
+                                        locationLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                                    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                                         try {
                                             bgLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
                                         } catch (e: Exception) {
-                                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                                data = Uri.fromParts("package", context.packageName, null)
-                                            }
-                                            context.startActivity(intent)
+                                            openBackgroundLocationSettings(context)
                                         }
+                                    } else {
+                                        openBackgroundLocationSettings(context)
                                     }
                                 },
                                 enabled = !statusState.hasBackgroundLocation,
@@ -484,6 +488,7 @@ fun PermissionOnboardingDialog(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Row(
+                            modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
@@ -497,7 +502,8 @@ fun PermissionOnboardingDialog(
                                 fontWeight = FontWeight.Bold,
                                 style = MaterialTheme.typography.titleSmall,
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
                             )
                         }
 
@@ -509,45 +515,45 @@ fun PermissionOnboardingDialog(
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.weight(1f),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = if (statusState.isIgnoringBatteryOptimizations)
-                                        AppStrings.get("battery_optimization_disabled", lang)
-                                    else
-                                        AppStrings.get("status_disabled", lang),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Medium,
-                                    color = if (statusState.isIgnoringBatteryOptimizations) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    softWrap = false
-                                )
-                            }
+                            Text(
+                                text = "${AppStrings.get("status", lang)}: ",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = if (statusState.isIgnoringBatteryOptimizations)
+                                    AppStrings.get("battery_optimization_disabled", lang)
+                                else
+                                    AppStrings.get("status_disabled", lang),
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (statusState.isIgnoringBatteryOptimizations) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
 
-                            Spacer(modifier = Modifier.width(8.dp))
-
-                            Button(
-                                onClick = { openBatterySettings(context) },
-                                modifier = Modifier.defaultMinSize(minWidth = 120.dp),
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (statusState.isIgnoringBatteryOptimizations) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
-                                )
-                            ) {
-                                Text(
-                                    text = AppStrings.get("open_battery_settings", lang),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    softWrap = false
-                                )
-                            }
+                        Button(
+                            onClick = { openBatterySettings(context) },
+                            modifier = Modifier.fillMaxWidth(),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (statusState.isIgnoringBatteryOptimizations) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
+                            )
+                        ) {
+                            Text(
+                                text = if (statusState.isIgnoringBatteryOptimizations)
+                                    AppStrings.get("battery_optimization_disabled", lang)
+                                else
+                                    AppStrings.get("open_battery_settings", lang),
+                                style = MaterialTheme.typography.labelMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                softWrap = false
+                            )
                         }
                     }
                 }
@@ -618,6 +624,25 @@ fun openBatterySettings(context: Context) {
             opened = true
         } catch (e: Exception) {
             opened = false
+        }
+    }
+}
+
+fun openBackgroundLocationSettings(context: Context) {
+    try {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.fromParts("package", context.packageName, null)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+    } catch (e: Exception) {
+        try {
+            val intent = Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+        } catch (e2: Exception) {
+            // Ignored
         }
     }
 }
