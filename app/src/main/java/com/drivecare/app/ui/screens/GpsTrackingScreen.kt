@@ -42,6 +42,7 @@ import com.drivecare.app.data.model.TripLog
 import com.drivecare.app.data.model.Vehicle
 import com.drivecare.app.data.model.VehicleTelemetry
 import com.drivecare.app.ui.DriveCareViewModel
+import com.drivecare.app.ui.components.GeofenceStatusLevel
 import com.drivecare.app.ui.components.PermissionOnboardingDialog
 import com.drivecare.app.ui.components.checkGeofencePermissionStatus
 import com.drivecare.app.utils.FeatureFlags
@@ -790,14 +791,15 @@ fun GpsTrackingScreen(
                             }
                         } else {
                             val permissionStatus = geofencePermissionStatus
+                            val statusLevel = permissionStatus.statusLevel
 
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = CardDefaults.cardColors(
-                                    containerColor = if (permissionStatus.isFullyConfigured) {
-                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                                    } else {
-                                        MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f)
+                                    containerColor = when (statusLevel) {
+                                        GeofenceStatusLevel.ENABLED -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                                        GeofenceStatusLevel.PARTIALLY_ENABLED -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                                        GeofenceStatusLevel.DISABLED -> MaterialTheme.colorScheme.surfaceVariant
                                     }
                                 )
                             ) {
@@ -818,41 +820,54 @@ fun GpsTrackingScreen(
                                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                                         ) {
                                             Icon(
-                                                imageVector = if (permissionStatus.isFullyConfigured) Icons.Default.CheckCircle else Icons.Default.Error,
+                                                imageVector = when (statusLevel) {
+                                                    GeofenceStatusLevel.ENABLED -> Icons.Default.CheckCircle
+                                                    GeofenceStatusLevel.PARTIALLY_ENABLED -> Icons.Default.Tune
+                                                    GeofenceStatusLevel.DISABLED -> Icons.Default.Info
+                                                },
                                                 contentDescription = null,
-                                                tint = if (permissionStatus.isFullyConfigured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                                tint = when (statusLevel) {
+                                                    GeofenceStatusLevel.ENABLED -> MaterialTheme.colorScheme.primary
+                                                    GeofenceStatusLevel.PARTIALLY_ENABLED -> MaterialTheme.colorScheme.secondary
+                                                    GeofenceStatusLevel.DISABLED -> MaterialTheme.colorScheme.onSurfaceVariant
+                                                }
                                             )
                                             Column {
                                                 Text(
-                                                    text = if (permissionStatus.isFullyConfigured) "Geofence Engine Active" else "Geofencing Setup Incomplete",
+                                                    text = when (statusLevel) {
+                                                        GeofenceStatusLevel.ENABLED -> "Geofencing Enabled"
+                                                        else -> "Enable Background Alerts (Optional)"
+                                                    },
                                                     fontWeight = FontWeight.Bold,
                                                     style = MaterialTheme.typography.titleSmall,
-                                                    color = if (permissionStatus.isFullyConfigured) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
+                                                    color = MaterialTheme.colorScheme.onSurface
                                                 )
                                                 Text(
-                                                    text = if (permissionStatus.isFullyConfigured) "All background location & alarm rules met" else "Missing permissions required for background alerts",
+                                                    text = when (statusLevel) {
+                                                        GeofenceStatusLevel.ENABLED -> "All background location & alarm rules met"
+                                                        else -> "Enable background tracking to receive Safe Zone entry and exit alerts even when the app is closed."
+                                                    },
                                                     style = MaterialTheme.typography.bodySmall,
-                                                    color = if (permissionStatus.isFullyConfigured) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                             }
                                         }
                                         Button(
-                                            onClick = {
-                                                try {
-                                                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                                        data = Uri.parse("package:${context.packageName}")
-                                                    }
-                                                    context.startActivity(intent)
-                                                } catch (e: Exception) {
-                                                    showPermissionOnboardingDialog = true
-                                                }
-                                            },
+                                            onClick = { showPermissionOnboardingDialog = true },
                                             colors = ButtonDefaults.buttonColors(
-                                                containerColor = if (permissionStatus.isFullyConfigured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                                                contentColor = if (permissionStatus.isFullyConfigured) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onError
+                                                containerColor = when (statusLevel) {
+                                                    GeofenceStatusLevel.ENABLED -> MaterialTheme.colorScheme.primary
+                                                    GeofenceStatusLevel.PARTIALLY_ENABLED -> MaterialTheme.colorScheme.secondary
+                                                    GeofenceStatusLevel.DISABLED -> MaterialTheme.colorScheme.primary
+                                                }
                                             )
                                         ) {
-                                            Text(if (permissionStatus.isFullyConfigured) "Status" else "Fix Now")
+                                            Text(
+                                                when (statusLevel) {
+                                                    GeofenceStatusLevel.ENABLED -> "Status"
+                                                    else -> "Enable Background Alerts"
+                                                }
+                                            )
                                         }
                                     }
 
@@ -1453,16 +1468,16 @@ private fun StatusCheckChip(label: String, isOk: Boolean) {
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Icon(
-            imageVector = if (isOk) Icons.Default.CheckCircle else Icons.Default.Cancel,
+            imageVector = if (isOk) Icons.Default.CheckCircle else Icons.Default.Info,
             contentDescription = null,
             modifier = Modifier.size(14.dp),
-            tint = if (isOk) androidx.compose.ui.graphics.Color(0xFF2E7D32) else MaterialTheme.colorScheme.error
+            tint = if (isOk) androidx.compose.ui.graphics.Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Medium,
-            color = if (isOk) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error
+            color = if (isOk) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
