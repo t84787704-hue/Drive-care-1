@@ -242,9 +242,10 @@ fun GpsTrackingScreen(
                     val speedKmh = if (location.hasSpeed()) (location.speed * 3.6).toDouble() else 0.0
                     currentSpeedKmh = speedKmh
 
-                    // Geocode address asynchronously
+                    // Geocode address asynchronously & evaluate geofences safely
                     coroutineScope.launch {
                         currentAddress = fetchAddressString(context, location.latitude, location.longitude)
+                        com.drivecare.app.utils.GeofenceEvaluator.evaluateAllGeofences(context, location)
                     }
 
                     // Active Trip Distance Accumulation
@@ -866,7 +867,11 @@ fun GpsTrackingScreen(
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 items(filteredTrips) { trip ->
-                                    TripCard(trip = trip, onDelete = { viewModel.deleteTripLog(trip) })
+                                    if (trip.driverName == "Safe Zone Guard" || trip.startLocation.contains("Safe Zone") || trip.routePointsJson.contains("GEOFENCE_EVENT")) {
+                                        GeofenceEventCard(trip = trip, onDelete = { viewModel.deleteTripLog(trip) })
+                                    } else {
+                                        TripCard(trip = trip, onDelete = { viewModel.deleteTripLog(trip) })
+                                    }
                                 }
                             }
                         }
@@ -1336,6 +1341,164 @@ fun TripCard(trip: TripLog, onDelete: () -> Unit) {
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun GeofenceEventCard(trip: TripLog, onDelete: () -> Unit) {
+    var eventType = if (trip.startLocation.contains("Entered") || trip.startLocation.contains("Entry")) "Entered" else "Exited"
+    var safeZoneName = trip.endLocation
+    var vehicleName = trip.vehicleName
+    var dateStr = trip.tripDate
+    var dayStr = trip.endTime
+    var timeStr = trip.startTime
+    var lat = 0.0
+    var lng = 0.0
+    var accuracy = 0.0f
+
+    try {
+        if (trip.routePointsJson.startsWith("{")) {
+            val json = org.json.JSONObject(trip.routePointsJson)
+            if (json.optString("type") == "GEOFENCE_EVENT") {
+                eventType = json.optString("eventType", eventType)
+                safeZoneName = json.optString("safeZone", safeZoneName)
+                vehicleName = json.optString("vehicle", vehicleName)
+                dateStr = json.optString("date", dateStr)
+                dayStr = json.optString("day", dayStr)
+                timeStr = json.optString("time", timeStr)
+                lat = json.optDouble("lat", 0.0)
+                lng = json.optDouble("lng", 0.0)
+                accuracy = json.optDouble("accuracy", 0.0).toFloat()
+            }
+        }
+    } catch (e: Exception) {
+        // Fallback to default fields
+    }
+
+    val isEnter = eventType.equals("Entered", ignoreCase = true)
+    val badgeBg = if (isEnter) androidx.compose.ui.graphics.Color(0xFF2E7D32) else androidx.compose.ui.graphics.Color(0xFFD32F2F)
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Surface(
+                        color = badgeBg.copy(alpha = 0.15f),
+                        shape = CircleShape
+                    ) {
+                        Icon(
+                            imageVector = if (isEnter) Icons.Default.Login else Icons.Default.Logout,
+                            contentDescription = null,
+                            tint = badgeBg,
+                            modifier = Modifier.padding(8.dp).size(20.dp)
+                        )
+                    }
+                    Column {
+                        Surface(
+                            color = badgeBg,
+                            shape = MaterialTheme.shapes.extraSmall
+                        ) {
+                            Text(
+                                text = if (isEnter) "ENTERED SAFE ZONE" else "EXITED SAFE ZONE",
+                                color = androidx.compose.ui.graphics.Color.White,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Text(
+                            text = safeZoneName,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Default.Delete, contentDescription = "Delete Event", tint = MaterialTheme.colorScheme.error)
+                }
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(Icons.Default.DirectionsCar, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                    Text(
+                        text = "Vehicle: $vehicleName",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        text = timeStr,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(Icons.Default.CalendarToday, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        text = if (dayStr.isNotBlank()) "$dayStr, $dateStr" else dateStr,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                if (lat != 0.0 && lng != 0.0) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(Icons.Default.GpsFixed, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.tertiary)
+                        Text(
+                            text = "${String.format(Locale.US, "%.4f", lat)}, ${String.format(Locale.US, "%.4f", lng)} (±${accuracy.toInt()}m)",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.tertiary,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
             }
         }
     }

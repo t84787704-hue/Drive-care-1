@@ -70,7 +70,7 @@ object GeofenceManager {
             .build()
 
         val request = GeofencingRequest.Builder()
-            .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
+            .setInitialTrigger(0) // Prevent artificial initial trigger events on registration
             .addGeofence(geofence)
             .build()
 

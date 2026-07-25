@@ -5,17 +5,14 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import com.drivecare.app.data.db.AppDatabase
-import com.drivecare.app.data.model.TripLog
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofenceStatusCodes
 import com.google.android.gms.location.GeofencingEvent
+import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 class GeofenceBroadcastReceiver : BroadcastReceiver() {
 
@@ -31,7 +28,6 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
         val geofenceTransition = geofencingEvent.geofenceTransition
         if (geofenceTransition == Geofence.GEOFENCE_TRANSITION_ENTER || geofenceTransition == Geofence.GEOFENCE_TRANSITION_EXIT) {
             val triggeringGeofences = geofencingEvent.triggeringGeofences ?: return
-            val isEnter = geofenceTransition == Geofence.GEOFENCE_TRANSITION_ENTER
 
             val pendingResult = goAsync()
             CoroutineScope(Dispatchers.IO).launch {
@@ -39,6 +35,21 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
                     val db = AppDatabase.getDatabase(context)
                     val allZones = db.geofenceZoneDao().getAllGeofences().firstOrNull() ?: emptyList()
                     val allVehicles = db.vehicleDao().getAllVehicles().firstOrNull() ?: emptyList()
+
+                    var triggeringLocation = geofencingEvent.triggeringLocation
+                    if (triggeringLocation == null) {
+                        try {
+                            val fusedClient = LocationServices.getFusedLocationProviderClient(context)
+                            triggeringLocation = com.google.android.gms.tasks.Tasks.await(fusedClient.lastLocation)
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Failed to retrieve last known location for geofence event", e)
+                        }
+                    }
+
+                    if (triggeringLocation == null) {
+                        Log.w(TAG, "Geofence event ignored: Triggering location unavailable.")
+                        return@launch
+                    }
 
                     for (geofence in triggeringGeofences) {
                         val requestId = geofence.requestId
@@ -48,47 +59,14 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
                         val vehicle = allVehicles.find { it.id == zone.vehicleId }
                         val vehicleName = vehicle?.vehicleName ?: "Your Vehicle"
 
-                        val title = if (isEnter) "Safe Zone Entered" else "Safe Zone Exited"
-                        val message = if (isEnter) {
-                            "Vehicle '$vehicleName' entered safe zone '${zone.zoneName}'."
-                        } else {
-                            "Vehicle '$vehicleName' exited safe zone '${zone.zoneName}'."
-                        }
-
-                        // 1. Post System Notification
-                        DriveCareNotificationReceiver.showNotification(
+                        // Evaluate transition using GeofenceEvaluator to enforce state memory, hysteresis, accuracy, & debouncing
+                        GeofenceEvaluator.evaluateZoneForLocation(
                             context = context,
-                            id = (zone.id.toInt() * 10) + (if (isEnter) 1 else 2),
-                            title = title,
-                            message = message,
-                            targetTab = "MORE",
-                            targetSection = "GPS",
-                            recordId = zone.id
+                            db = db,
+                            location = triggeringLocation,
+                            zone = zone,
+                            vehicleName = vehicleName
                         )
-
-                        // 2. Log event into Trip History Database
-                        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-                        val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
-                        val now = Date()
-
-                        val eventTypeLabel = if (isEnter) "Geofence Entry" else "Geofence Exit"
-                        val logEntry = TripLog(
-                            vehicleId = zone.vehicleId,
-                            vehicleName = vehicleName,
-                            driverName = "Geofence Guard",
-                            startLocation = "$eventTypeLabel: ${zone.zoneName}",
-                            endLocation = zone.zoneName,
-                            distanceKm = 0.0,
-                            durationMinutes = 0,
-                            avgSpeedKmh = 0.0,
-                            maxSpeedKmh = 0.0,
-                            tripDate = dateFormat.format(now),
-                            startTime = timeFormat.format(now),
-                            endTime = timeFormat.format(now)
-                        )
-                        db.tripLogDao().insertTrip(logEntry)
-
-                        Log.d(TAG, "Geofence transition processed: $eventTypeLabel for ${zone.zoneName}")
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Error handling geofence transition in receiver", e)
@@ -103,3 +81,4 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
         private const val TAG = "GeofenceReceiver"
     }
 }
+
