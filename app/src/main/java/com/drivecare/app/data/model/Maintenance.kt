@@ -17,5 +17,7 @@ data class Maintenance(
     val workshopName: String = "",
     val notes: String = "",
     val invoicePhotoUri: String = "",
+    val nextDueServiceDate: String = "",
+    val reminderDate: String = "",
     val createdAt: Long = System.currentTimeMillis()
 )

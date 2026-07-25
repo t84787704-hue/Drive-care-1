@@ -49,6 +49,17 @@ import com.drivecare.app.utils.DocumentFileHelper
 import com.drivecare.app.utils.LocalAppLanguage
 import com.drivecare.app.utils.SavedFileInfo
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+
+enum class DocumentSortOption(val label: String) {
+    EXPIRY_ASC("Expiring Soonest"),
+    EXPIRY_DESC("Expiring Latest"),
+    TITLE_ASC("Title (A-Z)"),
+    NEWEST("Newest Created")
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,25 +74,38 @@ fun DocumentsScreen(
     val documents by viewModel.documents.collectAsState()
 
     var showAddDialog by remember { mutableStateOf(false) }
-    var selectedFilter by remember { mutableStateOf("All") }
+    var docToEdit by remember { mutableStateOf<Document?>(null) }
+    var docToDelete by remember { mutableStateOf<Document?>(null) }
+
+    var selectedFilterCategory by remember { mutableStateOf("All") }
     var selectedVehicleIdFilter by remember { mutableStateOf<Long?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
+    var sortOption by remember { mutableStateOf(DocumentSortOption.EXPIRY_ASC) }
+    var showSortMenu by remember { mutableStateOf(false) }
+
     var previewImageDoc by remember { mutableStateOf<Document?>(null) }
 
-    LaunchedEffect(highlightRecordId, documents) {
-        if (highlightRecordId != null) {
-            val doc = documents.find { it.id == highlightRecordId }
-            if (doc != null) {
-                selectedFilter = "All"
-                selectedVehicleIdFilter = null
-            }
-        }
+    val categories = remember {
+        listOf("All", "Registration", "Insurance", "Driving License", "Inspection", "Other")
     }
 
-    val categories = listOf("All", "Registration", "Insurance", "License", "Bill", "Warranty", "Photo")
+    val filteredDocs = remember(documents, selectedVehicleIdFilter, selectedFilterCategory, searchQuery, sortOption) {
+        var list = documents.filter { doc ->
+            (selectedVehicleIdFilter == null || doc.vehicleId == selectedVehicleIdFilter) &&
+            (selectedFilterCategory == "All" || doc.docType.equals(selectedFilterCategory, ignoreCase = true)) &&
+            (searchQuery.isBlank() ||
+                doc.docTitle.contains(searchQuery, ignoreCase = true) ||
+                doc.docType.contains(searchQuery, ignoreCase = true) ||
+                doc.vehicleName.contains(searchQuery, ignoreCase = true) ||
+                doc.notes.contains(searchQuery, ignoreCase = true))
+        }
 
-    val filteredDocs = documents.filter { doc ->
-        (selectedVehicleIdFilter == null || doc.vehicleId == selectedVehicleIdFilter) &&
-                (selectedFilter == "All" || doc.docType.equals(selectedFilter, ignoreCase = true))
+        when (sortOption) {
+            DocumentSortOption.EXPIRY_ASC -> list.sortedWith(compareBy<Document> { if (it.expiryDate.isBlank()) "9999-99-99" else it.expiryDate })
+            DocumentSortOption.EXPIRY_DESC -> list.sortedByDescending { it.expiryDate }
+            DocumentSortOption.TITLE_ASC -> list.sortedBy { it.docTitle.lowercase() }
+            DocumentSortOption.NEWEST -> list.sortedByDescending { it.createdAt }
+        }
     }
 
     Scaffold(
@@ -111,6 +135,51 @@ fun DocumentsScreen(
                 )
             }
 
+            // Search Bar & Sort Menu
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("Search documents...") },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { searchQuery = "" }) {
+                                    Icon(Icons.Default.Clear, contentDescription = "Clear search")
+                                }
+                            }
+                        },
+                        singleLine = true
+                    )
+
+                    Box {
+                        IconButton(onClick = { showSortMenu = true }) {
+                            Icon(Icons.Default.Sort, contentDescription = "Sort documents")
+                        }
+                        DropdownMenu(
+                            expanded = showSortMenu,
+                            onDismissRequest = { showSortMenu = false }
+                        ) {
+                            DocumentSortOption.entries.forEach { option ->
+                                DropdownMenuItem(
+                                    text = { Text(option.label, fontWeight = if (sortOption == option) FontWeight.Bold else FontWeight.Normal) },
+                                    onClick = {
+                                        sortOption = option
+                                        showSortMenu = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             // Vehicle filter chips
             if (vehicles.isNotEmpty()) {
                 item {
@@ -138,8 +207,8 @@ fun DocumentsScreen(
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(categories) { cat ->
                         FilterChip(
-                            selected = selectedFilter == cat,
-                            onClick = { selectedFilter = cat },
+                            selected = selectedFilterCategory == cat,
+                            onClick = { selectedFilterCategory = cat },
                             label = { Text(cat) }
                         )
                     }
@@ -155,9 +224,9 @@ fun DocumentsScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(64.dp))
+                            Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.outline)
                             Spacer(modifier = Modifier.height(16.dp))
-                            Text(AppStrings.get("no_documents", lang), style = MaterialTheme.typography.titleMedium)
+                            Text(AppStrings.get("no_documents", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
@@ -172,7 +241,8 @@ fun DocumentsScreen(
                                 openDocumentFile(context, doc)
                             }
                         },
-                        onDeleteClick = { viewModel.deleteDocument(doc) }
+                        onEditClick = { docToEdit = doc },
+                        onDeleteClick = { docToDelete = doc }
                     )
                 }
             }
@@ -186,8 +256,48 @@ fun DocumentsScreen(
             onSave = { doc ->
                 viewModel.addDocument(doc)
                 showAddDialog = false
+                Toast.makeText(context, "Document added successfully!", Toast.LENGTH_SHORT).show()
             },
             lang = lang
+        )
+    }
+
+    docToEdit?.let { doc ->
+        EditDocumentDialog(
+            vehicles = vehicles,
+            doc = doc,
+            onDismiss = { docToEdit = null },
+            onSave = { updated ->
+                viewModel.updateDocument(updated)
+                docToEdit = null
+                Toast.makeText(context, "Document updated!", Toast.LENGTH_SHORT).show()
+            },
+            lang = lang
+        )
+    }
+
+    docToDelete?.let { doc ->
+        AlertDialog(
+            onDismissRequest = { docToDelete = null },
+            title = { Text("Delete Document?", fontWeight = FontWeight.Bold) },
+            text = { Text("Are you sure you want to delete '${doc.docTitle}'? The attached file will also be deleted from storage.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteDocument(doc)
+                        docToDelete = null
+                        Toast.makeText(context, "Document deleted.", Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { docToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
         )
     }
 
@@ -203,6 +313,7 @@ fun DocumentsScreen(
 fun DocumentCardItem(
     doc: Document,
     onViewClick: () -> Unit,
+    onEditClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
     val context = LocalContext.current
@@ -215,6 +326,25 @@ fun DocumentCardItem(
         if (isImage && doc.fileUri.isNotBlank()) {
             loadLocalImageBitmap(context, doc.fileUri)
         } else null
+    }
+
+    // Expiry Status
+    val todayStr = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()) }
+    val expiryStatus = remember(doc.expiryDate, doc.reminderDaysBefore, todayStr) {
+        if (doc.expiryDate.isBlank()) null
+        else if (doc.expiryDate < todayStr) "EXPIRED"
+        else {
+            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+            try {
+                val expDate = sdf.parse(doc.expiryDate)
+                val cal = Calendar.getInstance().apply { time = Date(); add(Calendar.DAY_OF_YEAR, doc.reminderDaysBefore) }
+                if (expDate != null && expDate.before(cal.time)) {
+                    "EXPIRING SOON"
+                } else "VALID"
+            } catch (e: Exception) {
+                "VALID"
+            }
+        }
     }
 
     Card(
@@ -282,19 +412,49 @@ fun DocumentCardItem(
                     }
 
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            doc.docTitle,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                doc.docTitle,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+
+                            expiryStatus?.let { status ->
+                                Surface(
+                                    color = when (status) {
+                                        "EXPIRED" -> MaterialTheme.colorScheme.errorContainer
+                                        "EXPIRING SOON" -> Color(0xFFFFF3CD)
+                                        else -> Color(0xFFD4EDDA)
+                                    },
+                                    shape = RoundedCornerShape(4.dp)
+                                ) {
+                                    Text(
+                                        text = status,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = when (status) {
+                                            "EXPIRED" -> MaterialTheme.colorScheme.error
+                                            "EXPIRING SOON" -> Color(0xFF856404)
+                                            else -> Color(0xFF155724)
+                                        },
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                        }
+
                         Text(
                             "${doc.vehicleName} • ${doc.docType}",
                             style = MaterialTheme.typography.bodySmall
                         )
                         if (doc.expiryDate.isNotBlank()) {
                             Text(
-                                "Expires: ${doc.expiryDate}",
+                                "Expires: ${doc.expiryDate} (Remind ${doc.reminderDaysBefore}d before)",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.secondary
                             )
@@ -310,10 +470,22 @@ fun DocumentCardItem(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onEditClick) {
+                        Icon(Icons.Default.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.primary)
+                    }
                     IconButton(onClick = onDeleteClick) {
                         Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
                     }
                 }
+            }
+
+            if (doc.notes.isNotBlank()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    "Notes: ${doc.notes}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
             if (doc.fileUri.isNotBlank()) {
@@ -358,6 +530,8 @@ fun AddDocumentDialog(
     var expandedDocTypeDropdown by remember { mutableStateOf(false) }
 
     var expiryDate by remember { mutableStateOf("2027-12-31") }
+    var reminderDaysBefore by remember { mutableStateOf(7) }
+    var expandedReminderDropdown by remember { mutableStateOf(false) }
     var notes by remember { mutableStateOf("") }
 
     var attachedFileInfo by remember { mutableStateOf<SavedFileInfo?>(null) }
@@ -455,7 +629,8 @@ fun AddDocumentDialog(
         }
     }
 
-    val docTypes = listOf("Registration", "Insurance", "Inspection", "License", "Tax Permit", "Warranty", "Invoice", "Photo", "Other")
+    val docTypes = listOf("Registration", "Insurance", "Driving License", "Inspection", "Other")
+    val reminderOptions = listOf(0 to "On Expiry Day", 7 to "7 Days Before", 14 to "14 Days Before", 30 to "30 Days Before")
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -545,6 +720,37 @@ fun AddDocumentDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                // Reminder Before Expiry Dropdown
+                ExposedDropdownMenuBox(
+                    expanded = expandedReminderDropdown,
+                    onExpandedChange = { expandedReminderDropdown = !expandedReminderDropdown }
+                ) {
+                    OutlinedTextField(
+                        value = reminderOptions.find { it.first == reminderDaysBefore }?.second ?: "7 Days Before",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Reminder Alert") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedReminderDropdown) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedReminderDropdown,
+                        onDismissRequest = { expandedReminderDropdown = false }
+                    ) {
+                        reminderOptions.forEach { (days, label) ->
+                            DropdownMenuItem(
+                                text = { Text(label) },
+                                onClick = {
+                                    reminderDaysBefore = days
+                                    expandedReminderDropdown = false
+                                }
+                            )
+                        }
+                    }
+                }
 
                 OutlinedTextField(
                     value = notes,
@@ -692,6 +898,7 @@ fun AddDocumentDialog(
                         docTitle = cleanTitle,
                         docType = docType,
                         expiryDate = cleanExpiry,
+                        reminderDaysBefore = reminderDaysBefore,
                         notes = notes.trim(),
                         fileUri = attachedFileInfo?.fileUriString ?: "",
                         mimeType = attachedFileInfo?.mimeType ?: "",
@@ -736,6 +943,239 @@ fun AddDocumentDialog(
             }
         )
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditDocumentDialog(
+    vehicles: List<Vehicle>,
+    doc: Document,
+    onDismiss: () -> Unit,
+    onSave: (Document) -> Unit,
+    lang: com.drivecare.app.utils.AppLanguage
+) {
+    val context = LocalContext.current
+
+    var selectedVehicle by remember { mutableStateOf(vehicles.find { it.id == doc.vehicleId } ?: vehicles.firstOrNull()) }
+    var expandedVehicleDropdown by remember { mutableStateOf(false) }
+
+    var title by remember { mutableStateOf(doc.docTitle) }
+    var docType by remember { mutableStateOf(doc.docType) }
+    var expandedDocTypeDropdown by remember { mutableStateOf(false) }
+
+    var expiryDate by remember { mutableStateOf(doc.expiryDate) }
+    var reminderDaysBefore by remember { mutableStateOf(doc.reminderDaysBefore) }
+    var expandedReminderDropdown by remember { mutableStateOf(false) }
+    var notes by remember { mutableStateOf(doc.notes) }
+
+    var attachedFileInfo by remember { mutableStateOf<SavedFileInfo?>(null) }
+    var fileUri by remember { mutableStateOf(doc.fileUri) }
+    var mimeType by remember { mutableStateOf(doc.mimeType) }
+    var fileSize by remember { mutableStateOf(doc.fileSize) }
+
+    val docTypes = listOf("Registration", "Insurance", "Driving License", "Inspection", "Other")
+    val reminderOptions = listOf(0 to "On Expiry Day", 7 to "7 Days Before", 14 to "14 Days Before", 30 to "30 Days Before")
+
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            val saved = DocumentFileHelper.saveFileToInternalStorage(context, uri)
+            if (saved != null) {
+                attachedFileInfo = saved
+                fileUri = saved.fileUriString
+                mimeType = saved.mimeType
+                fileSize = saved.fileSize
+                Toast.makeText(context, "Attachment updated", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Document", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text("Select Vehicle *", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+
+                ExposedDropdownMenuBox(
+                    expanded = expandedVehicleDropdown,
+                    onExpandedChange = { expandedVehicleDropdown = !expandedVehicleDropdown }
+                ) {
+                    OutlinedTextField(
+                        value = selectedVehicle?.vehicleName ?: "Select Vehicle",
+                        onValueChange = {},
+                        readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedVehicleDropdown) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedVehicleDropdown,
+                        onDismissRequest = { expandedVehicleDropdown = false }
+                    ) {
+                        vehicles.forEach { v ->
+                            DropdownMenuItem(
+                                text = { Text("${v.vehicleName} (${v.brand} ${v.model})") },
+                                onClick = {
+                                    selectedVehicle = v
+                                    expandedVehicleDropdown = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("Document Title *") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                ExposedDropdownMenuBox(
+                    expanded = expandedDocTypeDropdown,
+                    onExpandedChange = { expandedDocTypeDropdown = !expandedDocTypeDropdown }
+                ) {
+                    OutlinedTextField(
+                        value = docType,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Category") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedDocTypeDropdown) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedDocTypeDropdown,
+                        onDismissRequest = { expandedDocTypeDropdown = false }
+                    ) {
+                        docTypes.forEach { dt ->
+                            DropdownMenuItem(
+                                text = { Text(dt) },
+                                onClick = {
+                                    docType = dt
+                                    expandedDocTypeDropdown = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = expiryDate,
+                    onValueChange = { expiryDate = it },
+                    label = { Text("Expiry Date (YYYY-MM-DD) *") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                ExposedDropdownMenuBox(
+                    expanded = expandedReminderDropdown,
+                    onExpandedChange = { expandedReminderDropdown = !expandedReminderDropdown }
+                ) {
+                    OutlinedTextField(
+                        value = reminderOptions.find { it.first == reminderDaysBefore }?.second ?: "7 Days Before",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Reminder Alert") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedReminderDropdown) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedReminderDropdown,
+                        onDismissRequest = { expandedReminderDropdown = false }
+                    ) {
+                        reminderOptions.forEach { (days, label) ->
+                            DropdownMenuItem(
+                                text = { Text(label) },
+                                onClick = {
+                                    reminderDaysBefore = days
+                                    expandedReminderDropdown = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = { Text("Notes (Optional)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Text("File Attachment", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+                if (fileUri.isNotBlank()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Attached File (${DocumentFileHelper.formatFileSize(fileSize)})", style = MaterialTheme.typography.bodySmall)
+                        OutlinedButton(onClick = { galleryLauncher.launch("*/*") }) {
+                            Text("Change File")
+                        }
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick = { galleryLauncher.launch("*/*") },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Attach File")
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val v = selectedVehicle
+                    if (v == null) {
+                        Toast.makeText(context, "Please select a vehicle", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+
+                    val cleanTitle = title.trim()
+                    if (cleanTitle.isBlank()) {
+                        Toast.makeText(context, "Please enter document title", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+
+                    val updated = doc.copy(
+                        vehicleId = v.id,
+                        vehicleName = v.vehicleName,
+                        docTitle = cleanTitle,
+                        docType = docType,
+                        expiryDate = expiryDate.trim(),
+                        reminderDaysBefore = reminderDaysBefore,
+                        notes = notes.trim(),
+                        fileUri = fileUri,
+                        mimeType = mimeType,
+                        fileSize = fileSize
+                    )
+                    onSave(updated)
+                }
+            ) {
+                Text("Update Document")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(AppStrings.get("cancel", lang))
+            }
+        }
+    )
 }
 
 @Composable

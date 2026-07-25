@@ -1,12 +1,27 @@
 package com.drivecare.app.ui.screens
 
+import android.Manifest
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -15,15 +30,28 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import com.drivecare.app.data.model.Maintenance
 import com.drivecare.app.data.model.Vehicle
 import com.drivecare.app.ui.DriveCareViewModel
 import com.drivecare.app.utils.AppStrings
+import com.drivecare.app.utils.DocumentFileHelper
 import com.drivecare.app.utils.LocalAppLanguage
+import com.drivecare.app.utils.SavedFileInfo
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -33,6 +61,11 @@ enum class MaintenanceSortOption(val label: String) {
     DATE_ASC("Oldest First"),
     COST_DESC("Cost: High to Low"),
     COST_ASC("Cost: Low to High")
+}
+
+enum class MaintenanceViewMode {
+    LIST,
+    TIMELINE
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -50,11 +83,13 @@ fun MaintenanceScreen(
     var showAddDialog by remember { mutableStateOf(false) }
     var logToEdit by remember { mutableStateOf<Maintenance?>(null) }
     var logToDelete by remember { mutableStateOf<Maintenance?>(null) }
+    var previewReceiptUri by remember { mutableStateOf<String?>(null) }
 
     var selectedFilterVehicleId by remember { mutableStateOf<Long?>(null) }
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("All") }
     var sortOption by remember { mutableStateOf(MaintenanceSortOption.DATE_DESC) }
+    var viewMode by remember { mutableStateOf(MaintenanceViewMode.LIST) }
     var showSortMenu by remember { mutableStateOf(false) }
 
     val categories = remember {
@@ -86,6 +121,14 @@ fun MaintenanceScreen(
 
     val avgCost = remember(filteredLogs) {
         if (filteredLogs.isNotEmpty()) totalSpent / filteredLogs.size else 0.0
+    }
+
+    val vehicleCostBreakdown = remember(maintenanceLogs, vehicles) {
+        vehicles.map { v ->
+            val vLogs = maintenanceLogs.filter { it.vehicleId == v.id }
+            val sum = vLogs.sumOf { it.serviceCost.toDoubleOrNull() ?: 0.0 }
+            v to sum
+        }
     }
 
     val advisorSuggestions = remember(vehicles, maintenanceLogs, selectedFilterVehicleId) {
@@ -192,7 +235,45 @@ fun MaintenanceScreen(
                 }
             }
 
-            // Search Bar & Sort Row
+            // Vehicle Maintenance Cost Breakdown
+            if (vehicles.size > 1 && selectedFilterVehicleId == null) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                "Total Maintenance Cost per Vehicle",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                items(vehicleCostBreakdown) { (veh, costSum) ->
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = MaterialTheme.colorScheme.surface,
+                                        modifier = Modifier.padding(2.dp)
+                                    ) {
+                                        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
+                                            Text(veh.vehicleName, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                                            Text(
+                                                String.format(Locale.US, "$%.2f", costSum),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Search Bar & View Mode Toggle Row
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -215,6 +296,26 @@ fun MaintenanceScreen(
                         singleLine = true
                     )
 
+                    // View Mode Switcher
+                    SingleChoiceSegmentedButtonRow {
+                        SegmentedButton(
+                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                            onClick = { viewMode = MaintenanceViewMode.LIST },
+                            selected = viewMode == MaintenanceViewMode.LIST,
+                            icon = { Icon(Icons.Default.ViewList, contentDescription = "List View", modifier = Modifier.size(16.dp)) }
+                        ) {
+                            Text("List", style = MaterialTheme.typography.labelSmall)
+                        }
+                        SegmentedButton(
+                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                            onClick = { viewMode = MaintenanceViewMode.TIMELINE },
+                            selected = viewMode == MaintenanceViewMode.TIMELINE,
+                            icon = { Icon(Icons.Default.Timeline, contentDescription = "Timeline View", modifier = Modifier.size(16.dp)) }
+                        ) {
+                            Text("Timeline", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+
                     Box {
                         IconButton(onClick = { showSortMenu = true }) {
                             Icon(Icons.Default.Sort, contentDescription = "Sort records")
@@ -223,7 +324,7 @@ fun MaintenanceScreen(
                             expanded = showSortMenu,
                             onDismissRequest = { showSortMenu = false }
                         ) {
-                            MaintenanceSortOption.values().forEach { option ->
+                            MaintenanceSortOption.entries.forEach { option ->
                                 DropdownMenuItem(
                                     text = { Text(option.label, fontWeight = if (sortOption == option) FontWeight.Bold else FontWeight.Normal) },
                                     onClick = {
@@ -323,7 +424,7 @@ fun MaintenanceScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = AppStrings.get("tab_service", lang) + " (${filteredLogs.size})",
+                        text = if (viewMode == MaintenanceViewMode.TIMELINE) "Service Timeline (${filteredLogs.size})" else AppStrings.get("tab_service", lang) + " (${filteredLogs.size})",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -351,12 +452,23 @@ fun MaintenanceScreen(
                         }
                     }
                 }
-            } else {
+            } else if (viewMode == MaintenanceViewMode.LIST) {
                 items(filteredLogs, key = { it.id }) { log ->
                     MaintenanceCard(
                         log = log,
                         onEdit = { logToEdit = log },
-                        onDelete = { logToDelete = log }
+                        onDelete = { logToDelete = log },
+                        onViewReceipt = { uri -> previewReceiptUri = uri }
+                    )
+                }
+            } else {
+                // TIMELINE VIEW
+                items(filteredLogs, key = { it.id }) { log ->
+                    TimelineMaintenanceCard(
+                        log = log,
+                        onEdit = { logToEdit = log },
+                        onDelete = { logToDelete = log },
+                        onViewReceipt = { uri -> previewReceiptUri = uri }
                     )
                 }
             }
@@ -414,14 +526,29 @@ fun MaintenanceScreen(
             }
         )
     }
+
+    if (previewReceiptUri != null) {
+        ReceiptPreviewDialog(
+            receiptUri = previewReceiptUri!!,
+            onDismiss = { previewReceiptUri = null }
+        )
+    }
 }
 
 @Composable
 fun MaintenanceCard(
     log: Maintenance,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onViewReceipt: (String) -> Unit
 ) {
+    val context = LocalContext.current
+    val imageBitmap = remember(log.invoicePhotoUri) {
+        if (log.invoicePhotoUri.isNotBlank()) {
+            loadLocalBitmap(context, log.invoicePhotoUri)
+        } else null
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
@@ -463,12 +590,35 @@ fun MaintenanceCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            // Due and Reminder Badges
+            if (log.nextDueServiceDate.isNotBlank() || log.reminderDate.isNotBlank()) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(vertical = 4.dp)
+                ) {
+                    if (log.nextDueServiceDate.isNotBlank()) {
+                        AssistChip(
+                            onClick = {},
+                            label = { Text("Next Due: ${log.nextDueServiceDate}", style = MaterialTheme.typography.labelSmall) },
+                            leadingIcon = { Icon(Icons.Default.Event, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                        )
+                    }
+                    if (log.reminderDate.isNotBlank()) {
+                        AssistChip(
+                            onClick = {},
+                            label = { Text("Remind: ${log.reminderDate}", style = MaterialTheme.typography.labelSmall) },
+                            leadingIcon = { Icon(Icons.Default.NotificationsActive, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                        )
+                    }
+                }
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     if (log.workshopName.isNotBlank()) {
                         Text("Workshop: ${log.workshopName}", style = MaterialTheme.typography.bodySmall)
                     }
@@ -477,7 +627,25 @@ fun MaintenanceCard(
                     }
                 }
 
-                Row {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (imageBitmap != null) {
+                        Image(
+                            bitmap = imageBitmap,
+                            contentDescription = "Receipt",
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp))
+                                .clickable { onViewReceipt(log.invoicePhotoUri) },
+                            contentScale = ContentScale.Crop
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    } else if (log.invoicePhotoUri.isNotBlank()) {
+                        IconButton(onClick = { onViewReceipt(log.invoicePhotoUri) }) {
+                            Icon(Icons.Default.Receipt, contentDescription = "View Receipt", tint = MaterialTheme.colorScheme.secondary)
+                        }
+                    }
+
                     IconButton(onClick = onEdit) {
                         Icon(Icons.Default.Edit, contentDescription = "Edit Log", tint = MaterialTheme.colorScheme.primary)
                     }
@@ -506,6 +674,56 @@ fun MaintenanceCard(
     }
 }
 
+@Composable
+fun TimelineMaintenanceCard(
+    log: Maintenance,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onViewReceipt: (String) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Timeline axis
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.width(32.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.Build,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .width(2.dp)
+                    .fillMaxHeight()
+                    .background(MaterialTheme.colorScheme.outlineVariant)
+            )
+        }
+
+        // Card Content
+        Box(modifier = Modifier.weight(1f)) {
+            MaintenanceCard(
+                log = log,
+                onEdit = onEdit,
+                onDelete = onDelete,
+                onViewReceipt = onViewReceipt
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddServiceDialog(
@@ -528,7 +746,55 @@ fun AddServiceDialog(
     var workshop by remember { mutableStateOf("") }
     var date by remember { mutableStateOf(todayStr) }
     var odometer by remember { mutableStateOf(selectedVehicle?.odometerReading ?: "0") }
+    var nextDueServiceDate by remember { mutableStateOf("") }
+    var reminderDate by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
+
+    var attachedFileInfo by remember { mutableStateOf<SavedFileInfo?>(null) }
+    var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        val uri = tempCameraUri
+        if (success && uri != null) {
+            val saved = DocumentFileHelper.saveFileToInternalStorage(context, uri)
+            if (saved != null) {
+                attachedFileInfo = saved
+                Toast.makeText(context, "Invoice photo captured!", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            try {
+                val cacheDir = File(context.cacheDir, "receipt_photos").apply { if (!exists()) mkdirs() }
+                val tempFile = File(cacheDir, "receipt_${System.currentTimeMillis()}.jpg")
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", tempFile)
+                tempCameraUri = uri
+                cameraLauncher.launch(uri)
+            } catch (e: Exception) {
+                Toast.makeText(context, "Camera error: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            Toast.makeText(context, "Camera permission required to capture invoice", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            val saved = DocumentFileHelper.saveFileToInternalStorage(context, uri)
+            if (saved != null) {
+                attachedFileInfo = saved
+                Toast.makeText(context, "Receipt image attached!", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     val serviceTypes = listOf("Scheduled Service", "Oil Change", "Brake Inspection", "Tire Service", "Battery Check", "Engine Repair", "AC Service", "General Repair")
 
@@ -541,7 +807,7 @@ fun AddServiceDialog(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text("Select Vehicle *", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
-                
+
                 ExposedDropdownMenuBox(
                     expanded = expandedVehicleDropdown,
                     onExpandedChange = { expandedVehicleDropdown = !expandedVehicleDropdown }
@@ -656,12 +922,83 @@ fun AddServiceDialog(
                     )
                 }
 
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = nextDueServiceDate,
+                        onValueChange = { nextDueServiceDate = it },
+                        label = { Text("Next Due Date") },
+                        placeholder = { Text("YYYY-MM-DD") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = reminderDate,
+                        onValueChange = { reminderDate = it },
+                        label = { Text("Reminder Date") },
+                        placeholder = { Text("YYYY-MM-DD") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
                     label = { Text("Additional Notes") },
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                // Invoice / Receipt Attachment Section
+                Text("Invoice / Receipt Photo", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+                if (attachedFileInfo != null) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Receipt Attached (${DocumentFileHelper.formatFileSize(attachedFileInfo!!.fileSize)})", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                        IconButton(onClick = { attachedFileInfo = null }) {
+                            Icon(Icons.Default.Close, contentDescription = "Remove receipt")
+                        }
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                                    try {
+                                        val cacheDir = File(context.cacheDir, "receipt_photos").apply { if (!exists()) mkdirs() }
+                                        val tempFile = File(cacheDir, "receipt_${System.currentTimeMillis()}.jpg")
+                                        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", tempFile)
+                                        tempCameraUri = uri
+                                        cameraLauncher.launch(uri)
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Camera error: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                } else {
+                                    cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                                }
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Camera")
+                        }
+
+                        OutlinedButton(
+                            onClick = { galleryLauncher.launch("image/*") },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Gallery")
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
@@ -695,7 +1032,10 @@ fun AddServiceDialog(
                         currentOdometer = odometer.ifBlank { v.odometerReading },
                         serviceCost = cleanCostStr,
                         workshopName = workshop.trim(),
-                        notes = notes.trim()
+                        notes = notes.trim(),
+                        invoicePhotoUri = attachedFileInfo?.fileUriString ?: "",
+                        nextDueServiceDate = nextDueServiceDate.trim(),
+                        reminderDate = reminderDate.trim()
                     )
                     onSave(log)
                 }
@@ -733,7 +1073,40 @@ fun EditServiceDialog(
     var workshop by remember { mutableStateOf(log.workshopName) }
     var date by remember { mutableStateOf(log.serviceDate) }
     var odometer by remember { mutableStateOf(log.currentOdometer) }
+    var nextDueServiceDate by remember { mutableStateOf(log.nextDueServiceDate) }
+    var reminderDate by remember { mutableStateOf(log.reminderDate) }
     var notes by remember { mutableStateOf(log.notes) }
+    var invoicePhotoUri by remember { mutableStateOf(log.invoicePhotoUri) }
+
+    var attachedFileInfo by remember { mutableStateOf<SavedFileInfo?>(null) }
+    var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        val uri = tempCameraUri
+        if (success && uri != null) {
+            val saved = DocumentFileHelper.saveFileToInternalStorage(context, uri)
+            if (saved != null) {
+                attachedFileInfo = saved
+                invoicePhotoUri = saved.fileUriString
+                Toast.makeText(context, "Invoice photo captured!", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            val saved = DocumentFileHelper.saveFileToInternalStorage(context, uri)
+            if (saved != null) {
+                attachedFileInfo = saved
+                invoicePhotoUri = saved.fileUriString
+                Toast.makeText(context, "Receipt image attached!", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     val serviceTypes = listOf("Scheduled Service", "Oil Change", "Brake Inspection", "Tire Service", "Battery Check", "Engine Repair", "AC Service", "General Repair")
 
@@ -858,12 +1231,79 @@ fun EditServiceDialog(
                     )
                 }
 
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = nextDueServiceDate,
+                        onValueChange = { nextDueServiceDate = it },
+                        label = { Text("Next Due Date") },
+                        placeholder = { Text("YYYY-MM-DD") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = reminderDate,
+                        onValueChange = { reminderDate = it },
+                        label = { Text("Reminder Date") },
+                        placeholder = { Text("YYYY-MM-DD") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
                     label = { Text("Additional Notes") },
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                // Invoice photo
+                Text("Invoice / Receipt Photo", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+                if (invoicePhotoUri.isNotBlank()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Receipt Attached", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                        IconButton(onClick = { invoicePhotoUri = "" }) {
+                            Icon(Icons.Default.Close, contentDescription = "Remove receipt")
+                        }
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                try {
+                                    val cacheDir = File(context.cacheDir, "receipt_photos").apply { if (!exists()) mkdirs() }
+                                    val tempFile = File(cacheDir, "receipt_${System.currentTimeMillis()}.jpg")
+                                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", tempFile)
+                                    tempCameraUri = uri
+                                    cameraLauncher.launch(uri)
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Camera error: ${e.message}", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Camera")
+                        }
+
+                        OutlinedButton(
+                            onClick = { galleryLauncher.launch("image/*") },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Gallery")
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
@@ -897,7 +1337,10 @@ fun EditServiceDialog(
                         currentOdometer = odometer,
                         serviceCost = cleanCostStr,
                         workshopName = workshop.trim(),
-                        notes = notes.trim()
+                        notes = notes.trim(),
+                        invoicePhotoUri = invoicePhotoUri,
+                        nextDueServiceDate = nextDueServiceDate.trim(),
+                        reminderDate = reminderDate.trim()
                     )
                     onSave(updatedLog)
                 }
@@ -911,4 +1354,87 @@ fun EditServiceDialog(
             }
         }
     )
+}
+
+@Composable
+fun ReceiptPreviewDialog(
+    receiptUri: String,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val imageBitmap = remember(receiptUri) {
+        if (receiptUri.isNotBlank()) loadLocalBitmap(context, receiptUri) else null
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Service Invoice / Receipt", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Close preview")
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.Black),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (imageBitmap != null) {
+                        Image(
+                            bitmap = imageBitmap,
+                            contentDescription = "Invoice Photo",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit
+                        )
+                    } else {
+                        Text("Unable to load receipt image", color = Color.White)
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun loadLocalBitmap(context: Context, uriString: String): ImageBitmap? {
+    return try {
+        val uri = Uri.parse(uriString)
+        if (uri.scheme == "file") {
+            val file = File(uri.path ?: return null)
+            if (file.exists()) {
+                BitmapFactory.decodeFile(file.absolutePath)?.asImageBitmap()
+            } else null
+        } else {
+            val inputStream = context.contentResolver.openInputStream(uri)
+            val bitmap = BitmapFactory.decodeStream(inputStream)
+            inputStream?.close()
+            bitmap?.asImageBitmap()
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+        null
+    }
 }

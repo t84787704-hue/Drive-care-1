@@ -230,7 +230,22 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun addMaintenance(maintenance: Maintenance) {
-        viewModelScope.launch { maintenanceDao.insertMaintenance(maintenance) }
+        viewModelScope.launch {
+            maintenanceDao.insertMaintenance(maintenance)
+            // Auto-create reminder if next due date or reminder date is provided
+            val due = if (maintenance.reminderDate.isNotBlank()) maintenance.reminderDate else maintenance.nextDueServiceDate
+            if (due.isNotBlank()) {
+                reminderDao.insertReminder(
+                    Reminder(
+                        vehicleId = maintenance.vehicleId,
+                        vehicleName = maintenance.vehicleName,
+                        reminderTitle = "Next Service: ${maintenance.serviceTitle}",
+                        reminderType = "Service",
+                        dueDate = due
+                    )
+                )
+            }
+        }
     }
 
     fun updateMaintenance(maintenance: Maintenance) {
@@ -256,7 +271,26 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun addDocument(document: Document) {
-        viewModelScope.launch { documentDao.insertDocument(document) }
+        viewModelScope.launch {
+            documentDao.insertDocument(document)
+            if (document.expiryDate.isNotBlank()) {
+                reminderDao.insertReminder(
+                    Reminder(
+                        vehicleId = document.vehicleId,
+                        vehicleName = document.vehicleName,
+                        reminderTitle = "Document Renewal: ${document.docTitle}",
+                        reminderType = "Document",
+                        dueDate = document.expiryDate
+                    )
+                )
+            }
+        }
+    }
+
+    fun updateDocument(document: Document) {
+        viewModelScope.launch {
+            documentDao.updateDocument(document)
+        }
     }
 
     fun deleteDocument(document: Document) {
