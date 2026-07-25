@@ -1238,14 +1238,14 @@ fun FullImagePreviewDialog(
     ) {
         Surface(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
                 .padding(16.dp),
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surface
         ) {
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxWidth()
                     .padding(16.dp)
             ) {
                 Row(
@@ -1253,9 +1253,9 @@ fun FullImagePreviewDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
-                        Text(doc.docTitle, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text("${doc.vehicleName} • ${doc.docType}", style = MaterialTheme.typography.bodySmall)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(doc.docTitle, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("${doc.vehicleName} • ${doc.docType}", style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     IconButton(onClick = onDismiss) {
                         Icon(Icons.Default.Close, contentDescription = "Close preview")
@@ -1264,30 +1264,39 @@ fun FullImagePreviewDialog(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                Box(
+                Column(
                     modifier = Modifier
-                        .weight(1f)
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color.Black),
-                    contentAlignment = Alignment.Center
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState())
                 ) {
-                    if (imageBitmap != null) {
-                        Image(
-                            bitmap = imageBitmap,
-                            contentDescription = doc.docTitle,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Fit
-                        )
-                    } else {
-                        Text("Unable to load image preview", color = Color.White)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 400.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color.Black),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (imageBitmap != null) {
+                            Image(
+                                bitmap = imageBitmap,
+                                contentDescription = doc.docTitle,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 400.dp),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            Text("Unable to load image preview", color = Color.White, modifier = Modifier.padding(16.dp))
+                        }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
-
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {

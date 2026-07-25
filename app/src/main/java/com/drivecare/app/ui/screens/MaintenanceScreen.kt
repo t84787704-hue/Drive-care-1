@@ -281,29 +281,34 @@ fun MaintenanceScreen(
                 }
             }
 
-            // Search Bar & View Mode Toggle Row
+            // Full-Width Search Bar
+            item {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    placeholder = { Text("Search title, workshop, notes...") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(Icons.Default.Clear, contentDescription = "Clear search")
+                            }
+                        }
+                    },
+                    singleLine = true
+                )
+            }
+
+            // View Mode Toggle & Sort Row
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        modifier = Modifier.weight(1f),
-                        placeholder = { Text("Search title, workshop, notes...") },
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                        trailingIcon = {
-                            if (searchQuery.isNotEmpty()) {
-                                IconButton(onClick = { searchQuery = "" }) {
-                                    Icon(Icons.Default.Clear, contentDescription = "Clear search")
-                                }
-                            }
-                        },
-                        singleLine = true
-                    )
-
                     // View Mode Switcher
                     SingleChoiceSegmentedButtonRow {
                         SegmentedButton(
