@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import com.drivecare.app.ui.DriveCareViewModel
+import com.drivecare.app.ui.components.PermissionOnboardingDialog
 import com.drivecare.app.utils.AppLanguage
 import com.drivecare.app.utils.AppStrings
 import com.drivecare.app.utils.DriveCareNotificationScheduler
@@ -57,6 +58,7 @@ fun SettingsScreen(
     var showBackupDialog by remember { mutableStateOf(false) }
     var showRestoreDialog by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
+    var showPermissionOnboardingDialog by remember { mutableStateOf(false) }
 
     var backupJsonText by remember { mutableStateOf("") }
     var restoreJsonInput by remember { mutableStateOf("") }
@@ -354,16 +356,30 @@ fun SettingsScreen(
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                OutlinedButton(
-                    onClick = {
-                        DriveCareNotificationScheduler.triggerImmediateCheck(context)
-                        Toast.makeText(context, "Notification check executed!", Toast.LENGTH_SHORT).show()
-                    },
-                    modifier = Modifier.fillMaxWidth()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Run Notification Check Now")
+                    OutlinedButton(
+                        onClick = {
+                            DriveCareNotificationScheduler.triggerImmediateCheck(context)
+                            Toast.makeText(context, "Notification check executed!", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Check Now")
+                    }
+
+                    Button(
+                        onClick = { showPermissionOnboardingDialog = true },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Security, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Tracking Setup")
+                    }
                 }
             }
         }
@@ -638,6 +654,12 @@ fun SettingsScreen(
                     Text(AppStrings.get("cancel", currentLang))
                 }
             }
+        )
+    }
+
+    if (showPermissionOnboardingDialog) {
+        PermissionOnboardingDialog(
+            onDismiss = { showPermissionOnboardingDialog = false }
         )
     }
 }

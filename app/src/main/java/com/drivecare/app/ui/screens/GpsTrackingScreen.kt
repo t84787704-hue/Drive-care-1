@@ -39,6 +39,8 @@ import com.drivecare.app.data.model.TripLog
 import com.drivecare.app.data.model.Vehicle
 import com.drivecare.app.data.model.VehicleTelemetry
 import com.drivecare.app.ui.DriveCareViewModel
+import com.drivecare.app.ui.components.PermissionOnboardingDialog
+import com.drivecare.app.ui.components.checkGeofencePermissionStatus
 import com.drivecare.app.utils.FeatureFlags
 import com.google.android.gms.location.*
 import kotlinx.coroutines.Dispatchers
@@ -73,6 +75,7 @@ fun GpsTrackingScreen(
     var selectedVehicle by remember { mutableStateOf<Vehicle?>(vehicles.firstOrNull()) }
     var showAddTripDialog by remember { mutableStateOf(false) }
     var showAddGeofenceDialog by remember { mutableStateOf(false) }
+    var showPermissionOnboardingDialog by remember { mutableStateOf(false) }
     var showManualTelemetryDialog by remember { mutableStateOf(false) }
     var showObdScannerDialog by remember { mutableStateOf(false) }
 
@@ -768,36 +771,72 @@ fun GpsTrackingScreen(
                                 }
                             }
                         } else {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !hasBackgroundLocationPermission) {
-                                Card(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
+                            val permissionStatus = checkGeofencePermissionStatus(context)
+
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (permissionStatus.isFullyConfigured) {
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                                    } else {
+                                        MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f)
+                                    }
+                                )
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(14.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Row(
-                                        modifier = Modifier.padding(12.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Icon(Icons.Default.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.onTertiaryContainer)
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text("Background Location Permission", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onTertiaryContainer)
-                                            Text("For real-time entry & exit notifications while DriveCare is closed, enable 'Allow all the time' location access.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                                        Row(
+                                            modifier = Modifier.weight(1f),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = if (permissionStatus.isFullyConfigured) Icons.Default.CheckCircle else Icons.Default.Error,
+                                                contentDescription = null,
+                                                tint = if (permissionStatus.isFullyConfigured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                            )
+                                            Column {
+                                                Text(
+                                                    text = if (permissionStatus.isFullyConfigured) "Geofence Engine Active" else "Geofencing Setup Incomplete",
+                                                    fontWeight = FontWeight.Bold,
+                                                    style = MaterialTheme.typography.titleSmall,
+                                                    color = if (permissionStatus.isFullyConfigured) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
+                                                )
+                                                Text(
+                                                    text = if (permissionStatus.isFullyConfigured) "All background location & alarm rules met" else "Missing permissions required for background alerts",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = if (permissionStatus.isFullyConfigured) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
+                                                )
+                                            }
                                         }
                                         Button(
-                                            onClick = {
-                                                try {
-                                                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                                        data = Uri.fromParts("package", context.packageName, null)
-                                                    }
-                                                    context.startActivity(intent)
-                                                } catch (e: Exception) {
-                                                    backgroundLocationPermissionLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
-                                                }
-                                            },
-                                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.onTertiaryContainer, contentColor = MaterialTheme.colorScheme.tertiaryContainer)
+                                            onClick = { showPermissionOnboardingDialog = true },
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = if (permissionStatus.isFullyConfigured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                                                contentColor = if (permissionStatus.isFullyConfigured) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onError
+                                            )
                                         ) {
-                                            Text("Settings")
+                                            Text(if (permissionStatus.isFullyConfigured) "Status" else "Fix Now")
                                         }
+                                    }
+
+                                    Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        StatusCheckChip(label = "Fine Location", isOk = permissionStatus.hasFineLocation)
+                                        StatusCheckChip(label = "Background GPS", isOk = permissionStatus.hasBackgroundLocation)
+                                        StatusCheckChip(label = "Exact Alarms", isOk = permissionStatus.canScheduleExactAlarms)
+                                        StatusCheckChip(label = "Unrestricted Battery", isOk = permissionStatus.isIgnoringBatteryOptimizations)
                                     }
                                 }
                             }
@@ -862,6 +901,12 @@ fun GpsTrackingScreen(
             currentLat = currentLatitude,
             currentLng = currentLongitude,
             onDismiss = { showAddGeofenceDialog = false }
+        )
+    }
+
+    if (showPermissionOnboardingDialog) {
+        PermissionOnboardingDialog(
+            onDismiss = { showPermissionOnboardingDialog = false }
         )
     }
 
@@ -1368,3 +1413,25 @@ fun AddGeofenceDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }
+
+@Composable
+private fun StatusCheckChip(label: String, isOk: Boolean) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Icon(
+            imageVector = if (isOk) Icons.Default.CheckCircle else Icons.Default.Cancel,
+            contentDescription = null,
+            modifier = Modifier.size(14.dp),
+            tint = if (isOk) androidx.compose.ui.graphics.Color(0xFF2E7D32) else MaterialTheme.colorScheme.error
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Medium,
+            color = if (isOk) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error
+        )
+    }
+}
+
