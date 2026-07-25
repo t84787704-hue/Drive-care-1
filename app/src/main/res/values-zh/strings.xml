@@ -121,4 +121,5 @@
     <string name="bg_location_desc">即使在应用关闭时也能自动触发安全区域通知所需。</string>
     <string name="exact_alarms_desc">用于按时调度精确的电子围栏边界检查与保养提醒。</string>
     <string name="battery_guide_desc">防止系统休眠机制将后台监测挂起，提升预警可靠性。</string>
+    <string name="battery_optimization_disabled">已停用电池优化 ✓</string>
 </resources>

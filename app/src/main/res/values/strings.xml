@@ -121,4 +121,5 @@
     <string name="bg_location_desc">Needed to trigger Safe Zone entry and exit notifications automatically even when DriveCare is closed.</string>
     <string name="exact_alarms_desc">Needed to schedule precise geofence boundary checks and maintenance reminders without system delays.</string>
     <string name="battery_guide_desc">Prevents Android system doze mode from putting background listeners to sleep for improved alert reliability.</string>
+    <string name="battery_optimization_disabled">Battery Optimization Disabled ✓</string>
 </resources>

@@ -330,7 +330,8 @@ object AppStrings {
         "fine_location_desc" to "Needed to pinpoint current coordinates and position Safe Zones accurately on the map.",
         "bg_location_desc" to "Needed to trigger Safe Zone entry and exit notifications automatically even when DriveCare is closed.",
         "exact_alarms_desc" to "Needed to schedule precise geofence boundary checks and maintenance reminders without system delays.",
-        "battery_guide_desc" to "Prevents Android system doze mode from putting background listeners to sleep for improved alert reliability."
+        "battery_guide_desc" to "Prevents Android system doze mode from putting background listeners to sleep for improved alert reliability.",
+        "battery_optimization_disabled" to "Battery Optimization Disabled ✓"
     )
 
     private val urduMap = mapOf(
@@ -630,7 +631,8 @@ object AppStrings {
         "fine_location_desc" to "نقشے پر درست مقام اور سیف زون متعین کرنے کے لیے درکار ہے۔",
         "bg_location_desc" to "ڈرائیو کیئر بند ہونے پر بھی سیف زون کے الرٹس بھیجنے کے لیے درکار ہے۔",
         "exact_alarms_desc" to "باقاعدہ جیو فینس چیکس اور دیکھ بھال کی یاد دہانیوں کے لیے درکار ہے۔",
-        "battery_guide_desc" to "الرٹس کی بہترین کارکردگی کے لیے اینڈرائیڈ بیٹری کی بچت سے مستثنیٰ رکھیں۔"
+        "battery_guide_desc" to "الرٹس کی بہترین کارکردگی کے لیے اینڈرائیڈ بیٹری کی بچت سے مستثنیٰ رکھیں۔",
+        "battery_optimization_disabled" to "بیٹری اپٹمائزیشن غیر فعال ہے ✓"
     )
 
     private val arabicMap = mapOf(
@@ -791,7 +793,8 @@ object AppStrings {
         "fine_location_desc" to "مطلوب لتحديد الإحداثيات الحالية والمناطق الآمنة بدقة.",
         "bg_location_desc" to "مطلوب لتشغيل إشعارات المنطقة الآمنة تلقائياً عند إغلاق التطبيق.",
         "exact_alarms_desc" to "مطلوب لجدولة فحص حدود السياج الجغرافي والتذكيرات بدقة.",
-        "battery_guide_desc" to "يمنع وضع إيقاف النظام من وضع مستمعي الخلفية في حالة السكون."
+        "battery_guide_desc" to "يمنع وضع إيقاف النظام من وضع مستمعي الخلفية في حالة السكون.",
+        "battery_optimization_disabled" to "تم تعطيل تحسين البطارية ✓"
     )
 
     private val hindiMap = mapOf(
@@ -934,7 +937,8 @@ object AppStrings {
         "fine_location_desc" to "मानचित्र पर सटीक स्थान और सेफ ज़ोन निर्धारित करने के लिए आवश्यक।",
         "bg_location_desc" to "ऐप बंद होने पर भी स्वचालित रूप से सेफ ज़ोन सूचनाएं ट्रिगर करने के लिए आवश्यक।",
         "exact_alarms_desc" to "सटीक जियोफेंस सीमा जांच और रखरखाव अनुस्मारक शेड्यूल करने के लिए आवश्यक।",
-        "battery_guide_desc" to "अलर्ट विश्वसनीयता के लिए सिस्टम को बैकग्राउंड प्रक्रियाओं को सोने से रोकता है।"
+        "battery_guide_desc" to "अलर्ट विश्वसनीयता के लिए सिस्टम को बैकग्राउंड प्रक्रियाओं को सोने से रोकता है।",
+        "battery_optimization_disabled" to "बैटरी अनुकूलन अक्षम है ✓"
     )
 
     private val chineseMap = mapOf(
@@ -1077,6 +1081,7 @@ object AppStrings {
         "fine_location_desc" to "精确定位当前坐标并在地图上准确设置安全区域所需。",
         "bg_location_desc" to "即使在应用关闭时也能自动触发安全区域通知所需。",
         "exact_alarms_desc" to "用于按时调度精确的电子围栏边界检查与保养提醒。",
-        "battery_guide_desc" to "防止系统休眠机制将后台监测挂起，提升预警可靠性。"
+        "battery_guide_desc" to "防止系统休眠机制将后台监测挂起，提升预警可靠性。",
+        "battery_optimization_disabled" to "已停用电池优化 ✓"
     )
 }

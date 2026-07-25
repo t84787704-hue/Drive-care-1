@@ -121,4 +121,5 @@
     <string name="bg_location_desc">ڈرائیو کیئر بند ہونے پر بھی سیف زون کے الرٹس بھیجنے کے لیے درکار ہے۔</string>
     <string name="exact_alarms_desc">باقاعدہ جیو فینس چیکس اور دیکھ بھال کی یاد دہانیوں کے لیے درکار ہے۔</string>
     <string name="battery_guide_desc">الرٹس کی بہترین کارکردگی کے لیے اینڈرائیڈ بیٹری کی بچت سے مستثنیٰ رکھیں۔</string>
+    <string name="battery_optimization_disabled">بیٹری اپٹمائزیشن غیر فعال ہے ✓</string>
 </resources>

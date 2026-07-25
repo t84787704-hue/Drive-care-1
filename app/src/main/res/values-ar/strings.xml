@@ -121,4 +121,5 @@
     <string name="bg_location_desc">مطلوب لتشغيل إشعارات المنطقة الآمنة تلقائياً عند إغلاق التطبيق.</string>
     <string name="exact_alarms_desc">مطلوب لجدولة فحص حدود السياج الجغرافي والتذكيرات بدقة.</string>
     <string name="battery_guide_desc">يمنع وضع إيقاف النظام من وضع مستمعي الخلفية في حالة السكون.</string>
+    <string name="battery_optimization_disabled">تم تعطيل تحسين البطارية ✓</string>
 </resources>

@@ -483,7 +483,10 @@ fun PermissionOnboardingDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = if (statusState.isIgnoringBatteryOptimizations) "• ${AppStrings.get("unrestricted_battery", lang)}: ${AppStrings.get("granted", lang)}" else "• ${AppStrings.get("unrestricted_battery", lang)}",
+                                text = if (statusState.isIgnoringBatteryOptimizations)
+                                    "• ${AppStrings.get("battery_optimization_disabled", lang)}"
+                                else
+                                    "• ${AppStrings.get("unrestricted_battery", lang)}",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = if (statusState.isIgnoringBatteryOptimizations) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.weight(1f)
@@ -492,7 +495,7 @@ fun PermissionOnboardingDialog(
                             Spacer(modifier = Modifier.width(8.dp))
 
                             Button(
-                                onClick = { openBatterySettings(context, lang) },
+                                onClick = { openBatterySettings(context) },
                                 modifier = Modifier.defaultMinSize(minWidth = 80.dp),
                                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
                                 colors = ButtonDefaults.buttonColors(
@@ -500,7 +503,10 @@ fun PermissionOnboardingDialog(
                                 )
                             ) {
                                 Text(
-                                    text = AppStrings.get("open_battery_settings", lang),
+                                    text = if (statusState.isIgnoringBatteryOptimizations)
+                                        AppStrings.get("battery_optimization_disabled", lang)
+                                    else
+                                        AppStrings.get("open_battery_settings", lang),
                                     maxLines = 1,
                                     softWrap = false
                                 )
@@ -536,9 +542,10 @@ fun PermissionOnboardingDialog(
     )
 }
 
-fun openBatterySettings(context: Context, lang: AppLanguage = AppLanguage.ENGLISH) {
+fun openBatterySettings(context: Context) {
     var opened = false
-    // 1. First try direct battery optimization request
+
+    // 1. First try: ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS with package URI
     try {
         val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
             data = Uri.parse("package:${context.packageName}")
@@ -547,24 +554,11 @@ fun openBatterySettings(context: Context, lang: AppLanguage = AppLanguage.ENGLIS
         context.startActivity(intent)
         opened = true
     } catch (e: Exception) {
-        // Fallback 1
+        opened = false
     }
 
+    // 2. Fallback to: ACTION_APPLICATION_DETAILS_SETTINGS
     if (!opened) {
-        // 2. Try general battery optimization settings screen
-        try {
-            val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            context.startActivity(intent)
-            opened = true
-        } catch (e: Exception) {
-            // Fallback 2
-        }
-    }
-
-    if (!opened) {
-        // 3. Fall back to application details settings
         try {
             val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                 data = Uri.fromParts("package", context.packageName, null)
@@ -573,22 +567,21 @@ fun openBatterySettings(context: Context, lang: AppLanguage = AppLanguage.ENGLIS
             context.startActivity(intent)
             opened = true
         } catch (e: Exception) {
-            // Fallback 3
+            opened = false
         }
     }
 
-    if (opened) {
-        Toast.makeText(
-            context,
-            AppStrings.get("battery_unrestricted_toast", lang),
-            Toast.LENGTH_LONG
-        ).show()
-    } else {
-        Toast.makeText(
-            context,
-            AppStrings.get("battery_manual_toast", lang),
-            Toast.LENGTH_LONG
-        ).show()
+    // 3. Fallback to: ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS
+    if (!opened) {
+        try {
+            val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            opened = true
+        } catch (e: Exception) {
+            opened = false
+        }
     }
 }
 

@@ -121,4 +121,5 @@
     <string name="bg_location_desc">ऐप बंद होने पर भी स्वचालित रूप से सेफ ज़ोन सूचनाएं ट्रिगर करने के लिए आवश्यक।</string>
     <string name="exact_alarms_desc">सटीक जियोफेंस सीमा जांच और रखरखाव अनुस्मारक शेड्यूल करने के लिए आवश्यक।</string>
     <string name="battery_guide_desc">अलर्ट विश्वसनीयता के लिए सिस्टम को बैकग्राउंड प्रक्रियाओं को सोने से रोकता है।</string>
+    <string name="battery_optimization_disabled">बैटरी अनुकूलन अक्षम है ✓</string>
 </resources>
