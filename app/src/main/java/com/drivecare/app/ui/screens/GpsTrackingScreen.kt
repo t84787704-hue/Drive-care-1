@@ -811,7 +811,9 @@ fun GpsTrackingScreen(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Row(
-                                            modifier = Modifier.weight(1f),
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clickable { showPermissionOnboardingDialog = true },
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                                         ) {
@@ -835,7 +837,16 @@ fun GpsTrackingScreen(
                                             }
                                         }
                                         Button(
-                                            onClick = { showPermissionOnboardingDialog = true },
+                                            onClick = {
+                                                try {
+                                                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                                        data = Uri.parse("package:${context.packageName}")
+                                                    }
+                                                    context.startActivity(intent)
+                                                } catch (e: Exception) {
+                                                    showPermissionOnboardingDialog = true
+                                                }
+                                            },
                                             colors = ButtonDefaults.buttonColors(
                                                 containerColor = if (permissionStatus.isFullyConfigured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                                                 contentColor = if (permissionStatus.isFullyConfigured) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onError
