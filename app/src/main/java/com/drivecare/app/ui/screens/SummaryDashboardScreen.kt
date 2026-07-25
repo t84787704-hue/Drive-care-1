@@ -25,6 +25,7 @@ import com.drivecare.app.ui.TimelineEvent
 import com.drivecare.app.ui.components.QuickActionRow
 import com.drivecare.app.utils.AppStrings
 import com.drivecare.app.utils.LocalAppLanguage
+import com.drivecare.app.utils.VehicleTypeHelper
 import java.util.Locale
 
 @Composable
@@ -666,13 +667,7 @@ fun VehicleHealthCard(
                         shape = MaterialTheme.shapes.medium
                     ) {
                         Icon(
-                            imageVector = when (vehicle.vehicleType.lowercase()) {
-                                "suv", "van" -> Icons.Default.AirportShuttle
-                                "motorcycle", "bike" -> Icons.Default.TwoWheeler
-                                "truck" -> Icons.Default.LocalShipping
-                                "electric", "ev" -> Icons.Default.EvStation
-                                else -> Icons.Default.DirectionsCar
-                            },
+                            imageVector = VehicleTypeHelper.getVehicleIcon(vehicle.vehicleType),
                             contentDescription = null,
                             modifier = Modifier.padding(8.dp).size(20.dp),
                             tint = MaterialTheme.colorScheme.primary
@@ -681,7 +676,7 @@ fun VehicleHealthCard(
 
                     Column {
                         Text(vehicle.vehicleName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                        Text("${vehicle.brand} ${vehicle.model} • ${vehicle.odometerReading} km", style = MaterialTheme.typography.bodySmall)
+                        Text("${VehicleTypeHelper.getDisplayName(vehicle.vehicleType, lang)} • ${vehicle.brand} ${vehicle.model} • ${vehicle.odometerReading} km", style = MaterialTheme.typography.bodySmall)
                     }
                 }
 

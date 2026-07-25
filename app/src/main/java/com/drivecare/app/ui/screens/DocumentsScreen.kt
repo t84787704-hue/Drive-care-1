@@ -48,6 +48,7 @@ import com.drivecare.app.utils.AppStrings
 import com.drivecare.app.utils.DocumentFileHelper
 import com.drivecare.app.utils.LocalAppLanguage
 import com.drivecare.app.utils.SavedFileInfo
+import com.drivecare.app.utils.VehicleTypeHelper
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -195,7 +196,14 @@ fun DocumentsScreen(
                             FilterChip(
                                 selected = selectedVehicleIdFilter == v.id,
                                 onClick = { selectedVehicleIdFilter = v.id },
-                                label = { Text(v.vehicleName) }
+                                label = { Text(v.vehicleName) },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = VehicleTypeHelper.getVehicleIcon(v.vehicleType),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
                             )
                         }
                     }
@@ -649,9 +657,18 @@ fun AddDocumentDialog(
                     onExpandedChange = { expandedVehicleDropdown = !expandedVehicleDropdown }
                 ) {
                     OutlinedTextField(
-                        value = selectedVehicle?.vehicleName ?: "Select Vehicle",
+                        value = selectedVehicle?.let { "${it.vehicleName} (${VehicleTypeHelper.getDisplayName(it.vehicleType, lang)})" } ?: "Select Vehicle",
                         onValueChange = {},
                         readOnly = true,
+                        leadingIcon = selectedVehicle?.let { v ->
+                            {
+                                Icon(
+                                    imageVector = VehicleTypeHelper.getVehicleIcon(v.vehicleType),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedVehicleDropdown) },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -663,7 +680,15 @@ fun AddDocumentDialog(
                     ) {
                         vehicles.forEach { v ->
                             DropdownMenuItem(
-                                text = { Text("${v.vehicleName} (${v.brand} ${v.model})") },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = VehicleTypeHelper.getVehicleIcon(v.vehicleType),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                },
+                                text = { Text("${v.vehicleName} (${VehicleTypeHelper.getDisplayName(v.vehicleType, lang)} • ${v.brand} ${v.model})") },
                                 onClick = {
                                     selectedVehicle = v
                                     expandedVehicleDropdown = false
@@ -1008,9 +1033,18 @@ fun EditDocumentDialog(
                     onExpandedChange = { expandedVehicleDropdown = !expandedVehicleDropdown }
                 ) {
                     OutlinedTextField(
-                        value = selectedVehicle?.vehicleName ?: "Select Vehicle",
+                        value = selectedVehicle?.let { "${it.vehicleName} (${VehicleTypeHelper.getDisplayName(it.vehicleType, lang)})" } ?: "Select Vehicle",
                         onValueChange = {},
                         readOnly = true,
+                        leadingIcon = selectedVehicle?.let { v ->
+                            {
+                                Icon(
+                                    imageVector = VehicleTypeHelper.getVehicleIcon(v.vehicleType),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedVehicleDropdown) },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1022,7 +1056,15 @@ fun EditDocumentDialog(
                     ) {
                         vehicles.forEach { v ->
                             DropdownMenuItem(
-                                text = { Text("${v.vehicleName} (${v.brand} ${v.model})") },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = VehicleTypeHelper.getVehicleIcon(v.vehicleType),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                },
+                                text = { Text("${v.vehicleName} (${VehicleTypeHelper.getDisplayName(v.vehicleType, lang)} • ${v.brand} ${v.model})") },
                                 onClick = {
                                     selectedVehicle = v
                                     expandedVehicleDropdown = false

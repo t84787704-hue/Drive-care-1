@@ -50,6 +50,7 @@ import com.drivecare.app.ui.components.checkGeofencePermissionStatus
 import com.drivecare.app.utils.AppStrings
 import com.drivecare.app.utils.FeatureFlags
 import com.drivecare.app.utils.LocalAppLanguage
+import com.drivecare.app.utils.VehicleTypeHelper
 import com.google.android.gms.location.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -446,7 +447,8 @@ fun GpsTrackingScreen(
                     Tab(
                         selected = selectedVehicle?.id == v.id,
                         onClick = { selectedVehicle = v },
-                        text = { Text(v.vehicleName, fontWeight = FontWeight.SemiBold) }
+                        text = { Text(v.vehicleName, fontWeight = FontWeight.SemiBold) },
+                        icon = { Icon(VehicleTypeHelper.getVehicleIcon(v.vehicleType), contentDescription = null, modifier = Modifier.size(18.dp)) }
                     )
                 }
             }

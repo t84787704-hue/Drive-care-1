@@ -20,6 +20,7 @@ import com.drivecare.app.data.model.Vehicle
 import com.drivecare.app.ui.DriveCareViewModel
 import com.drivecare.app.utils.AppStrings
 import com.drivecare.app.utils.LocalAppLanguage
+import com.drivecare.app.utils.VehicleTypeHelper
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -84,7 +85,14 @@ fun FuelTrackerScreen(
                             FilterChip(
                                 selected = selectedVehicle?.id == v.id,
                                 onClick = { viewModel.selectFuelVehicle(v) },
-                                label = { Text(v.vehicleName) }
+                                label = { Text(v.vehicleName) },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = VehicleTypeHelper.getVehicleIcon(v.vehicleType),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
                             )
                         }
                     }
@@ -230,9 +238,18 @@ fun AddFuelDialog(
                     onExpandedChange = { expandedVehicleDropdown = !expandedVehicleDropdown }
                 ) {
                     OutlinedTextField(
-                        value = selectedVehicle?.vehicleName ?: "Select Vehicle",
+                        value = selectedVehicle?.let { "${it.vehicleName} (${VehicleTypeHelper.getDisplayName(it.vehicleType, lang)})" } ?: "Select Vehicle",
                         onValueChange = {},
                         readOnly = true,
+                        leadingIcon = selectedVehicle?.let { v ->
+                            {
+                                Icon(
+                                    imageVector = VehicleTypeHelper.getVehicleIcon(v.vehicleType),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedVehicleDropdown) },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -244,7 +261,15 @@ fun AddFuelDialog(
                     ) {
                         vehicles.forEach { v ->
                             DropdownMenuItem(
-                                text = { Text("${v.vehicleName} (${v.brand} ${v.model})") },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = VehicleTypeHelper.getVehicleIcon(v.vehicleType),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                },
+                                text = { Text("${v.vehicleName} (${VehicleTypeHelper.getDisplayName(v.vehicleType, lang)} • ${v.brand} ${v.model})") },
                                 onClick = {
                                     selectedVehicle = v
                                     odo = v.odometerReading

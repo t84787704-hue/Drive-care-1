@@ -24,6 +24,7 @@ import com.drivecare.app.ui.DriveCareViewModel
 import com.drivecare.app.utils.AppStrings
 import com.drivecare.app.utils.LocalAppLanguage
 import com.drivecare.app.utils.PdfReportGenerator
+import com.drivecare.app.utils.VehicleTypeHelper
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -49,7 +50,7 @@ fun VehicleListScreen(
     var vehicleToDelete by remember { mutableStateOf<Vehicle?>(null) }
     var selectedFilterType by remember { mutableStateOf("All") }
 
-    val vehicleTypes = listOf("All", "Car", "SUV", "Motorcycle", "Van", "Truck", "Fleet")
+    val vehicleTypes = remember { listOf("All") + VehicleTypeHelper.ALL_TYPES.map { it.code } }
 
     val filteredVehicles = if (selectedFilterType == "All") {
         vehicles
@@ -77,10 +78,20 @@ fun VehicleListScreen(
             // Type Filter Bar
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(vehicleTypes) { type ->
+                    val labelText = if (type == "All") AppStrings.get("all_vehicles", lang) else VehicleTypeHelper.getDisplayName(type, lang)
                     FilterChip(
                         selected = selectedFilterType == type,
                         onClick = { selectedFilterType = type },
-                        label = { Text(if (type == "All") AppStrings.get("all_vehicles", lang) else type) }
+                        label = { Text(labelText) },
+                        leadingIcon = if (type != "All") {
+                            {
+                                Icon(
+                                    imageVector = VehicleTypeHelper.getVehicleIcon(type),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        } else null
                     )
                 }
             }
@@ -201,13 +212,8 @@ fun VehicleCard(
     onDeleteClick: () -> Unit,
     lang: com.drivecare.app.utils.AppLanguage
 ) {
-    val vehicleIcon = when (vehicle.vehicleType.lowercase()) {
-        "suv", "van" -> Icons.Default.AirportShuttle
-        "motorcycle", "bike" -> Icons.Default.TwoWheeler
-        "truck" -> Icons.Default.LocalShipping
-        "electric", "ev" -> Icons.Default.EvStation
-        else -> Icons.Default.DirectionsCar
-    }
+    val vehicleIcon = VehicleTypeHelper.getVehicleIcon(vehicle.vehicleType)
+    val localizedTypeName = VehicleTypeHelper.getDisplayName(vehicle.vehicleType, lang)
 
     Card(
         modifier = Modifier
@@ -242,7 +248,7 @@ fun VehicleCard(
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(vehicle.vehicleName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text("${vehicle.vehicleType} • ${vehicle.brand} ${vehicle.model}", style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("$localizedTypeName • ${vehicle.brand} ${vehicle.model}", style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
 
@@ -294,6 +300,7 @@ fun VehicleFormDialog(
 
     var name by remember { mutableStateOf(vehicle?.vehicleName ?: "") }
     var type by remember { mutableStateOf(vehicle?.vehicleType ?: "Car") }
+    var customTypeInput by remember { mutableStateOf("") }
     var brand by remember { mutableStateOf(vehicle?.brand ?: "") }
     var model by remember { mutableStateOf(vehicle?.model ?: "") }
     var year by remember { mutableStateOf(vehicle?.manufacturingYear ?: "2024") }
@@ -304,7 +311,6 @@ fun VehicleFormDialog(
     var expandedTypeDropdown by remember { mutableStateOf(false) }
     var expandedFuelDropdown by remember { mutableStateOf(false) }
 
-    val vehicleTypes = listOf("Car", "SUV", "Motorcycle", "Van", "Truck", "Electric", "Fleet")
     val fuelTypes = listOf("Petrol", "Diesel", "Electric", "Hybrid", "CNG", "LPG")
 
     AlertDialog(
@@ -329,10 +335,17 @@ fun VehicleFormDialog(
                     onExpandedChange = { expandedTypeDropdown = !expandedTypeDropdown }
                 ) {
                     OutlinedTextField(
-                        value = type,
+                        value = VehicleTypeHelper.getDisplayName(type, lang),
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Vehicle Type") },
+                        label = { Text(AppStrings.get("type", lang) + " *") },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = VehicleTypeHelper.getVehicleIcon(type),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedTypeDropdown) },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -342,16 +355,34 @@ fun VehicleFormDialog(
                         expanded = expandedTypeDropdown,
                         onDismissRequest = { expandedTypeDropdown = false }
                     ) {
-                        vehicleTypes.forEach { t ->
+                        VehicleTypeHelper.ALL_TYPES.forEach { t ->
                             DropdownMenuItem(
-                                text = { Text(t) },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = VehicleTypeHelper.getVehicleIcon(t.code),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                },
+                                text = { Text(AppStrings.get(t.stringKey, lang)) },
                                 onClick = {
-                                    type = t
+                                    type = t.code
                                     expandedTypeDropdown = false
                                 }
                             )
                         }
                     }
+                }
+
+                if (type == "Other") {
+                    OutlinedTextField(
+                        value = customTypeInput,
+                        onValueChange = { customTypeInput = it },
+                        label = { Text("Custom Vehicle Type Name") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -465,9 +496,10 @@ fun VehicleFormDialog(
                         return@Button
                     }
 
+                    val finalType = if (type == "Other" && customTypeInput.isNotBlank()) customTypeInput.trim() else type
                     val newV = (vehicle ?: Vehicle(vehicleName = cleanName)).copy(
                         vehicleName = cleanName,
-                        vehicleType = type,
+                        vehicleType = finalType,
                         brand = cleanBrand,
                         model = cleanModel,
                         manufacturingYear = year.ifBlank { "2024" },
@@ -568,7 +600,7 @@ fun VehicleDetailDialog(
                     Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text("Vehicle Details", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
                         Text("Registration Plate: ${vehicle.registrationNumber.ifBlank { "N/A" }}", style = MaterialTheme.typography.bodyMedium)
-                        Text("Vehicle Type: ${vehicle.vehicleType} • Fuel: ${vehicle.fuelType}", style = MaterialTheme.typography.bodySmall)
+                        Text("Vehicle Type: ${VehicleTypeHelper.getDisplayName(vehicle.vehicleType, lang)} • Fuel: ${vehicle.fuelType}", style = MaterialTheme.typography.bodySmall)
                         Text("Odometer Reading: ${vehicle.odometerReading} km", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
                         if (vehicle.notes.isNotBlank()) {
                             Text("Notes: ${vehicle.notes}", style = MaterialTheme.typography.bodySmall)
