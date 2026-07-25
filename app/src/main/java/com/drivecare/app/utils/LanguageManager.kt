@@ -316,7 +316,7 @@ object AppStrings {
         "step_location" to "Step 1: Location Permission",
         "step_bg_location" to "Step 2: Background Location",
         "step_exact_alarms" to "Step 3: Exact Alarms",
-        "step_battery" to "Step 4: Battery Optimization Guidance",
+        "step_battery" to "Step 4: Battery & Background Performance",
         "battery_unrestricted_toast" to "Battery settings: Set Battery to 'Unrestricted' for reliable alerts.",
         "battery_manual_toast" to "Please go to Device Settings > Apps > DriveCare > Battery > Select 'Unrestricted'",
         "done" to "Done",
@@ -330,8 +330,8 @@ object AppStrings {
         "fine_location_desc" to "Needed to pinpoint current coordinates and position Safe Zones accurately on the map.",
         "bg_location_desc" to "Needed to trigger Safe Zone entry and exit notifications automatically even when DriveCare is closed.",
         "exact_alarms_desc" to "Needed to schedule precise geofence boundary checks and maintenance reminders without system delays.",
-        "battery_guide_desc" to "Prevents Android system doze mode from putting background listeners to sleep for improved alert reliability.",
-        "battery_optimization_disabled" to "Battery Optimization Disabled ✓"
+        "battery_guide_desc" to "Allowing background activity ensures instant Safe Zone entry and exit alerts without delays from Android battery saver.",
+        "battery_optimization_disabled" to "Battery Restrictions Removed ✓"
     )
 
     private val urduMap = mapOf(
@@ -617,7 +617,7 @@ object AppStrings {
         "step_location" to "مرحلہ 1: لوکیشن کی اجازت",
         "step_bg_location" to "مرحلہ 2: بیک گراؤنڈ لوکیشن",
         "step_exact_alarms" to "مرحلہ 3: درست الارم",
-        "step_battery" to "مرحلہ 4: بیٹری اپٹمائزیشن گائیڈ",
+        "step_battery" to "مرحلہ 4: بیٹری اور بیک گراؤنڈ پرفارمنس",
         "battery_unrestricted_toast" to "بیٹری سیٹنگز: الرٹس کے لیے 'Unrestricted' سیٹ کریں۔",
         "battery_manual_toast" to "سیٹنگز > ایپس > ڈرائیو کیئر > بیٹری > 'Unrestricted' منتخب کریں",
         "done" to "مکمل",
@@ -631,8 +631,8 @@ object AppStrings {
         "fine_location_desc" to "نقشے پر درست مقام اور سیف زون متعین کرنے کے لیے درکار ہے۔",
         "bg_location_desc" to "ڈرائیو کیئر بند ہونے پر بھی سیف زون کے الرٹس بھیجنے کے لیے درکار ہے۔",
         "exact_alarms_desc" to "باقاعدہ جیو فینس چیکس اور دیکھ بھال کی یاد دہانیوں کے لیے درکار ہے۔",
-        "battery_guide_desc" to "الرٹس کی بہترین کارکردگی کے لیے اینڈرائیڈ بیٹری کی بچت سے مستثنیٰ رکھیں۔",
-        "battery_optimization_disabled" to "بیٹری اپٹمائزیشن غیر فعال ہے ✓"
+        "battery_guide_desc" to "سیف زون کے بر وقت الرٹس موصول کرنے کے لیے بیک گراؤنڈ ایکٹیویٹی کو بلا تاخیر فعال رکھیں۔",
+        "battery_optimization_disabled" to "بیٹری کی پابندیاں ختم کر دی گئی ہیں ✓"
     )
 
     private val arabicMap = mapOf(

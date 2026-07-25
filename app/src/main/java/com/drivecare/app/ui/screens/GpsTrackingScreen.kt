@@ -64,6 +64,16 @@ data class DiscoveredObdDevice(
     val isPaired: Boolean = false
 )
 
+fun isLocationServiceEnabled(context: Context): Boolean {
+    val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as? android.location.LocationManager ?: return false
+    return try {
+        locationManager.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER) ||
+        locationManager.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER)
+    } catch (e: Exception) {
+        false
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GpsTrackingScreen(
@@ -80,6 +90,8 @@ fun GpsTrackingScreen(
 
     val isGpsEnabled by FeatureFlags.gpsTrackingEnabled.collectAsState()
 
+    var isGpsProviderOn by remember { mutableStateOf(isLocationServiceEnabled(context)) }
+
     var selectedTab by remember { mutableIntStateOf(0) } // 0: Live GPS & Telemetry, 1: Trip History, 2: Geofencing
     var selectedVehicle by remember { mutableStateOf<Vehicle?>(vehicles.firstOrNull()) }
     var showAddTripDialog by remember { mutableStateOf(false) }
@@ -91,19 +103,6 @@ fun GpsTrackingScreen(
     var showObdScannerDialog by remember { mutableStateOf(false) }
 
     var geofencePermissionStatus by remember { mutableStateOf(checkGeofencePermissionStatus(context)) }
-
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                geofencePermissionStatus = checkGeofencePermissionStatus(context)
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
 
     // OBD2 Connection State (Optional Mode - Manual remains default)
     var isObdConnected by remember { mutableStateOf(false) }
@@ -122,6 +121,22 @@ fun GpsTrackingScreen(
             ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
             ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
         )
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                geofencePermissionStatus = checkGeofencePermissionStatus(context)
+                isGpsProviderOn = isLocationServiceEnabled(context)
+                hasLocationPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                    ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     val locationPermissionLauncher = rememberLauncherForActivityResult(
@@ -211,8 +226,8 @@ fun GpsTrackingScreen(
     }
 
     // Battery Optimization & Clean Location Lifecycle
-    DisposableEffect(hasLocationPermission, isLiveTrackingActive) {
-        if (hasLocationPermission && isLiveTrackingActive) {
+    DisposableEffect(hasLocationPermission, isLiveTrackingActive, isGpsProviderOn) {
+        if (hasLocationPermission && isLiveTrackingActive && isGpsProviderOn) {
             val locationRequest = LocationRequest.Builder(
                 Priority.PRIORITY_HIGH_ACCURACY,
                 2000L
@@ -304,8 +319,31 @@ fun GpsTrackingScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.GpsFixed, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Text("GPS & Telemetry Module", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Icon(
+                            imageVector = if (isGpsProviderOn) Icons.Default.GpsFixed else Icons.Default.GpsOff,
+                            contentDescription = null,
+                            tint = if (isGpsProviderOn) androidx.compose.ui.graphics.Color(0xFF2E7D32) else MaterialTheme.colorScheme.error
+                        )
+                        Column {
+                            Text("GPS & Telemetry Module", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(top = 2.dp)
+                            ) {
+                                Surface(
+                                    color = if (isGpsProviderOn) androidx.compose.ui.graphics.Color(0xFF2E7D32) else MaterialTheme.colorScheme.error,
+                                    shape = CircleShape,
+                                    modifier = Modifier.size(8.dp)
+                                ) {}
+                                Text(
+                                    text = if (isGpsProviderOn) "GPS: ON" else "GPS: OFF",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isGpsProviderOn) androidx.compose.ui.graphics.Color(0xFF2E7D32) else MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
                     }
                     Switch(
                         checked = isGpsEnabled,
@@ -316,8 +354,59 @@ fun GpsTrackingScreen(
                     Text(
                         "GPS Tracking Module is currently disabled in Feature Flags.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 4.dp)
                     )
+                }
+            }
+        }
+
+        // GPS OFF Warning Banner (One-Tap Enable GPS)
+        if (isGpsEnabled && !isGpsProviderOn) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.LocationOff,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                        Text(
+                            "⚠️ Location Services are OFF",
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                    Text(
+                        "Turn on GPS to use Live Tracking, Trip History and Geofencing.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                    Button(
+                        onClick = {
+                            try {
+                                val intent = Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Opening Location Settings...", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Icon(Icons.Default.GpsFixed, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Enable GPS", fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
@@ -525,9 +614,15 @@ fun GpsTrackingScreen(
                                         )
                                     } else {
                                         Text(
-                                            text = if (hasLocationPermission) "Acquiring real satellite GPS signal..." else "Location permission required",
+                                            text = if (!isGpsProviderOn)
+                                                "⚠️ Device Location (GPS) is turned OFF"
+                                            else if (hasLocationPermission)
+                                                "Acquiring real satellite GPS signal..."
+                                            else
+                                                "Location permission required",
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.error
+                                            color = MaterialTheme.colorScheme.error,
+                                            fontWeight = FontWeight.SemiBold
                                         )
                                     }
 
@@ -541,8 +636,12 @@ fun GpsTrackingScreen(
                                         if (!isTripActive) {
                                             Button(
                                                 modifier = Modifier.weight(1f),
-                                                enabled = hasLocationPermission && activeVehicle != null,
+                                                enabled = hasLocationPermission && isGpsProviderOn && activeVehicle != null,
                                                 onClick = {
+                                                    if (!isGpsProviderOn) {
+                                                        Toast.makeText(context, "Please enable Location Services (GPS) first.", Toast.LENGTH_SHORT).show()
+                                                        return@Button
+                                                    }
                                                     isTripActive = true
                                                     tripStartLat = currentLatitude
                                                     tripStartLng = currentLongitude
@@ -923,7 +1022,15 @@ fun GpsTrackingScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text("Safe Perimeter Zones (${filteredGeofences.size})", fontWeight = FontWeight.Bold)
-                                    Button(onClick = { showAddGeofenceDialog = true }) {
+                                    Button(
+                                        onClick = {
+                                            if (!isGpsProviderOn) {
+                                                Toast.makeText(context, "Please turn on Device Location (GPS) to configure Geofence zones.", Toast.LENGTH_LONG).show()
+                                            } else {
+                                                showAddGeofenceDialog = true
+                                            }
+                                        }
+                                    ) {
                                         Icon(Icons.Default.Add, contentDescription = null)
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Text("Add Geofence")
