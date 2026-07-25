@@ -896,6 +896,15 @@ fun GpsTrackingScreen(
                                         StatusCheckChip(label = AppStrings.get("exact_alarms", lang), isOk = permissionStatus.canScheduleExactAlarms)
                                         StatusCheckChip(label = AppStrings.get("unrestricted_battery", lang), isOk = permissionStatus.isIgnoringBatteryOptimizations)
                                     }
+
+                                    if (!permissionStatus.isIgnoringBatteryOptimizations) {
+                                        Text(
+                                            text = "• ${AppStrings.get("alerts_delayed_note", lang)}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.padding(top = 2.dp)
+                                        )
+                                    }
                                 }
                             }
 

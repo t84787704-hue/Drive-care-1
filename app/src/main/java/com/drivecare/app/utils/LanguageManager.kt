@@ -320,12 +320,17 @@ object AppStrings {
         "battery_unrestricted_toast" to "Battery settings: Set Battery to 'Unrestricted' for reliable alerts.",
         "battery_manual_toast" to "Please go to Device Settings > Apps > DriveCare > Battery > Select 'Unrestricted'",
         "done" to "Done",
-        "skip_close" to "Skip / Close",
+        "skip_close" to "Skip for now",
         "status_enabled" to "Status: Enabled",
         "status_partially_enabled" to "Status: Partially Enabled",
         "status_disabled" to "Status: Disabled",
         "safe_zone_title" to "Enable Background Alerts (Optional)",
-        "safe_zone_sub" to "Safe Zone & Boundary Tracking Setup"
+        "safe_zone_sub" to "Safe Zone & Boundary Tracking Setup",
+        "alerts_delayed_note" to "Alerts may be delayed due to battery restrictions.",
+        "fine_location_desc" to "Needed to pinpoint current coordinates and position Safe Zones accurately on the map.",
+        "bg_location_desc" to "Needed to trigger Safe Zone entry and exit notifications automatically even when DriveCare is closed.",
+        "exact_alarms_desc" to "Needed to schedule precise geofence boundary checks and maintenance reminders without system delays.",
+        "battery_guide_desc" to "Prevents Android system doze mode from putting background listeners to sleep for improved alert reliability."
     )
 
     private val urduMap = mapOf(
@@ -615,12 +620,17 @@ object AppStrings {
         "battery_unrestricted_toast" to "بیٹری سیٹنگز: الرٹس کے لیے 'Unrestricted' سیٹ کریں۔",
         "battery_manual_toast" to "سیٹنگز > ایپس > ڈرائیو کیئر > بیٹری > 'Unrestricted' منتخب کریں",
         "done" to "مکمل",
-        "skip_close" to "چھوڑ دیں / بند کریں",
+        "skip_close" to "ابھی کے لیے چھوڑ دیں",
         "status_enabled" to "حالت: فعال",
         "status_partially_enabled" to "حالت: جزوی فعال",
         "status_disabled" to "حالت: غیر فعال",
         "safe_zone_title" to "بیک گراؤنڈ الرٹس فعال کریں (اختیاری)",
-        "safe_zone_sub" to "سیف زون اور حد بندی کا سیٹ اپ"
+        "safe_zone_sub" to "سیف زون اور حد بندی کا سیٹ اپ",
+        "alerts_delayed_note" to "بیٹری کے حدود کی وجہ سے الرٹس میں تاخیر ہو سکتی ہے۔",
+        "fine_location_desc" to "نقشے پر درست مقام اور سیف زون متعین کرنے کے لیے درکار ہے۔",
+        "bg_location_desc" to "ڈرائیو کیئر بند ہونے پر بھی سیف زون کے الرٹس بھیجنے کے لیے درکار ہے۔",
+        "exact_alarms_desc" to "باقاعدہ جیو فینس چیکس اور دیکھ بھال کی یاد دہانیوں کے لیے درکار ہے۔",
+        "battery_guide_desc" to "الرٹس کی بہترین کارکردگی کے لیے اینڈرائیڈ بیٹری کی بچت سے مستثنیٰ رکھیں۔"
     )
 
     private val arabicMap = mapOf(
@@ -771,12 +781,17 @@ object AppStrings {
         "battery_unrestricted_toast" to "إعدادات البطارية: اضبط البطارية على 'غير مقيدة' للتنبيهات.",
         "battery_manual_toast" to "الانتقال إلى الإعدادات > التطبيقات > درايف كير > البطارية > اختر 'غير مقيدة'",
         "done" to "تم",
-        "skip_close" to "تخطي / إغلاق",
+        "skip_close" to "التخطي الآن",
         "status_enabled" to "الحالة: مُمكّن",
         "status_partially_enabled" to "الحالة: مُمكّن جزئياً",
         "status_disabled" to "الحالة: معطل",
         "safe_zone_title" to "تمكين تنبيهات الخلفية (اختياري)",
-        "safe_zone_sub" to "إعداد المنطقة الآمنة وتتبع الحدود"
+        "safe_zone_sub" to "إعداد المنطقة الآمنة وتتبع الحدود",
+        "alerts_delayed_note" to "قد تتأخر التنبيهات بسبب قيود البطارية.",
+        "fine_location_desc" to "مطلوب لتحديد الإحداثيات الحالية والمناطق الآمنة بدقة.",
+        "bg_location_desc" to "مطلوب لتشغيل إشعارات المنطقة الآمنة تلقائياً عند إغلاق التطبيق.",
+        "exact_alarms_desc" to "مطلوب لجدولة فحص حدود السياج الجغرافي والتذكيرات بدقة.",
+        "battery_guide_desc" to "يمنع وضع إيقاف النظام من وضع مستمعي الخلفية في حالة السكون."
     )
 
     private val hindiMap = mapOf(
@@ -909,12 +924,17 @@ object AppStrings {
         "battery_unrestricted_toast" to "बैटरी सेटिंग्स: अलर्ट के लिए बैटरी को 'अनप्रतिबंधित' पर सेट करें।",
         "battery_manual_toast" to "सेटिंग्स > ऐप > ड्राइवकेयर > बैटरी > 'अनप्रतिबंधित' चुनें",
         "done" to "हो गया",
-        "skip_close" to "छोड़ें / बंद करें",
+        "skip_close" to "अभी के लिए छोड़ें",
         "status_enabled" to "स्थिति: सक्षम",
         "status_partially_enabled" to "स्थिति: आंशिक रूप से सक्षम",
         "status_disabled" to "स्थिति: अक्षम",
         "safe_zone_title" to "बैकग्राउंड अलर्ट सक्षम करें (वैकल्पिक)",
-        "safe_zone_sub" to "सेफ ज़ोन और सीमा ट्रैकिंग सेटअप"
+        "safe_zone_sub" to "सेफ ज़ोन और सीमा ट्रैकिंग सेटअप",
+        "alerts_delayed_note" to "बैटरी प्रतिबंधों के कारण अलर्ट में देरी हो सकती है।",
+        "fine_location_desc" to "मानचित्र पर सटीक स्थान और सेफ ज़ोन निर्धारित करने के लिए आवश्यक।",
+        "bg_location_desc" to "ऐप बंद होने पर भी स्वचालित रूप से सेफ ज़ोन सूचनाएं ट्रिगर करने के लिए आवश्यक।",
+        "exact_alarms_desc" to "सटीक जियोफेंस सीमा जांच और रखरखाव अनुस्मारक शेड्यूल करने के लिए आवश्यक।",
+        "battery_guide_desc" to "अलर्ट विश्वसनीयता के लिए सिस्टम को बैकग्राउंड प्रक्रियाओं को सोने से रोकता है।"
     )
 
     private val chineseMap = mapOf(
@@ -1047,11 +1067,16 @@ object AppStrings {
         "battery_unrestricted_toast" to "电池设置：请设为“无限制”以确保及时预警。",
         "battery_manual_toast" to "请前往：系统设置 > 应用 > DriveCare > 电池 > 选择“无限制”",
         "done" to "完成",
-        "skip_close" to "跳过 / 关闭",
+        "skip_close" to "暂时跳过",
         "status_enabled" to "状态：已启用",
         "status_partially_enabled" to "状态：部分启用",
         "status_disabled" to "状态：未启用",
         "safe_zone_title" to "开启后台预警 (可选)",
-        "safe_zone_sub" to "安全区域与边界追踪设置"
+        "safe_zone_sub" to "安全区域与边界追踪设置",
+        "alerts_delayed_note" to "由于电池限制，预警可能会有所延迟。",
+        "fine_location_desc" to "精确定位当前坐标并在地图上准确设置安全区域所需。",
+        "bg_location_desc" to "即使在应用关闭时也能自动触发安全区域通知所需。",
+        "exact_alarms_desc" to "用于按时调度精确的电子围栏边界检查与保养提醒。",
+        "battery_guide_desc" to "防止系统休眠机制将后台监测挂起，提升预警可靠性。"
     )
 }

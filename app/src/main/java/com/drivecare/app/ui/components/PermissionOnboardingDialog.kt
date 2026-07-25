@@ -257,7 +257,7 @@ fun PermissionOnboardingDialog(
                         }
 
                         Text(
-                            text = AppStrings.get("fine_location", lang),
+                            text = AppStrings.get("fine_location_desc", lang),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -325,7 +325,7 @@ fun PermissionOnboardingDialog(
                         }
 
                         Text(
-                            text = AppStrings.get("background_gps", lang),
+                            text = AppStrings.get("bg_location_desc", lang),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -397,7 +397,7 @@ fun PermissionOnboardingDialog(
                         }
 
                         Text(
-                            text = AppStrings.get("exact_alarms", lang),
+                            text = AppStrings.get("exact_alarms_desc", lang),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -472,7 +472,7 @@ fun PermissionOnboardingDialog(
                         }
 
                         Text(
-                            text = AppStrings.get("unrestricted_battery", lang),
+                            text = AppStrings.get("battery_guide_desc", lang),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -508,6 +508,15 @@ fun PermissionOnboardingDialog(
                         }
                     }
                 }
+
+                if (!statusState.isIgnoringBatteryOptimizations) {
+                    Text(
+                        text = "• ${AppStrings.get("alerts_delayed_note", lang)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
             }
         },
         confirmButton = {
@@ -533,6 +542,7 @@ fun openBatterySettings(context: Context, lang: AppLanguage = AppLanguage.ENGLIS
     try {
         val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
             data = Uri.parse("package:${context.packageName}")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         context.startActivity(intent)
         opened = true
@@ -543,7 +553,9 @@ fun openBatterySettings(context: Context, lang: AppLanguage = AppLanguage.ENGLIS
     if (!opened) {
         // 2. Try general battery optimization settings screen
         try {
-            val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+            val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
             context.startActivity(intent)
             opened = true
         } catch (e: Exception) {
@@ -556,6 +568,7 @@ fun openBatterySettings(context: Context, lang: AppLanguage = AppLanguage.ENGLIS
         try {
             val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                 data = Uri.fromParts("package", context.packageName, null)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(intent)
             opened = true
