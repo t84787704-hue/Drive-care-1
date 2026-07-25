@@ -88,4 +88,5 @@
     <string name="language">भाषा</string>
     <string name="backup_data">बैकअप (JSON)</string>
     <string name="restore_data">रिस्टोर</string>
+    <string name="open_battery_settings">बैटरी सेटिंग्स खोलें</string>
 </resources>

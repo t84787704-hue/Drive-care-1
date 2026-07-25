@@ -32,6 +32,9 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.drivecare.app.utils.AppLanguage
+import com.drivecare.app.utils.AppStrings
+import com.drivecare.app.utils.LocalAppLanguage
 
 enum class GeofenceStatusLevel {
     ENABLED,
@@ -100,6 +103,7 @@ fun PermissionOnboardingDialog(
     onCompleted: () -> Unit = onDismiss
 ) {
     val context = LocalContext.current
+    val lang = LocalAppLanguage.current
     var statusState by remember { mutableStateOf(checkGeofencePermissionStatus(context)) }
 
     // Launcher for Fine + Coarse Location
@@ -149,8 +153,16 @@ fun PermissionOnboardingDialog(
                     )
                 }
                 Column {
-                    Text("Enable Background Alerts (Optional)", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                    Text("Safe Zone & Boundary Tracking Setup", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        text = AppStrings.get("safe_zone_title", lang),
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        text = AppStrings.get("safe_zone_sub", lang),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         },
@@ -162,7 +174,7 @@ fun PermissionOnboardingDialog(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(
-                    "Enable background tracking to receive Safe Zone entry and exit alerts even when the app is closed. This is completely optional and you can skip any step.",
+                    text = AppStrings.get("geofence_bg_desc", lang),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -199,9 +211,9 @@ fun PermissionOnboardingDialog(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = when (statusState.statusLevel) {
-                                    GeofenceStatusLevel.ENABLED -> "Status: Enabled"
-                                    GeofenceStatusLevel.PARTIALLY_ENABLED -> "Status: Partially Enabled"
-                                    GeofenceStatusLevel.DISABLED -> "Status: Disabled"
+                                    GeofenceStatusLevel.ENABLED -> AppStrings.get("status_enabled", lang)
+                                    GeofenceStatusLevel.PARTIALLY_ENABLED -> AppStrings.get("status_partially_enabled", lang)
+                                    GeofenceStatusLevel.DISABLED -> AppStrings.get("status_disabled", lang)
                                 },
                                 fontWeight = FontWeight.Bold,
                                 style = MaterialTheme.typography.labelLarge,
@@ -209,9 +221,8 @@ fun PermissionOnboardingDialog(
                             )
                             Text(
                                 text = when (statusState.statusLevel) {
-                                    GeofenceStatusLevel.ENABLED -> "All permissions configured for automatic background entry and exit notifications."
-                                    GeofenceStatusLevel.PARTIALLY_ENABLED -> "Foreground tracking is active. Grant background location for alerts when DriveCare is closed."
-                                    GeofenceStatusLevel.DISABLED -> "Configure location access below whenever you wish to enable automatic Safe Zone alerts."
+                                    GeofenceStatusLevel.ENABLED -> AppStrings.get("geofence_all_met", lang)
+                                    else -> AppStrings.get("geofence_bg_desc", lang)
                                 },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -238,11 +249,15 @@ fun PermissionOnboardingDialog(
                                 contentDescription = null,
                                 tint = if (statusState.hasFineLocation) Color(0xFF2E7D32) else MaterialTheme.colorScheme.primary
                             )
-                            Text("Step 1: Location Permission", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                text = AppStrings.get("step_location", lang),
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleSmall
+                            )
                         }
 
                         Text(
-                            "Needed to pinpoint current coordinates and position Safe Zones accurately on the map.",
+                            text = AppStrings.get("fine_location", lang),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -253,10 +268,13 @@ fun PermissionOnboardingDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = if (statusState.hasFineLocation) "• Location: Granted" else "• Location: Not Granted",
+                                text = if (statusState.hasFineLocation) "• ${AppStrings.get("fine_location", lang)}: ${AppStrings.get("granted", lang)}" else "• ${AppStrings.get("fine_location", lang)}",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = if (statusState.hasFineLocation) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant
+                                color = if (statusState.hasFineLocation) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f)
                             )
+
+                            Spacer(modifier = Modifier.width(8.dp))
 
                             Button(
                                 onClick = {
@@ -267,9 +285,15 @@ fun PermissionOnboardingDialog(
                                         )
                                     )
                                 },
-                                enabled = !statusState.hasFineLocation
+                                enabled = !statusState.hasFineLocation,
+                                modifier = Modifier.defaultMinSize(minWidth = 80.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
                             ) {
-                                Text(if (statusState.hasFineLocation) "Granted" else "Grant Location")
+                                Text(
+                                    text = if (statusState.hasFineLocation) AppStrings.get("granted", lang) else AppStrings.get("grant_location", lang),
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
                             }
                         }
                     }
@@ -293,11 +317,15 @@ fun PermissionOnboardingDialog(
                                 contentDescription = null,
                                 tint = if (statusState.hasBackgroundLocation) Color(0xFF2E7D32) else MaterialTheme.colorScheme.primary
                             )
-                            Text("Step 2: Background Location", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                text = AppStrings.get("step_bg_location", lang),
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleSmall
+                            )
                         }
 
                         Text(
-                            "Needed to trigger Safe Zone entry and exit notifications automatically even when DriveCare is running in the background or closed.",
+                            text = AppStrings.get("background_gps", lang),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -308,10 +336,13 @@ fun PermissionOnboardingDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = if (statusState.hasBackgroundLocation) "• Background Access: Granted" else "• Background Access: Optional",
+                                text = if (statusState.hasBackgroundLocation) "• ${AppStrings.get("background_gps", lang)}: ${AppStrings.get("granted", lang)}" else "• ${AppStrings.get("background_gps", lang)}",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = if (statusState.hasBackgroundLocation) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant
+                                color = if (statusState.hasBackgroundLocation) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f)
                             )
+
+                            Spacer(modifier = Modifier.width(8.dp))
 
                             Button(
                                 onClick = {
@@ -326,9 +357,15 @@ fun PermissionOnboardingDialog(
                                         }
                                     }
                                 },
-                                enabled = !statusState.hasBackgroundLocation
+                                enabled = !statusState.hasBackgroundLocation,
+                                modifier = Modifier.defaultMinSize(minWidth = 80.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
                             ) {
-                                Text(if (statusState.hasBackgroundLocation) "Granted" else "Allow Background")
+                                Text(
+                                    text = if (statusState.hasBackgroundLocation) AppStrings.get("granted", lang) else AppStrings.get("allow_background", lang),
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
                             }
                         }
                     }
@@ -352,11 +389,15 @@ fun PermissionOnboardingDialog(
                                 contentDescription = null,
                                 tint = if (statusState.canScheduleExactAlarms) Color(0xFF2E7D32) else MaterialTheme.colorScheme.primary
                             )
-                            Text("Step 3: Exact Alarms", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                text = AppStrings.get("step_exact_alarms", lang),
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleSmall
+                            )
                         }
 
                         Text(
-                            "Needed to schedule precise geofence boundary checks and maintenance reminders without system delays.",
+                            text = AppStrings.get("exact_alarms", lang),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -367,10 +408,13 @@ fun PermissionOnboardingDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = if (statusState.canScheduleExactAlarms) "• Exact Alarms: Enabled" else "• Exact Alarms: Optional",
+                                text = if (statusState.canScheduleExactAlarms) "• ${AppStrings.get("exact_alarms", lang)}: ${AppStrings.get("granted", lang)}" else "• ${AppStrings.get("exact_alarms", lang)}",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = if (statusState.canScheduleExactAlarms) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant
+                                color = if (statusState.canScheduleExactAlarms) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f)
                             )
+
+                            Spacer(modifier = Modifier.width(8.dp))
 
                             Button(
                                 onClick = {
@@ -388,9 +432,15 @@ fun PermissionOnboardingDialog(
                                         }
                                     }
                                 },
-                                enabled = !statusState.canScheduleExactAlarms
+                                enabled = !statusState.canScheduleExactAlarms,
+                                modifier = Modifier.defaultMinSize(minWidth = 80.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
                             ) {
-                                Text(if (statusState.canScheduleExactAlarms) "Granted" else "Enable Alarms")
+                                Text(
+                                    text = if (statusState.canScheduleExactAlarms) AppStrings.get("granted", lang) else AppStrings.get("enable_alarms", lang),
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
                             }
                         }
                     }
@@ -414,26 +464,18 @@ fun PermissionOnboardingDialog(
                                 contentDescription = null,
                                 tint = if (statusState.isIgnoringBatteryOptimizations) Color(0xFF2E7D32) else MaterialTheme.colorScheme.primary
                             )
-                            Text("Step 4: Battery Optimization Guidance", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                text = AppStrings.get("step_battery", lang),
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleSmall
+                            )
                         }
 
                         Text(
-                            "Prevents Android system doze mode from putting background listeners to sleep for improved alert reliability.",
+                            text = AppStrings.get("unrestricted_battery", lang),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-
-                        Surface(
-                            color = MaterialTheme.colorScheme.background,
-                            shape = MaterialTheme.shapes.small,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text("Suggested Settings:", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
-                                Text("1. Set Battery Usage to 'Unrestricted'", style = MaterialTheme.typography.bodySmall)
-                                Text("2. Disable 'Pause app activity if unused'", style = MaterialTheme.typography.bodySmall)
-                            }
-                        }
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -441,18 +483,27 @@ fun PermissionOnboardingDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = if (statusState.isIgnoringBatteryOptimizations) "• Battery: Unrestricted" else "• Battery: Standard",
+                                text = if (statusState.isIgnoringBatteryOptimizations) "• ${AppStrings.get("unrestricted_battery", lang)}: ${AppStrings.get("granted", lang)}" else "• ${AppStrings.get("unrestricted_battery", lang)}",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = if (statusState.isIgnoringBatteryOptimizations) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant
+                                color = if (statusState.isIgnoringBatteryOptimizations) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f)
                             )
 
+                            Spacer(modifier = Modifier.width(8.dp))
+
                             Button(
-                                onClick = { openBatterySettings(context) },
+                                onClick = { openBatterySettings(context, lang) },
+                                modifier = Modifier.defaultMinSize(minWidth = 80.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = if (statusState.isIgnoringBatteryOptimizations) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
                                 )
                             ) {
-                                Text(if (statusState.isIgnoringBatteryOptimizations) "Battery Setting Opening" else "Battery Setting Kholein")
+                                Text(
+                                    text = AppStrings.get("open_battery_settings", lang),
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
                             }
                         }
                     }
@@ -465,18 +516,18 @@ fun PermissionOnboardingDialog(
                     onCompleted()
                 }
             ) {
-                Text("Done")
+                Text(AppStrings.get("done", lang))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Skip / Close")
+                Text(AppStrings.get("skip_close", lang))
             }
         }
     )
 }
 
-fun openBatterySettings(context: Context) {
+fun openBatterySettings(context: Context, lang: AppLanguage = AppLanguage.ENGLISH) {
     var opened = false
     // 1. First try direct battery optimization request
     try {
@@ -516,15 +567,16 @@ fun openBatterySettings(context: Context) {
     if (opened) {
         Toast.makeText(
             context,
-            "Battery settings: Set Battery to 'Unrestricted' for reliable alerts.",
+            AppStrings.get("battery_unrestricted_toast", lang),
             Toast.LENGTH_LONG
         ).show()
     } else {
         Toast.makeText(
             context,
-            "Please go to Device Settings > Apps > DriveCare > Battery > Select 'Unrestricted'",
+            AppStrings.get("battery_manual_toast", lang),
             Toast.LENGTH_LONG
         ).show()
     }
 }
+
 

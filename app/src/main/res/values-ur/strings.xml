@@ -88,4 +88,5 @@
     <string name="language">زبان کا انتخاب</string>
     <string name="backup_data">بیک اپ لیں (JSON)</string>
     <string name="restore_data">ریسٹور کریں</string>
+    <string name="open_battery_settings">بیٹری سیٹنگز کھولیں</string>
 </resources>

@@ -17,6 +17,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
@@ -45,7 +46,9 @@ import com.drivecare.app.ui.DriveCareViewModel
 import com.drivecare.app.ui.components.GeofenceStatusLevel
 import com.drivecare.app.ui.components.PermissionOnboardingDialog
 import com.drivecare.app.ui.components.checkGeofencePermissionStatus
+import com.drivecare.app.utils.AppStrings
 import com.drivecare.app.utils.FeatureFlags
+import com.drivecare.app.utils.LocalAppLanguage
 import com.google.android.gms.location.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -67,6 +70,7 @@ fun GpsTrackingScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val lang = LocalAppLanguage.current
     val coroutineScope = rememberCoroutineScope()
     val vehicles by viewModel.vehicles.collectAsState()
     val tripLogs by viewModel.tripLogs.collectAsState()
@@ -809,7 +813,7 @@ fun GpsTrackingScreen(
                                 ) {
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Row(
@@ -832,11 +836,11 @@ fun GpsTrackingScreen(
                                                     GeofenceStatusLevel.DISABLED -> MaterialTheme.colorScheme.onSurfaceVariant
                                                 }
                                             )
-                                            Column {
+                                            Column(modifier = Modifier.weight(1f)) {
                                                 Text(
                                                     text = when (statusLevel) {
-                                                        GeofenceStatusLevel.ENABLED -> "Geofencing Enabled"
-                                                        else -> "Enable Background Alerts (Optional)"
+                                                        GeofenceStatusLevel.ENABLED -> AppStrings.get("geofencing_enabled", lang)
+                                                        else -> AppStrings.get("safe_zone_title", lang)
                                                     },
                                                     fontWeight = FontWeight.Bold,
                                                     style = MaterialTheme.typography.titleSmall,
@@ -844,16 +848,21 @@ fun GpsTrackingScreen(
                                                 )
                                                 Text(
                                                     text = when (statusLevel) {
-                                                        GeofenceStatusLevel.ENABLED -> "All background location & alarm rules met"
-                                                        else -> "Enable background tracking to receive Safe Zone entry and exit alerts even when the app is closed."
+                                                        GeofenceStatusLevel.ENABLED -> AppStrings.get("geofence_all_met", lang)
+                                                        else -> AppStrings.get("geofence_bg_desc", lang)
                                                     },
                                                     style = MaterialTheme.typography.bodySmall,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                             }
                                         }
+
+                                        Spacer(modifier = Modifier.width(4.dp))
+
                                         Button(
                                             onClick = { showPermissionOnboardingDialog = true },
+                                            modifier = Modifier.defaultMinSize(minWidth = 80.dp),
+                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
                                             colors = ButtonDefaults.buttonColors(
                                                 containerColor = when (statusLevel) {
                                                     GeofenceStatusLevel.ENABLED -> MaterialTheme.colorScheme.primary
@@ -863,10 +872,12 @@ fun GpsTrackingScreen(
                                             )
                                         ) {
                                             Text(
-                                                when (statusLevel) {
-                                                    GeofenceStatusLevel.ENABLED -> "Status"
-                                                    else -> "Enable Background Alerts"
-                                                }
+                                                text = when (statusLevel) {
+                                                    GeofenceStatusLevel.ENABLED -> AppStrings.get("status_label", lang)
+                                                    else -> AppStrings.get("enable_background_alerts", lang)
+                                                },
+                                                maxLines = 1,
+                                                softWrap = false
                                             )
                                         }
                                     }
@@ -874,13 +885,16 @@ fun GpsTrackingScreen(
                                     Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
 
                                     Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .horizontalScroll(rememberScrollState()),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        StatusCheckChip(label = "Fine Location", isOk = permissionStatus.hasFineLocation)
-                                        StatusCheckChip(label = "Background GPS", isOk = permissionStatus.hasBackgroundLocation)
-                                        StatusCheckChip(label = "Exact Alarms", isOk = permissionStatus.canScheduleExactAlarms)
-                                        StatusCheckChip(label = "Unrestricted Battery", isOk = permissionStatus.isIgnoringBatteryOptimizations)
+                                        StatusCheckChip(label = AppStrings.get("fine_location", lang), isOk = permissionStatus.hasFineLocation)
+                                        StatusCheckChip(label = AppStrings.get("background_gps", lang), isOk = permissionStatus.hasBackgroundLocation)
+                                        StatusCheckChip(label = AppStrings.get("exact_alarms", lang), isOk = permissionStatus.canScheduleExactAlarms)
+                                        StatusCheckChip(label = AppStrings.get("unrestricted_battery", lang), isOk = permissionStatus.isIgnoringBatteryOptimizations)
                                     }
                                 }
                             }
@@ -1463,22 +1477,31 @@ fun AddGeofenceDialog(
 
 @Composable
 private fun StatusCheckChip(label: String, isOk: Boolean) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    Surface(
+        color = if (isOk) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f) else MaterialTheme.colorScheme.surfaceVariant,
+        shape = MaterialTheme.shapes.small,
+        modifier = Modifier.defaultMinSize(minWidth = 80.dp)
     ) {
-        Icon(
-            imageVector = if (isOk) Icons.Default.CheckCircle else Icons.Default.Info,
-            contentDescription = null,
-            modifier = Modifier.size(14.dp),
-            tint = if (isOk) androidx.compose.ui.graphics.Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Medium,
-            color = if (isOk) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                imageVector = if (isOk) Icons.Default.CheckCircle else Icons.Default.Info,
+                contentDescription = null,
+                modifier = Modifier.size(14.dp),
+                tint = if (isOk) androidx.compose.ui.graphics.Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Medium,
+                color = if (isOk) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                softWrap = false
+            )
+        }
     }
 }
 

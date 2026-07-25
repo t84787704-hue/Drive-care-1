@@ -296,7 +296,36 @@ object AppStrings {
 
         "guide_settings_title" to "Settings & Preferences",
         "guide_settings_desc" to "Customize regional units, currency symbols, theme modes, and cloud database sync.",
-        "guide_settings_benefits" to "• Multi-currency ($ € £ ₹ ¥) & language options\n• Light & Dark theme preferences\n• JSON data backup & restore"
+        "guide_settings_benefits" to "• Multi-currency ($ € £ ₹ ¥) & language options\n• Light & Dark theme preferences\n• JSON data backup & restore",
+
+        "open_battery_settings" to "Open Battery Settings",
+        "configure_battery" to "Configure Battery",
+        "enable_background_alerts" to "Enable Background Alerts",
+        "geofencing_enabled" to "Geofencing Enabled",
+        "status_label" to "Status",
+        "fine_location" to "Fine Location",
+        "background_gps" to "Background GPS",
+        "exact_alarms" to "Exact Alarms",
+        "unrestricted_battery" to "Unrestricted Battery",
+        "granted" to "Granted",
+        "grant_location" to "Grant Location",
+        "allow_background" to "Allow Background",
+        "enable_alarms" to "Enable Alarms",
+        "geofence_all_met" to "All background location & alarm rules met",
+        "geofence_bg_desc" to "Enable background tracking to receive Safe Zone entry and exit alerts even when the app is closed.",
+        "step_location" to "Step 1: Location Permission",
+        "step_bg_location" to "Step 2: Background Location",
+        "step_exact_alarms" to "Step 3: Exact Alarms",
+        "step_battery" to "Step 4: Battery Optimization Guidance",
+        "battery_unrestricted_toast" to "Battery settings: Set Battery to 'Unrestricted' for reliable alerts.",
+        "battery_manual_toast" to "Please go to Device Settings > Apps > DriveCare > Battery > Select 'Unrestricted'",
+        "done" to "Done",
+        "skip_close" to "Skip / Close",
+        "status_enabled" to "Status: Enabled",
+        "status_partially_enabled" to "Status: Partially Enabled",
+        "status_disabled" to "Status: Disabled",
+        "safe_zone_title" to "Enable Background Alerts (Optional)",
+        "safe_zone_sub" to "Safe Zone & Boundary Tracking Setup"
     )
 
     private val urduMap = mapOf(
@@ -562,7 +591,36 @@ object AppStrings {
 
         "guide_settings_title" to "سیٹنگز اور ترجیحات",
         "guide_settings_desc" to "زبان، کرنسی سمبل، ڈارک موڈ اور ڈیٹا بیک اپ کی سیٹنگز تبدیل کریں۔",
-        "guide_settings_benefits" to "• ملٹی کرنسی ($ € £ ₹ ¥) اور زبانیں\n• لائٹ اور ڈارک تھیم\n• JSON ڈیٹا بیک اپ اور ریسٹور"
+        "guide_settings_benefits" to "• ملٹی کرنسی ($ € £ ₹ ¥) اور زبانیں\n• لائٹ اور ڈارک تھیم\n• JSON ڈیٹا بیک اپ اور ریسٹور",
+
+        "open_battery_settings" to "بیٹری سیٹنگز کھولیں",
+        "configure_battery" to "بیٹری کنفیگر کریں",
+        "enable_background_alerts" to "بیک گراؤنڈ الرٹس فعال کریں",
+        "geofencing_enabled" to "جیو فینسنگ فعال ہے",
+        "status_label" to "حیثیت",
+        "fine_location" to "مقام کی اجازت",
+        "background_gps" to "بیک گراؤنڈ GPS",
+        "exact_alarms" to "درست الارم",
+        "unrestricted_battery" to "غیر محدود بیٹری",
+        "granted" to "منظور شدہ",
+        "grant_location" to "مقام کی اجازت دیں",
+        "allow_background" to "بیک گراؤنڈ کی اجازت دیں",
+        "enable_alarms" to "الارم فعال کریں",
+        "geofence_all_met" to "تمام پس منظر لوکیشن اور الارم قواعد مکمل ہیں",
+        "geofence_bg_desc" to "سیف زون کے الرٹس حاصل کرنے کے لیے پس منظر میں ٹریکنگ فعال کریں۔",
+        "step_location" to "مرحلہ 1: لوکیشن کی اجازت",
+        "step_bg_location" to "مرحلہ 2: بیک گراؤنڈ لوکیشن",
+        "step_exact_alarms" to "مرحلہ 3: درست الارم",
+        "step_battery" to "مرحلہ 4: بیٹری اپٹمائزیشن گائیڈ",
+        "battery_unrestricted_toast" to "بیٹری سیٹنگز: الرٹس کے لیے 'Unrestricted' سیٹ کریں۔",
+        "battery_manual_toast" to "سیٹنگز > ایپس > ڈرائیو کیئر > بیٹری > 'Unrestricted' منتخب کریں",
+        "done" to "مکمل",
+        "skip_close" to "چھوڑ دیں / بند کریں",
+        "status_enabled" to "حالت: فعال",
+        "status_partially_enabled" to "حالت: جزوی فعال",
+        "status_disabled" to "حالت: غیر فعال",
+        "safe_zone_title" to "بیک گراؤنڈ الرٹس فعال کریں (اختیاری)",
+        "safe_zone_sub" to "سیف زون اور حد بندی کا سیٹ اپ"
     )
 
     private val arabicMap = mapOf(
@@ -689,7 +747,36 @@ object AppStrings {
 
         "guide_settings_title" to "الإعدادات والتفضيلات",
         "guide_settings_desc" to "تخصيص الوحدات والإقليمية، ورمز العملة، والوضع الليلي، والمزامنة السحابية.",
-        "guide_settings_benefits" to "• خيارات العملات ($ € £ ₹ ¥) واللغات المتعددة\n• التبديل بين الوضع المظلم والفاتح\n• نسخ واعادة استعادة البيانات بصيغة JSON"
+        "guide_settings_benefits" to "• خيارات العملات ($ € £ ₹ ¥) واللغات المتعددة\n• التبديل بين الوضع المظلم والفاتح\n• نسخ واعادة استعادة البيانات بصيغة JSON",
+
+        "open_battery_settings" to "فتح إعدادات البطارية",
+        "configure_battery" to "تكوين البطارية",
+        "enable_background_alerts" to "تمكين تنبيهات الخلفية",
+        "geofencing_enabled" to "السياج الجغرافي مفعل",
+        "status_label" to "الحالة",
+        "fine_location" to "الموقع الدقيق",
+        "background_gps" to "GPS في الخلفية",
+        "exact_alarms" to "منبهات دقيقة",
+        "unrestricted_battery" to "بطارية غير مقيدة",
+        "granted" to "ممنوح",
+        "grant_location" to "منح الموقع",
+        "allow_background" to "السماح في الخلفية",
+        "enable_alarms" to "تمكين المنبهات",
+        "geofence_all_met" to "تم استيفاء جميع قواعد الموقع والإنذارات في الخلفية",
+        "geofence_bg_desc" to "قم بتمكين التتبع في الخلفية لتلقي تنبيهات المنطقة الآمنة.",
+        "step_location" to "الخطوة 1: إذن الموقع",
+        "step_bg_location" to "الخطوة 2: الموقع في الخلفية",
+        "step_exact_alarms" to "الخطوة 3: المنبهات الدقيقة",
+        "step_battery" to "الخطوة 4: إرشادات تحسين البطارية",
+        "battery_unrestricted_toast" to "إعدادات البطارية: اضبط البطارية على 'غير مقيدة' للتنبيهات.",
+        "battery_manual_toast" to "الانتقال إلى الإعدادات > التطبيقات > درايف كير > البطارية > اختر 'غير مقيدة'",
+        "done" to "تم",
+        "skip_close" to "تخطي / إغلاق",
+        "status_enabled" to "الحالة: مُمكّن",
+        "status_partially_enabled" to "الحالة: مُمكّن جزئياً",
+        "status_disabled" to "الحالة: معطل",
+        "safe_zone_title" to "تمكين تنبيهات الخلفية (اختياري)",
+        "safe_zone_sub" to "إعداد المنطقة الآمنة وتتبع الحدود"
     )
 
     private val hindiMap = mapOf(
@@ -798,7 +885,36 @@ object AppStrings {
 
         "guide_settings_title" to "सेटिंग्स और प्राथमिकताएं",
         "guide_settings_desc" to "क्षेत्रीय इकाइयों, मुद्रा प्रतीकों, थीम मोड और क्लाउड डेटाबेस सिंक को कस्टमाइज़ करें।",
-        "guide_settings_benefits" to "• बहु-मुद्रा ($ € £ ₹ ¥) और भाषा विकल्प\n• लाइट और डार्क थीम प्राथमिकताएं\n• JSON डेटा बैकअप और रिस्टोर"
+        "guide_settings_benefits" to "• बहु-मुद्रा ($ € £ ₹ ¥) और भाषा विकल्प\n• लाइट और डार्क थीम प्राथमिकताएं\n• JSON डेटा बैकअप और रिस्टोर",
+
+        "open_battery_settings" to "बैटरी सेटिंग्स खोलें",
+        "configure_battery" to "बैटरी कॉन्फ़िगर करें",
+        "enable_background_alerts" to "बैकग्राउंड अलर्ट सक्षम करें",
+        "geofencing_enabled" to "जियोफेंसिंग सक्षम",
+        "status_label" to "स्थिति",
+        "fine_location" to "स्थान अनुमति",
+        "background_gps" to "बैकग्राउंड GPS",
+        "exact_alarms" to "सटीक अलार्म",
+        "unrestricted_battery" to "अनप्रतिबंधित बैटरी",
+        "granted" to "स्वीकृत",
+        "grant_location" to "स्थान अनुमति दें",
+        "allow_background" to "बैकग्राउंड अनुमति दें",
+        "enable_alarms" to "अलार्म सक्षम करें",
+        "geofence_all_met" to "सभी बैकग्राउंड स्थान और अलार्म नियम पूरे हुए",
+        "geofence_bg_desc" to "सुरक्षित क्षेत्र अलर्ट प्राप्त करने के लिए बैकग्राउंड ट्रैकिंग सक्षम करें।",
+        "step_location" to "चरण 1: स्थान अनुमति",
+        "step_bg_location" to "चरण 2: बैकग्राउंड स्थान",
+        "step_exact_alarms" to "चरण 3: सटीक अलार्म",
+        "step_battery" to "चरण 4: बैटरी अनुकूलन मार्गदर्शन",
+        "battery_unrestricted_toast" to "बैटरी सेटिंग्स: अलर्ट के लिए बैटरी को 'अनप्रतिबंधित' पर सेट करें।",
+        "battery_manual_toast" to "सेटिंग्स > ऐप > ड्राइवकेयर > बैटरी > 'अनप्रतिबंधित' चुनें",
+        "done" to "हो गया",
+        "skip_close" to "छोड़ें / बंद करें",
+        "status_enabled" to "स्थिति: सक्षम",
+        "status_partially_enabled" to "स्थिति: आंशिक रूप से सक्षम",
+        "status_disabled" to "स्थिति: अक्षम",
+        "safe_zone_title" to "बैकग्राउंड अलर्ट सक्षम करें (वैकल्पिक)",
+        "safe_zone_sub" to "सेफ ज़ोन और सीमा ट्रैकिंग सेटअप"
     )
 
     private val chineseMap = mapOf(
@@ -907,6 +1023,35 @@ object AppStrings {
 
         "guide_settings_title" to "设置与偏好",
         "guide_settings_desc" to "自定义计量单位、货币符号、主题模式与云端数据库同步。",
-        "guide_settings_benefits" to "• 多国货币 ($ € £ ₹ ¥) 与多语言切换\n• 明亮与深色主题模式切换\n• JSON 数据一键备份与还原"
+        "guide_settings_benefits" to "• 多国货币 ($ € £ ₹ ¥) 与多语言切换\n• 明亮与深色主题模式切换\n• JSON 数据一键备份与还原",
+
+        "open_battery_settings" to "打开电池设置",
+        "configure_battery" to "配置电池设置",
+        "enable_background_alerts" to "开启后台预警",
+        "geofencing_enabled" to "电子围栏已启用",
+        "status_label" to "状态",
+        "fine_location" to "精确定位",
+        "background_gps" to "后台 GPS",
+        "exact_alarms" to "精确闹钟",
+        "unrestricted_battery" to "无限制电池",
+        "granted" to "已授权",
+        "grant_location" to "授权定位",
+        "allow_background" to "允许后台",
+        "enable_alarms" to "开启闹钟",
+        "geofence_all_met" to "已满足所有后台定位与闹钟规则",
+        "geofence_bg_desc" to "开启后台追踪以在应用关闭时接收安全区域进出提醒。",
+        "step_location" to "步骤 1: 位置权限",
+        "step_bg_location" to "步骤 2: 后台位置权限",
+        "step_exact_alarms" to "步骤 3: 精确闹钟",
+        "step_battery" to "步骤 4: 电池优化引导",
+        "battery_unrestricted_toast" to "电池设置：请设为“无限制”以确保及时预警。",
+        "battery_manual_toast" to "请前往：系统设置 > 应用 > DriveCare > 电池 > 选择“无限制”",
+        "done" to "完成",
+        "skip_close" to "跳过 / 关闭",
+        "status_enabled" to "状态：已启用",
+        "status_partially_enabled" to "状态：部分启用",
+        "status_disabled" to "状态：未启用",
+        "safe_zone_title" to "开启后台预警 (可选)",
+        "safe_zone_sub" to "安全区域与边界追踪设置"
     )
 }

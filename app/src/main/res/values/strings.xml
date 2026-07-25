@@ -88,4 +88,5 @@
     <string name="language">Application Language</string>
     <string name="backup_data">Backup Database (JSON)</string>
     <string name="restore_data">Restore Database</string>
+    <string name="open_battery_settings">Open Battery Settings</string>
 </resources>

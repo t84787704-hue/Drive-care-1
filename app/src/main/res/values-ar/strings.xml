@@ -88,4 +88,5 @@
     <string name="language">لغة التطبيق</string>
     <string name="backup_data">نسخ احتياطي (JSON)</string>
     <string name="restore_data">استعادة البيانات</string>
+    <string name="open_battery_settings">فتح إعدادات البطارية</string>
 </resources>

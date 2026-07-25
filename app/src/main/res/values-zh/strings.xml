@@ -88,4 +88,5 @@
     <string name="language">应用语言</string>
     <string name="backup_data">数据备份 (JSON)</string>
     <string name="restore_data">恢复数据</string>
+    <string name="open_battery_settings">打开电池设置</string>
 </resources>
