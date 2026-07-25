@@ -28,6 +28,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 
 data class PermissionStatusState(
     val hasFineLocation: Boolean,
@@ -99,9 +102,18 @@ fun PermissionOnboardingDialog(
         statusState = checkGeofencePermissionStatus(context)
     }
 
-    // Re-check state when composable resumes
-    DisposableEffect(Unit) {
-        onDispose { }
+    // Re-check state automatically when Activity resumes from Settings
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                statusState = checkGeofencePermissionStatus(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     AlertDialog(

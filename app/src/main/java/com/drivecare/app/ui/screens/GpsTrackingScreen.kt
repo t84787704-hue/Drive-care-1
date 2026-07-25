@@ -34,6 +34,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.drivecare.app.data.model.GeofenceZone
 import com.drivecare.app.data.model.TripLog
 import com.drivecare.app.data.model.Vehicle
@@ -78,6 +81,21 @@ fun GpsTrackingScreen(
     var showPermissionOnboardingDialog by remember { mutableStateOf(false) }
     var showManualTelemetryDialog by remember { mutableStateOf(false) }
     var showObdScannerDialog by remember { mutableStateOf(false) }
+
+    var geofencePermissionStatus by remember { mutableStateOf(checkGeofencePermissionStatus(context)) }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                geofencePermissionStatus = checkGeofencePermissionStatus(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     // OBD2 Connection State (Optional Mode - Manual remains default)
     var isObdConnected by remember { mutableStateOf(false) }
@@ -771,7 +789,7 @@ fun GpsTrackingScreen(
                                 }
                             }
                         } else {
-                            val permissionStatus = checkGeofencePermissionStatus(context)
+                            val permissionStatus = geofencePermissionStatus
 
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
@@ -906,7 +924,10 @@ fun GpsTrackingScreen(
 
     if (showPermissionOnboardingDialog) {
         PermissionOnboardingDialog(
-            onDismiss = { showPermissionOnboardingDialog = false }
+            onDismiss = {
+                showPermissionOnboardingDialog = false
+                geofencePermissionStatus = checkGeofencePermissionStatus(context)
+            }
         )
     }
 
