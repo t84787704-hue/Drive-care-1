@@ -1,10 +1,14 @@
 package com.drivecare.app.ui.screens
 
 import android.widget.Toast
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -24,6 +28,13 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+enum class MaintenanceSortOption(val label: String) {
+    DATE_DESC("Newest First"),
+    DATE_ASC("Oldest First"),
+    COST_DESC("Cost: High to Low"),
+    COST_ASC("Cost: Low to High")
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MaintenanceScreen(
@@ -32,16 +43,49 @@ fun MaintenanceScreen(
     highlightRecordId: Long? = null
 ) {
     val lang = LocalAppLanguage.current
+    val context = LocalContext.current
     val vehicles by viewModel.vehicles.collectAsState()
     val maintenanceLogs by viewModel.maintenanceLogs.collectAsState()
 
     var showAddDialog by remember { mutableStateOf(false) }
-    var selectedFilterVehicleId by remember { mutableStateOf<Long?>(null) }
+    var logToEdit by remember { mutableStateOf<Maintenance?>(null) }
+    var logToDelete by remember { mutableStateOf<Maintenance?>(null) }
 
-    val filteredLogs = if (selectedFilterVehicleId == null) {
-        maintenanceLogs
-    } else {
-        maintenanceLogs.filter { it.vehicleId == selectedFilterVehicleId }
+    var selectedFilterVehicleId by remember { mutableStateOf<Long?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedCategory by remember { mutableStateOf("All") }
+    var sortOption by remember { mutableStateOf(MaintenanceSortOption.DATE_DESC) }
+    var showSortMenu by remember { mutableStateOf(false) }
+
+    val categories = remember {
+        listOf("All", "Scheduled Service", "Oil Change", "Brake Inspection", "Tire Service", "Battery Check", "Engine Repair", "AC Service", "General Repair")
+    }
+
+    val filteredLogs = remember(maintenanceLogs, selectedFilterVehicleId, searchQuery, selectedCategory, sortOption) {
+        var list = maintenanceLogs.filter { log ->
+            (selectedFilterVehicleId == null || log.vehicleId == selectedFilterVehicleId) &&
+            (selectedCategory == "All" || log.serviceType.equals(selectedCategory, ignoreCase = true)) &&
+            (searchQuery.isBlank() ||
+                log.serviceTitle.contains(searchQuery, ignoreCase = true) ||
+                log.workshopName.contains(searchQuery, ignoreCase = true) ||
+                log.notes.contains(searchQuery, ignoreCase = true) ||
+                log.vehicleName.contains(searchQuery, ignoreCase = true))
+        }
+
+        when (sortOption) {
+            MaintenanceSortOption.DATE_DESC -> list.sortedByDescending { it.serviceDate }
+            MaintenanceSortOption.DATE_ASC -> list.sortedBy { it.serviceDate }
+            MaintenanceSortOption.COST_DESC -> list.sortedByDescending { it.serviceCost.toDoubleOrNull() ?: 0.0 }
+            MaintenanceSortOption.COST_ASC -> list.sortedBy { it.serviceCost.toDoubleOrNull() ?: 0.0 }
+        }
+    }
+
+    val totalSpent = remember(filteredLogs) {
+        filteredLogs.sumOf { it.serviceCost.toDoubleOrNull() ?: 0.0 }
+    }
+
+    val avgCost = remember(filteredLogs) {
+        if (filteredLogs.isNotEmpty()) totalSpent / filteredLogs.size else 0.0
     }
 
     val advisorSuggestions = remember(vehicles, maintenanceLogs, selectedFilterVehicleId) {
@@ -73,10 +117,10 @@ fun MaintenanceScreen(
             contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 88.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Vehicle Filter Chip Bar
+            // Vehicle Filter Chips Bar
             if (vehicles.isNotEmpty()) {
                 item {
-                    androidx.compose.foundation.lazy.LazyRow(
+                    LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         item {
@@ -96,6 +140,118 @@ fun MaintenanceScreen(
                     }
                 }
             }
+
+            // Metric Summary Cards
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Card(
+                        modifier = Modifier.weight(1f),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f))
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text("Total Spent", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                String.format(Locale.US, "$%.2f", totalSpent),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                    Card(
+                        modifier = Modifier.weight(1f),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f))
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text("Records", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                "${filteredLogs.size} Services",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
+                    }
+                    Card(
+                        modifier = Modifier.weight(1f),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f))
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text("Avg. Cost", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                String.format(Locale.US, "$%.2f", avgCost),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.tertiary
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Search Bar & Sort Row
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("Search title, workshop, notes...") },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { searchQuery = "" }) {
+                                    Icon(Icons.Default.Clear, contentDescription = "Clear search")
+                                }
+                            }
+                        },
+                        singleLine = true
+                    )
+
+                    Box {
+                        IconButton(onClick = { showSortMenu = true }) {
+                            Icon(Icons.Default.Sort, contentDescription = "Sort records")
+                        }
+                        DropdownMenu(
+                            expanded = showSortMenu,
+                            onDismissRequest = { showSortMenu = false }
+                        ) {
+                            MaintenanceSortOption.values().forEach { option ->
+                                DropdownMenuItem(
+                                    text = { Text(option.label, fontWeight = if (sortOption == option) FontWeight.Bold else FontWeight.Normal) },
+                                    onClick = {
+                                        sortOption = option
+                                        showSortMenu = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Category Filter Chips
+            item {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(categories) { cat ->
+                        FilterChip(
+                            selected = (selectedCategory == cat),
+                            onClick = { selectedCategory = cat },
+                            label = { Text(cat) }
+                        )
+                    }
+                }
+            }
+
             // Smart Maintenance Advisor Section
             item {
                 Card(
@@ -161,11 +317,22 @@ fun MaintenanceScreen(
 
             // Service History List Header
             item {
-                Text(
-                    text = AppStrings.get("tab_service", lang),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = AppStrings.get("tab_service", lang) + " (${filteredLogs.size})",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = sortOption.label,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
 
             if (filteredLogs.isEmpty()) {
@@ -177,41 +344,20 @@ fun MaintenanceScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Default.Build, contentDescription = null, modifier = Modifier.size(64.dp))
+                            Icon(Icons.Default.Build, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.outline)
                             Spacer(modifier = Modifier.height(16.dp))
-                            Text(AppStrings.get("no_service_logs", lang), style = MaterialTheme.typography.titleMedium)
-                            Text(AppStrings.get("no_service_desc", lang), style = MaterialTheme.typography.bodySmall)
+                            Text(AppStrings.get("no_service_logs", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text(AppStrings.get("no_service_desc", lang), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
             } else {
                 items(filteredLogs, key = { it.id }) { log ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text(log.serviceTitle, fontWeight = FontWeight.Bold)
-                                Text("${log.vehicleName} • ${log.serviceDate}")
-                                if (log.workshopName.isNotBlank()) {
-                                    Text("Workshop: ${log.workshopName}", style = MaterialTheme.typography.bodySmall)
-                                }
-                            }
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text("$${log.serviceCost}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                                IconButton(onClick = { viewModel.deleteMaintenance(log) }) {
-                                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
-                                }
-                            }
-                        }
-                    }
+                    MaintenanceCard(
+                        log = log,
+                        onEdit = { logToEdit = log },
+                        onDelete = { logToDelete = log }
+                    )
                 }
             }
         }
@@ -224,9 +370,139 @@ fun MaintenanceScreen(
             onSave = { log ->
                 viewModel.addMaintenance(log)
                 showAddDialog = false
+                Toast.makeText(context, "Service log saved successfully!", Toast.LENGTH_SHORT).show()
             },
             lang = lang
         )
+    }
+
+    logToEdit?.let { log ->
+        EditServiceDialog(
+            vehicles = vehicles,
+            log = log,
+            onDismiss = { logToEdit = null },
+            onSave = { updated ->
+                viewModel.updateMaintenance(updated)
+                logToEdit = null
+                Toast.makeText(context, "Service log updated!", Toast.LENGTH_SHORT).show()
+            },
+            lang = lang
+        )
+    }
+
+    logToDelete?.let { log ->
+        AlertDialog(
+            onDismissRequest = { logToDelete = null },
+            title = { Text("Delete Service Record?", fontWeight = FontWeight.Bold) },
+            text = { Text("Are you sure you want to delete '${log.serviceTitle}' ($${log.serviceCost})? This action cannot be undone.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteMaintenance(log)
+                        logToDelete = null
+                        Toast.makeText(context, "Service record deleted.", Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { logToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun MaintenanceCard(
+    log: Maintenance,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(log.serviceTitle, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Surface(
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            shape = MaterialTheme.shapes.extraSmall
+                        ) {
+                            Text(
+                                log.serviceType,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                    Text("${log.vehicleName} • ${log.serviceDate}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+
+                Text(
+                    "$${log.serviceCost}",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    if (log.workshopName.isNotBlank()) {
+                        Text("Workshop: ${log.workshopName}", style = MaterialTheme.typography.bodySmall)
+                    }
+                    if (log.currentOdometer.isNotBlank() && log.currentOdometer != "0") {
+                        Text("Odometer: ${log.currentOdometer} km", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+
+                Row {
+                    IconButton(onClick = onEdit) {
+                        Icon(Icons.Default.Edit, contentDescription = "Edit Log", tint = MaterialTheme.colorScheme.primary)
+                    }
+                    IconButton(onClick = onDelete) {
+                        Icon(Icons.Default.Delete, contentDescription = "Delete Log", tint = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+
+            if (log.notes.isNotBlank()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    shape = MaterialTheme.shapes.small,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Notes: ${log.notes}",
+                        modifier = Modifier.padding(8.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -252,14 +528,18 @@ fun AddServiceDialog(
     var workshop by remember { mutableStateOf("") }
     var date by remember { mutableStateOf(todayStr) }
     var odometer by remember { mutableStateOf(selectedVehicle?.odometerReading ?: "0") }
+    var notes by remember { mutableStateOf("") }
 
     val serviceTypes = listOf("Scheduled Service", "Oil Change", "Brake Inspection", "Tire Service", "Battery Check", "Engine Repair", "AC Service", "General Repair")
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(AppStrings.get("add_service_log", lang)) },
+        title = { Text(AppStrings.get("add_service_log", lang), fontWeight = FontWeight.Bold) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 Text("Select Vehicle *", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
                 
                 ExposedDropdownMenuBox(
@@ -375,6 +655,13 @@ fun AddServiceDialog(
                         modifier = Modifier.weight(1f)
                     )
                 }
+
+                OutlinedTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = { Text("Additional Notes") },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         },
         confirmButton = {
@@ -407,12 +694,215 @@ fun AddServiceDialog(
                         serviceDate = date.ifBlank { todayStr },
                         currentOdometer = odometer.ifBlank { v.odometerReading },
                         serviceCost = cleanCostStr,
-                        workshopName = workshop.trim()
+                        workshopName = workshop.trim(),
+                        notes = notes.trim()
                     )
                     onSave(log)
                 }
             ) {
                 Text(AppStrings.get("save", lang))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(AppStrings.get("cancel", lang))
+            }
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditServiceDialog(
+    vehicles: List<Vehicle>,
+    log: Maintenance,
+    onDismiss: () -> Unit,
+    onSave: (Maintenance) -> Unit,
+    lang: com.drivecare.app.utils.AppLanguage
+) {
+    val context = LocalContext.current
+
+    var selectedVehicle by remember { mutableStateOf(vehicles.find { it.id == log.vehicleId } ?: vehicles.firstOrNull()) }
+    var expandedVehicleDropdown by remember { mutableStateOf(false) }
+
+    var title by remember { mutableStateOf(log.serviceTitle) }
+    var serviceType by remember { mutableStateOf(log.serviceType) }
+    var expandedServiceTypeDropdown by remember { mutableStateOf(false) }
+
+    var cost by remember { mutableStateOf(log.serviceCost) }
+    var workshop by remember { mutableStateOf(log.workshopName) }
+    var date by remember { mutableStateOf(log.serviceDate) }
+    var odometer by remember { mutableStateOf(log.currentOdometer) }
+    var notes by remember { mutableStateOf(log.notes) }
+
+    val serviceTypes = listOf("Scheduled Service", "Oil Change", "Brake Inspection", "Tire Service", "Battery Check", "Engine Repair", "AC Service", "General Repair")
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Service Log", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text("Select Vehicle *", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+
+                ExposedDropdownMenuBox(
+                    expanded = expandedVehicleDropdown,
+                    onExpandedChange = { expandedVehicleDropdown = !expandedVehicleDropdown }
+                ) {
+                    OutlinedTextField(
+                        value = selectedVehicle?.vehicleName ?: "Select Vehicle",
+                        onValueChange = {},
+                        readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedVehicleDropdown) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedVehicleDropdown,
+                        onDismissRequest = { expandedVehicleDropdown = false }
+                    ) {
+                        vehicles.forEach { v ->
+                            DropdownMenuItem(
+                                text = { Text("${v.vehicleName} (${v.brand} ${v.model})") },
+                                onClick = {
+                                    selectedVehicle = v
+                                    expandedVehicleDropdown = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("Service Title *") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                ExposedDropdownMenuBox(
+                    expanded = expandedServiceTypeDropdown,
+                    onExpandedChange = { expandedServiceTypeDropdown = !expandedServiceTypeDropdown }
+                ) {
+                    OutlinedTextField(
+                        value = serviceType,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Service Type") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedServiceTypeDropdown) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedServiceTypeDropdown,
+                        onDismissRequest = { expandedServiceTypeDropdown = false }
+                    ) {
+                        serviceTypes.forEach { st ->
+                            DropdownMenuItem(
+                                text = { Text(st) },
+                                onClick = {
+                                    serviceType = st
+                                    expandedServiceTypeDropdown = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = cost,
+                        onValueChange = { input ->
+                            if (input.isEmpty() || input.matches(Regex("""^\d*([.,]\d{0,2})?$"""))) {
+                                cost = input
+                            }
+                        },
+                        label = { Text("Cost ($) *") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = odometer,
+                        onValueChange = { input ->
+                            if (input.isEmpty() || input.all { it.isDigit() }) {
+                                odometer = input
+                            }
+                        },
+                        label = { Text("Odometer (km)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = workshop,
+                        onValueChange = { workshop = it },
+                        label = { Text("Workshop") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = date,
+                        onValueChange = { date = it },
+                        label = { Text("Date (YYYY-MM-DD)") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                OutlinedTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = { Text("Additional Notes") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val v = selectedVehicle
+                    if (v == null) {
+                        Toast.makeText(context, "Please select a vehicle", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+
+                    val cleanTitle = title.trim()
+                    if (cleanTitle.isBlank()) {
+                        Toast.makeText(context, "Please enter service title", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+
+                    val cleanCostStr = cost.trim().replace(",", ".")
+                    val costDouble = cleanCostStr.toDoubleOrNull()
+                    if (cleanCostStr.isBlank() || costDouble == null || costDouble < 0) {
+                        Toast.makeText(context, "Please enter valid service cost", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+
+                    val updatedLog = log.copy(
+                        vehicleId = v.id,
+                        vehicleName = v.vehicleName,
+                        serviceTitle = cleanTitle,
+                        serviceType = serviceType,
+                        serviceDate = date.ifBlank { log.serviceDate },
+                        currentOdometer = odometer,
+                        serviceCost = cleanCostStr,
+                        workshopName = workshop.trim(),
+                        notes = notes.trim()
+                    )
+                    onSave(updatedLog)
+                }
+            ) {
+                Text("Update Log")
             }
         },
         dismissButton = {

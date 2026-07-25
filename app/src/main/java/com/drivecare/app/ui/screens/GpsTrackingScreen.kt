@@ -84,6 +84,8 @@ fun GpsTrackingScreen(
     var selectedVehicle by remember { mutableStateOf<Vehicle?>(vehicles.firstOrNull()) }
     var showAddTripDialog by remember { mutableStateOf(false) }
     var showAddGeofenceDialog by remember { mutableStateOf(false) }
+    var geofenceToEdit by remember { mutableStateOf<GeofenceZone?>(null) }
+    var geofenceToDelete by remember { mutableStateOf<GeofenceZone?>(null) }
     var showPermissionOnboardingDialog by remember { mutableStateOf(false) }
     var showManualTelemetryDialog by remember { mutableStateOf(false) }
     var showObdScannerDialog by remember { mutableStateOf(false) }
@@ -948,7 +950,13 @@ fun GpsTrackingScreen(
                                 }
                             } else {
                                 items(filteredGeofences) { zone ->
-                                    GeofenceCard(zone = zone, onDelete = { viewModel.deleteGeofenceZone(zone) })
+                                    val vName = vehicles.find { it.id == zone.vehicleId }?.vehicleName
+                                    GeofenceCard(
+                                        zone = zone,
+                                        vehicleName = vName,
+                                        onEdit = { geofenceToEdit = zone },
+                                        onDelete = { geofenceToDelete = zone }
+                                    )
                                 }
                             }
                         }
@@ -973,6 +981,39 @@ fun GpsTrackingScreen(
             currentLat = currentLatitude,
             currentLng = currentLongitude,
             onDismiss = { showAddGeofenceDialog = false }
+        )
+    }
+
+    geofenceToEdit?.let { zone ->
+        EditGeofenceDialog(
+            viewModel = viewModel,
+            geofence = zone,
+            onDismiss = { geofenceToEdit = null }
+        )
+    }
+
+    geofenceToDelete?.let { zone ->
+        AlertDialog(
+            onDismissRequest = { geofenceToDelete = null },
+            title = { Text("Delete Geofence Zone?", fontWeight = FontWeight.Bold) },
+            text = { Text("Are you sure you want to delete '${zone.zoneName}'? Perimeter monitoring for this zone will be permanently removed.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteGeofenceZone(zone)
+                        geofenceToDelete = null
+                        Toast.makeText(context, "Geofence '${zone.zoneName}' deleted.", Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { geofenceToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
         )
     }
 
@@ -1194,7 +1235,12 @@ fun TripCard(trip: TripLog, onDelete: () -> Unit) {
 }
 
 @Composable
-fun GeofenceCard(zone: GeofenceZone, onDelete: () -> Unit) {
+fun GeofenceCard(
+    zone: GeofenceZone,
+    vehicleName: String? = null,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -1237,6 +1283,14 @@ fun GeofenceCard(zone: GeofenceZone, onDelete: () -> Unit) {
                             )
                         }
                     }
+                    if (!vehicleName.isNullOrBlank()) {
+                        Text(
+                            "Vehicle: $vehicleName",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                     Text(
                         "Center: ${String.format(Locale.US, "%.4f", zone.centerLatitude)}, ${String.format(Locale.US, "%.4f", zone.centerLongitude)}",
                         style = MaterialTheme.typography.bodySmall,
@@ -1259,8 +1313,13 @@ fun GeofenceCard(zone: GeofenceZone, onDelete: () -> Unit) {
                     }
                 }
             }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete Geofence", tint = MaterialTheme.colorScheme.error)
+            Row {
+                IconButton(onClick = onEdit) {
+                    Icon(Icons.Default.Edit, contentDescription = "Edit Geofence", tint = MaterialTheme.colorScheme.primary)
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Default.Delete, contentDescription = "Delete Geofence", tint = MaterialTheme.colorScheme.error)
+                }
             }
         }
     }
@@ -1330,6 +1389,7 @@ fun AddGeofenceDialog(
 ) {
     val context = LocalContext.current
     val vehicles by viewModel.vehicles.collectAsState()
+    val geofenceZones by viewModel.geofenceZones.collectAsState()
     var activeVehicle by remember { mutableStateOf(selectedVehicle ?: vehicles.firstOrNull()) }
 
     var zoneName by remember { mutableStateOf("Safe Zone") }
@@ -1409,7 +1469,7 @@ fun AddGeofenceDialog(
                     onValueChange = { input ->
                         customRadiusStr = input
                         val d = input.toDoubleOrNull()
-                        if (d != null && d >= 50.0) {
+                        if (d != null && d >= 50.0 && d <= 50000.0) {
                             radiusMeters = d
                         }
                     },
@@ -1458,8 +1518,18 @@ fun AddGeofenceDialog(
                         Toast.makeText(context, "Please register a vehicle first", Toast.LENGTH_SHORT).show()
                         return@Button
                     }
-                    if (zoneName.isBlank()) {
+                    val cleanName = zoneName.trim()
+                    if (cleanName.isBlank()) {
                         Toast.makeText(context, "Zone name cannot be empty", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+                    if (geofenceZones.any { z -> z.vehicleId == targetVeh.id && z.zoneName.equals(cleanName, ignoreCase = true) }) {
+                        Toast.makeText(context, "A geofence with this name already exists for this vehicle", Toast.LENGTH_LONG).show()
+                        return@Button
+                    }
+                    val finalRadius = customRadiusStr.toDoubleOrNull() ?: radiusMeters
+                    if (finalRadius < 50.0 || finalRadius > 50000.0) {
+                        Toast.makeText(context, "Radius must be between 50m and 50,000m", Toast.LENGTH_SHORT).show()
                         return@Button
                     }
 
@@ -1469,20 +1539,150 @@ fun AddGeofenceDialog(
                     viewModel.addGeofenceZone(
                         GeofenceZone(
                             vehicleId = targetVeh.id,
-                            zoneName = zoneName,
+                            zoneName = cleanName,
                             centerLatitude = latToUse,
                             centerLongitude = lngToUse,
-                            radiusMeters = radiusMeters,
+                            radiusMeters = finalRadius,
                             notifyOnEnter = notifyOnEnter,
                             notifyOnExit = notifyOnExit,
                             isActive = true
                         )
                     )
-                    Toast.makeText(context, "Safe zone '${zoneName}' created with ${radiusMeters.toInt()}m radius!", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "Safe zone '$cleanName' created with ${finalRadius.toInt()}m radius!", Toast.LENGTH_LONG).show()
                     onDismiss()
                 }
             ) {
                 Text("Create Geofence")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditGeofenceDialog(
+    viewModel: DriveCareViewModel,
+    geofence: GeofenceZone,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    var zoneName by remember { mutableStateOf(geofence.zoneName) }
+    var radiusMeters by remember { mutableDoubleStateOf(geofence.radiusMeters) }
+    var notifyOnEnter by remember { mutableStateOf(geofence.notifyOnEnter) }
+    var notifyOnExit by remember { mutableStateOf(geofence.notifyOnExit) }
+    var isActive by remember { mutableStateOf(geofence.isActive) }
+    var customRadiusStr by remember { mutableStateOf(geofence.radiusMeters.toInt().toString()) }
+
+    val presetRadii = listOf(100.0, 250.0, 500.0, 1000.0, 2000.0)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Text("Edit Safe Perimeter Zone", fontWeight = FontWeight.Bold)
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedTextField(
+                    value = zoneName,
+                    onValueChange = { zoneName = it },
+                    label = { Text("Zone Name") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                Text("Perimeter Radius (Meters)", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    presetRadii.forEach { r ->
+                        FilterChip(
+                            selected = (radiusMeters == r),
+                            onClick = {
+                                radiusMeters = r
+                                customRadiusStr = r.toInt().toString()
+                            },
+                            label = { Text("${r.toInt()}m") }
+                        )
+                    }
+                }
+
+                OutlinedTextField(
+                    value = customRadiusStr,
+                    onValueChange = { input ->
+                        customRadiusStr = input
+                        val d = input.toDoubleOrNull()
+                        if (d != null && d >= 50.0 && d <= 50000.0) {
+                            radiusMeters = d
+                        }
+                    },
+                    label = { Text("Custom Radius (m)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                Text("Alert Triggers", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Active Monitoring", style = MaterialTheme.typography.bodyMedium)
+                    Switch(checked = isActive, onCheckedChange = { isActive = it })
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Notify on Entry", style = MaterialTheme.typography.bodyMedium)
+                    Switch(checked = notifyOnEnter, onCheckedChange = { notifyOnEnter = it })
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Notify on Exit", style = MaterialTheme.typography.bodyMedium)
+                    Switch(checked = notifyOnExit, onCheckedChange = { notifyOnExit = it })
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val cleanName = zoneName.trim()
+                    if (cleanName.isBlank()) {
+                        Toast.makeText(context, "Zone name cannot be empty", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+                    val finalRadius = customRadiusStr.toDoubleOrNull() ?: radiusMeters
+                    if (finalRadius < 50.0 || finalRadius > 50000.0) {
+                        Toast.makeText(context, "Radius must be between 50m and 50,000m", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+
+                    viewModel.updateGeofenceZone(
+                        geofence.copy(
+                            zoneName = cleanName,
+                            radiusMeters = finalRadius,
+                            notifyOnEnter = notifyOnEnter,
+                            notifyOnExit = notifyOnExit,
+                            isActive = isActive
+                        )
+                    )
+                    Toast.makeText(context, "Geofence '$cleanName' updated!", Toast.LENGTH_SHORT).show()
+                    onDismiss()
+                }
+            ) {
+                Text("Update Geofence")
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }

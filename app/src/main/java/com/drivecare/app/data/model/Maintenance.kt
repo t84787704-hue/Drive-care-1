@@ -16,5 +16,6 @@ data class Maintenance(
     val serviceCost: String = "0",
     val workshopName: String = "",
     val notes: String = "",
+    val invoicePhotoUri: String = "",
     val createdAt: Long = System.currentTimeMillis()
 )

@@ -13,6 +13,7 @@ import com.drivecare.app.MainActivity
 import com.drivecare.app.data.db.AppDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -26,6 +27,13 @@ class DriveCareNotificationReceiver : BroadcastReceiver() {
             try {
                 if (intent.action == Intent.ACTION_BOOT_COMPLETED || intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) {
                     DriveCareNotificationScheduler.schedulePeriodicCheck(context)
+                    try {
+                        val db = AppDatabase.getDatabase(context)
+                        val geofences = db.geofenceZoneDao().getAllGeofences().firstOrNull() ?: emptyList()
+                        GeofenceManager.syncAllGeofences(context, geofences)
+                    } catch (e: Exception) {
+                        android.util.Log.e("DriveCareNotificationReceiver", "Error re-registering geofences on boot", e)
+                    }
                 } else {
                     executeNotificationCheck(context)
                 }

@@ -8,6 +8,8 @@ import androidx.room.Query
 import com.drivecare.app.data.model.Maintenance
 import kotlinx.coroutines.flow.Flow
 
+import androidx.room.Update
+
 @Dao
 interface MaintenanceDao {
     @Query("SELECT * FROM maintenance ORDER BY id DESC")
@@ -18,6 +20,9 @@ interface MaintenanceDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMaintenance(maintenance: Maintenance): Long
+
+    @Update
+    suspend fun updateMaintenance(maintenance: Maintenance)
 
     @Delete
     suspend fun deleteMaintenance(maintenance: Maintenance)

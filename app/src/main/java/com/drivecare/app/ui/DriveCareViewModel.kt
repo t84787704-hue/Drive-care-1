@@ -214,6 +214,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
             documentDao.deleteByVehicle(vehicle.id)
             expenseDao.deleteByVehicle(vehicle.id)
             insurancePolicyDao.deleteByVehicle(vehicle.id)
+            geofenceZoneDao.deleteByVehicle(vehicle.id)
             if (_selectedFuelVehicle.value?.id == vehicle.id) {
                 _selectedFuelVehicle.value = null
             }
@@ -230,6 +231,10 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun addMaintenance(maintenance: Maintenance) {
         viewModelScope.launch { maintenanceDao.insertMaintenance(maintenance) }
+    }
+
+    fun updateMaintenance(maintenance: Maintenance) {
+        viewModelScope.launch { maintenanceDao.updateMaintenance(maintenance) }
     }
 
     fun deleteMaintenance(maintenance: Maintenance) {
@@ -323,6 +328,13 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
             val generatedId = geofenceZoneDao.insertGeofence(geofence)
             val updatedZone = if (geofence.id == 0L) geofence.copy(id = generatedId) else geofence
             GeofenceManager.registerGeofence(getApplication(), updatedZone)
+        }
+    }
+
+    fun updateGeofenceZone(geofence: GeofenceZone) {
+        viewModelScope.launch {
+            geofenceZoneDao.updateGeofence(geofence)
+            GeofenceManager.registerGeofence(getApplication(), geofence)
         }
     }
 
