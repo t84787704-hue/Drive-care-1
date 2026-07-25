@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
@@ -774,176 +775,180 @@ fun GpsTrackingScreen(
                     // Geofencing Tab
                     val filteredGeofences = geofences.filter { selectedVehicle == null || it.vehicleId == selectedVehicle?.id }
 
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        if (vehicles.isEmpty()) {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    if (vehicles.isEmpty()) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Column(
-                                    modifier = Modifier.padding(24.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Icon(Icons.Default.DirectionsCar, contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text("No Vehicles Registered", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                                    Text("Please add a vehicle to your garage before configuring safe perimeter geofences.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
+                                Icon(Icons.Default.DirectionsCar, contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text("No Vehicles Registered", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                Text("Please add a vehicle to your garage before configuring safe perimeter geofences.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                        } else {
-                            val permissionStatus = geofencePermissionStatus
-                            val statusLevel = permissionStatus.statusLevel
+                        }
+                    } else {
+                        val permissionStatus = geofencePermissionStatus
+                        val statusLevel = permissionStatus.statusLevel
 
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = when (statusLevel) {
-                                        GeofenceStatusLevel.ENABLED -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                                        GeofenceStatusLevel.PARTIALLY_ENABLED -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
-                                        GeofenceStatusLevel.DISABLED -> MaterialTheme.colorScheme.surfaceVariant
-                                    }
-                                )
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(14.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            item {
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = when (statusLevel) {
+                                            GeofenceStatusLevel.ENABLED -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                                            GeofenceStatusLevel.PARTIALLY_ENABLED -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                                            GeofenceStatusLevel.DISABLED -> MaterialTheme.colorScheme.surfaceVariant
+                                        }
+                                    )
                                 ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        verticalAlignment = Alignment.CenterVertically
+                                    Column(
+                                        modifier = Modifier.padding(14.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         Row(
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .clickable { showPermissionOnboardingDialog = true },
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Icon(
-                                                imageVector = when (statusLevel) {
-                                                    GeofenceStatusLevel.ENABLED -> Icons.Default.CheckCircle
-                                                    GeofenceStatusLevel.PARTIALLY_ENABLED -> Icons.Default.Tune
-                                                    GeofenceStatusLevel.DISABLED -> Icons.Default.Info
-                                                },
-                                                contentDescription = null,
-                                                tint = when (statusLevel) {
-                                                    GeofenceStatusLevel.ENABLED -> MaterialTheme.colorScheme.primary
-                                                    GeofenceStatusLevel.PARTIALLY_ENABLED -> MaterialTheme.colorScheme.secondary
-                                                    GeofenceStatusLevel.DISABLED -> MaterialTheme.colorScheme.onSurfaceVariant
-                                                }
-                                            )
-                                            Column(modifier = Modifier.weight(1f)) {
-                                                Text(
-                                                    text = when (statusLevel) {
-                                                        GeofenceStatusLevel.ENABLED -> AppStrings.get("geofencing_enabled", lang)
-                                                        else -> AppStrings.get("safe_zone_title", lang)
+                                            Row(
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .clickable { showPermissionOnboardingDialog = true },
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = when (statusLevel) {
+                                                        GeofenceStatusLevel.ENABLED -> Icons.Default.CheckCircle
+                                                        GeofenceStatusLevel.PARTIALLY_ENABLED -> Icons.Default.Tune
+                                                        GeofenceStatusLevel.DISABLED -> Icons.Default.Info
                                                     },
-                                                    fontWeight = FontWeight.Bold,
-                                                    style = MaterialTheme.typography.titleSmall,
-                                                    color = MaterialTheme.colorScheme.onSurface
+                                                    contentDescription = null,
+                                                    tint = when (statusLevel) {
+                                                        GeofenceStatusLevel.ENABLED -> MaterialTheme.colorScheme.primary
+                                                        GeofenceStatusLevel.PARTIALLY_ENABLED -> MaterialTheme.colorScheme.secondary
+                                                        GeofenceStatusLevel.DISABLED -> MaterialTheme.colorScheme.onSurfaceVariant
+                                                    }
                                                 )
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(
+                                                        text = when (statusLevel) {
+                                                            GeofenceStatusLevel.ENABLED -> AppStrings.get("geofencing_enabled", lang)
+                                                            else -> AppStrings.get("safe_zone_title", lang)
+                                                        },
+                                                        fontWeight = FontWeight.Bold,
+                                                        style = MaterialTheme.typography.titleSmall,
+                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                    Text(
+                                                        text = when (statusLevel) {
+                                                            GeofenceStatusLevel.ENABLED -> AppStrings.get("geofence_all_met", lang)
+                                                            else -> AppStrings.get("geofence_bg_desc", lang)
+                                                        },
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        maxLines = 2,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                }
+                                            }
+
+                                            Spacer(modifier = Modifier.width(8.dp))
+
+                                            Button(
+                                                onClick = { showPermissionOnboardingDialog = true },
+                                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = when (statusLevel) {
+                                                        GeofenceStatusLevel.ENABLED -> MaterialTheme.colorScheme.primary
+                                                        GeofenceStatusLevel.PARTIALLY_ENABLED -> MaterialTheme.colorScheme.secondary
+                                                        GeofenceStatusLevel.DISABLED -> MaterialTheme.colorScheme.primary
+                                                    }
+                                                )
+                                            ) {
                                                 Text(
                                                     text = when (statusLevel) {
-                                                        GeofenceStatusLevel.ENABLED -> AppStrings.get("geofence_all_met", lang)
-                                                        else -> AppStrings.get("geofence_bg_desc", lang)
+                                                        GeofenceStatusLevel.ENABLED -> AppStrings.get("status_label", lang)
+                                                        else -> AppStrings.get("enable_background_alerts", lang)
                                                     },
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    maxLines = 1,
+                                                    softWrap = false,
+                                                    overflow = TextOverflow.Ellipsis
                                                 )
                                             }
                                         }
 
-                                        Spacer(modifier = Modifier.width(4.dp))
+                                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
 
-                                        Button(
-                                            onClick = { showPermissionOnboardingDialog = true },
-                                            modifier = Modifier.defaultMinSize(minWidth = 80.dp),
-                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = when (statusLevel) {
-                                                    GeofenceStatusLevel.ENABLED -> MaterialTheme.colorScheme.primary
-                                                    GeofenceStatusLevel.PARTIALLY_ENABLED -> MaterialTheme.colorScheme.secondary
-                                                    GeofenceStatusLevel.DISABLED -> MaterialTheme.colorScheme.primary
-                                                }
-                                            )
+                                        @OptIn(ExperimentalLayoutApi::class)
+                                        FlowRow(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            verticalArrangement = Arrangement.spacedBy(6.dp)
                                         ) {
+                                            StatusCheckChip(label = AppStrings.get("fine_location", lang), isOk = permissionStatus.hasFineLocation)
+                                            StatusCheckChip(label = AppStrings.get("background_gps", lang), isOk = permissionStatus.hasBackgroundLocation)
+                                            StatusCheckChip(label = AppStrings.get("exact_alarms", lang), isOk = permissionStatus.canScheduleExactAlarms)
+                                            StatusCheckChip(label = AppStrings.get("unrestricted_battery", lang), isOk = permissionStatus.isIgnoringBatteryOptimizations)
+                                        }
+
+                                        if (!permissionStatus.isIgnoringBatteryOptimizations) {
                                             Text(
-                                                text = when (statusLevel) {
-                                                    GeofenceStatusLevel.ENABLED -> AppStrings.get("status_label", lang)
-                                                    else -> AppStrings.get("enable_background_alerts", lang)
-                                                },
-                                                maxLines = 1,
-                                                softWrap = false
+                                                text = "• ${AppStrings.get("alerts_delayed_note", lang)}",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.padding(top = 2.dp)
                                             )
                                         }
-                                    }
-
-                                    Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .horizontalScroll(rememberScrollState()),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        StatusCheckChip(label = AppStrings.get("fine_location", lang), isOk = permissionStatus.hasFineLocation)
-                                        StatusCheckChip(label = AppStrings.get("background_gps", lang), isOk = permissionStatus.hasBackgroundLocation)
-                                        StatusCheckChip(label = AppStrings.get("exact_alarms", lang), isOk = permissionStatus.canScheduleExactAlarms)
-                                        StatusCheckChip(label = AppStrings.get("unrestricted_battery", lang), isOk = permissionStatus.isIgnoringBatteryOptimizations)
-                                    }
-
-                                    if (!permissionStatus.isIgnoringBatteryOptimizations) {
-                                        Text(
-                                            text = "• ${AppStrings.get("alerts_delayed_note", lang)}",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.padding(top = 2.dp)
-                                        )
                                     }
                                 }
                             }
 
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("Safe Perimeter Zones (${filteredGeofences.size})", fontWeight = FontWeight.Bold)
-                                Button(onClick = { showAddGeofenceDialog = true }) {
-                                    Icon(Icons.Default.Add, contentDescription = null)
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Add Geofence")
+                            item {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Safe Perimeter Zones (${filteredGeofences.size})", fontWeight = FontWeight.Bold)
+                                    Button(onClick = { showAddGeofenceDialog = true }) {
+                                        Icon(Icons.Default.Add, contentDescription = null)
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Add Geofence")
+                                    }
                                 }
                             }
 
                             if (filteredGeofences.isEmpty()) {
-                                Card(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                                ) {
-                                    Column(
-                                        modifier = Modifier.padding(24.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally
+                                item {
+                                    Card(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                                     ) {
-                                        Icon(Icons.Default.Fence, contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Text("No Geofence Zones Configured", fontWeight = FontWeight.SemiBold)
-                                        Text("Set up real safe perimeter boundaries for Home, Garage, Work, or Valet zones.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Column(
+                                            modifier = Modifier.padding(24.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally
+                                        ) {
+                                            Icon(Icons.Default.Fence, contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Text("No Geofence Zones Configured", fontWeight = FontWeight.SemiBold)
+                                            Text("Set up real safe perimeter boundaries for Home, Garage, Work, or Valet zones.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
                                     }
                                 }
                             } else {
-                                LazyColumn(
-                                    modifier = Modifier.fillMaxSize(),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    items(filteredGeofences) { zone ->
-                                        GeofenceCard(zone = zone, onDelete = { viewModel.deleteGeofenceZone(zone) })
-                                    }
+                                items(filteredGeofences) { zone ->
+                                    GeofenceCard(zone = zone, onDelete = { viewModel.deleteGeofenceZone(zone) })
                                 }
                             }
                         }
