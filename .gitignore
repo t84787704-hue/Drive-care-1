@@ -28,8 +28,9 @@ render.experimental.xml
 *.keystore
 !debug.keystore
 
-# Google Services (e.g. APIs or Firebase)
+# Allow google-services.json to be committed to repository for CI/CD builds
 !google-services.json
+!**/google-services.json
 
 # Android Profiling
 *.hprof
