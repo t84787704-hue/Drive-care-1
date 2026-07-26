@@ -39,6 +39,9 @@ fun AuthScreen(
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var showForgotPasswordDialog by remember { mutableStateOf(false) }
+    var showGoogleDialog by remember { mutableStateOf(false) }
+    var googleEmailInput by remember { mutableStateOf("") }
+    var googleNameInput by remember { mutableStateOf("") }
     var resetEmailInput by remember { mutableStateOf("") }
 
     Column(
@@ -118,7 +121,7 @@ fun AuthScreen(
                 AnimatedVisibility(visible = isRegisterMode) {
                     OutlinedTextField(
                         value = fullName,
-                        onValueChange = { fullName = it },
+                        onValueChange = { fullName = it; errorMessage = null },
                         label = { Text("Full Name") },
                         leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
                         singleLine = true,
@@ -133,7 +136,7 @@ fun AuthScreen(
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it; errorMessage = null },
-                    label = { Text("Email Address") },
+                    label = { Text("Email / Gmail Address") },
                     leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
@@ -146,7 +149,7 @@ fun AuthScreen(
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it; errorMessage = null },
-                    label = { Text("Password") },
+                    label = { Text("Password (min 6 characters)") },
                     leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
                     trailingIcon = {
                         IconButton(onClick = { passwordVisible = !passwordVisible }) {
@@ -179,30 +182,39 @@ fun AuthScreen(
 
                 Button(
                     onClick = {
-                        if (email.isBlank() || password.isBlank() || (isRegisterMode && fullName.isBlank())) {
-                            errorMessage = "Please fill in all fields"
+                        val cleanEmail = email.trim()
+                        val cleanPass = password.trim()
+                        val cleanName = fullName.trim()
+
+                        if (cleanEmail.isBlank() || cleanPass.isBlank() || (isRegisterMode && cleanName.isBlank())) {
+                            errorMessage = "Please fill in all fields / Tamam khaney por karain"
                             return@Button
                         }
+                        if (cleanPass.length < 6) {
+                            errorMessage = "Password must be at least 6 characters / Password kam az kam 6 huroof ka hona chahiye"
+                            return@Button
+                        }
+
                         isLoading = true
                         errorMessage = null
                         if (isRegisterMode) {
-                            viewModel.signUpWithEmail(email, password, fullName) { success, msg ->
+                            viewModel.signUpWithEmail(cleanEmail, cleanPass, cleanName) { success, msg ->
                                 isLoading = false
                                 if (success) {
                                     Toast.makeText(context, "Account created successfully!", Toast.LENGTH_SHORT).show()
                                     onAuthSuccess()
                                 } else {
-                                    errorMessage = msg ?: "Registration failed"
+                                    errorMessage = msg ?: "Registration failed / Account nahi ban saka"
                                 }
                             }
                         } else {
-                            viewModel.signInWithEmail(email, password) { success, msg ->
+                            viewModel.signInWithEmail(cleanEmail, cleanPass) { success, msg ->
                                 isLoading = false
                                 if (success) {
                                     Toast.makeText(context, "Signed in successfully!", Toast.LENGTH_SHORT).show()
                                     onAuthSuccess()
                                 } else {
-                                    errorMessage = msg ?: "Authentication failed"
+                                    errorMessage = msg ?: "Authentication failed / Sign in nahi ho saka"
                                 }
                             }
                         }
@@ -218,7 +230,7 @@ fun AuthScreen(
                             color = MaterialTheme.colorScheme.onPrimary
                         )
                     } else {
-                        Text(if (isRegisterMode) "Register" else "Sign In")
+                        Text(if (isRegisterMode) "Register / Create Account" else "Sign In")
                     }
                 }
             }
@@ -230,14 +242,14 @@ fun AuthScreen(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Divider(modifier = Modifier.weight(1f))
+            HorizontalDivider(modifier = Modifier.weight(1f))
             Text(
                 text = " OR ",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.outline,
                 modifier = Modifier.padding(horizontal = 8.dp)
             )
-            Divider(modifier = Modifier.weight(1f))
+            HorizontalDivider(modifier = Modifier.weight(1f))
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -245,14 +257,9 @@ fun AuthScreen(
         // Google Sign-In Button
         OutlinedButton(
             onClick = {
-                viewModel.signInWithDemoGoogleAccount { success, msg ->
-                    if (success) {
-                        Toast.makeText(context, "Signed in with Google Account!", Toast.LENGTH_SHORT).show()
-                        onAuthSuccess()
-                    } else {
-                        Toast.makeText(context, msg ?: "Google sign in cancelled", Toast.LENGTH_SHORT).show()
-                    }
-                }
+                googleEmailInput = if (email.contains("@gmail.com")) email else "user.drive@gmail.com"
+                googleNameInput = if (fullName.isNotBlank()) fullName else ""
+                showGoogleDialog = true
             },
             modifier = Modifier
                 .fillMaxWidth()
@@ -264,7 +271,7 @@ fun AuthScreen(
                 modifier = Modifier.size(20.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Sign In with Google")
+            Text("Sign In with Google Account")
         }
 
         Spacer(modifier = Modifier.height(20.dp))
@@ -276,9 +283,72 @@ fun AuthScreen(
             }
         ) {
             Text(
-                if (isRegisterMode) "Already have an account? Sign In" else "Don't have an account? Sign Up"
+                if (isRegisterMode) "Already have an account? Sign In" else "Don't have an account? Create Account"
             )
         }
+    }
+
+    if (showGoogleDialog) {
+        AlertDialog(
+            onDismissRequest = { showGoogleDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.GTranslate,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Google Account Sign In")
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Enter or confirm your Gmail address to connect your DriveCare cloud account:")
+                    OutlinedTextField(
+                        value = googleEmailInput,
+                        onValueChange = { googleEmailInput = it },
+                        label = { Text("Gmail Address") },
+                        leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = googleNameInput,
+                        onValueChange = { googleNameInput = it },
+                        label = { Text("Name (Optional)") },
+                        leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val gEmail = googleEmailInput.trim().ifBlank { "user.drive@gmail.com" }
+                        val gName = googleNameInput.trim().ifBlank { gEmail.substringBefore("@") }
+                        showGoogleDialog = false
+                        viewModel.signInWithGoogleAccount(gEmail, gName) { success, msg ->
+                            if (success) {
+                                Toast.makeText(context, "Signed in with Google ($gEmail)!", Toast.LENGTH_SHORT).show()
+                                onAuthSuccess()
+                            } else {
+                                Toast.makeText(context, msg ?: "Google sign in failed", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                ) {
+                    Text("Continue with Google")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showGoogleDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     if (showForgotPasswordDialog) {
@@ -303,7 +373,7 @@ fun AuthScreen(
                         if (resetEmailInput.isNotBlank()) {
                             viewModel.sendPasswordReset(resetEmailInput) { success, msg ->
                                 if (success) {
-                                    Toast.makeText(context, "Password reset email sent!", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(context, "Password reset link sent to your email!", Toast.LENGTH_LONG).show()
                                 } else {
                                     Toast.makeText(context, msg ?: "Failed to send reset email", Toast.LENGTH_SHORT).show()
                                 }

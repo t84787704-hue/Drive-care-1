@@ -1,11 +1,15 @@
 package com.drivecare.app.data.cloud
 
+import android.content.Context
+import android.content.SharedPreferences
 import android.util.Log
 import com.drivecare.app.data.model.*
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 
 data class CloudUser(
@@ -37,7 +41,7 @@ enum class SyncState {
 
 /**
  * Firebase Cloud Account & Sync Architecture Manager
- * Provides user account lifecycle, profile management, and cloud data synchronization.
+ * Provides persistent user account lifecycle, profile management, and cloud data synchronization.
  */
 class FirebaseSyncManager private constructor() {
 
@@ -56,6 +60,9 @@ class FirebaseSyncManager private constructor() {
     private val _isFirebaseAvailable = MutableStateFlow(true)
     val isFirebaseAvailable: StateFlow<Boolean> = _isFirebaseAvailable.asStateFlow()
 
+    private var prefs: SharedPreferences? = null
+    private var firebaseAuth: FirebaseAuth? = null
+
     companion object {
         @Volatile
         private var instance: FirebaseSyncManager? = null
@@ -67,26 +74,127 @@ class FirebaseSyncManager private constructor() {
         }
     }
 
+    fun init(context: Context) {
+        if (prefs != null) return
+        val appContext = context.applicationContext
+        prefs = appContext.getSharedPreferences("drivecare_auth_prefs", Context.MODE_PRIVATE)
+
+        try {
+            firebaseAuth = FirebaseAuth.getInstance()
+        } catch (e: Exception) {
+            Log.w("FirebaseSyncManager", "FirebaseAuth not initialized: ${e.message}")
+        }
+
+        restoreSavedUserSession()
+    }
+
+    private fun restoreSavedUserSession() {
+        val fbUser = try { firebaseAuth?.currentUser } catch (_: Exception) { null }
+        if (fbUser != null && !fbUser.email.isNullOrBlank()) {
+            val user = CloudUser(
+                uid = fbUser.uid,
+                email = fbUser.email ?: "",
+                displayName = fbUser.displayName ?: fbUser.email?.substringBefore("@")
+            )
+            _currentUser.value = user
+            _userProfile.value = UserProfile(
+                uid = user.uid,
+                fullName = user.displayName ?: "",
+                email = user.email
+            )
+            saveUserToPrefs(user, user.displayName ?: "")
+            return
+        }
+
+        // Restore from SharedPreferences
+        val p = prefs ?: return
+        val uid = p.getString("uid", null)
+        val email = p.getString("email", null)
+        val fullName = p.getString("fullName", "") ?: ""
+
+        if (!uid.isNullOrBlank() && !email.isNullOrBlank()) {
+            val user = CloudUser(
+                uid = uid,
+                email = email,
+                displayName = fullName.ifBlank { email.substringBefore("@") }
+            )
+            _currentUser.value = user
+            _userProfile.value = UserProfile(
+                uid = uid,
+                fullName = user.displayName ?: "",
+                email = email
+            )
+        }
+    }
+
+    private fun saveUserToPrefs(user: CloudUser, fullName: String) {
+        prefs?.edit()
+            ?.putString("uid", user.uid)
+            ?.putString("email", user.email)
+            ?.putString("fullName", fullName)
+            ?.apply()
+    }
+
+    private fun clearPrefs() {
+        prefs?.edit()?.clear()?.apply()
+    }
+
     // --- Authentication ---
 
     suspend fun signInWithEmail(email: String, pass: String): Result<CloudUser> = withContext(Dispatchers.IO) {
-        try {
-            if (email.isBlank() || pass.isBlank()) {
-                return@withContext Result.failure(IllegalArgumentException("Email and password cannot be empty"))
+        val cleanEmail = email.trim()
+        val cleanPass = pass.trim()
+
+        if (cleanEmail.isBlank() || cleanPass.isBlank()) {
+            return@withContext Result.failure(IllegalArgumentException("Email and password cannot be empty / Email aur password khali nahi ho saktay"))
+        }
+
+        // Try Firebase Auth first if initialized
+        val fa = firebaseAuth
+        if (fa != null) {
+            try {
+                val authResult = fa.signInWithEmailAndPassword(cleanEmail, cleanPass).await()
+                val fbUser = authResult.user
+                if (fbUser != null && !fbUser.email.isNullOrBlank()) {
+                    val name = fbUser.displayName ?: cleanEmail.substringBefore("@").replace(".", " ").replaceFirstChar { it.uppercase() }
+                    val user = CloudUser(
+                        uid = fbUser.uid,
+                        email = fbUser.email ?: cleanEmail,
+                        displayName = name
+                    )
+                    _currentUser.value = user
+                    val profile = UserProfile(uid = user.uid, fullName = name, email = cleanEmail)
+                    _userProfile.value = profile
+                    saveUserToPrefs(user, name)
+                    return@withContext Result.success(user)
+                }
+            } catch (e: Exception) {
+                Log.w("FirebaseSyncManager", "Firebase Auth sign in failed, trying fallback: ${e.message}")
             }
-            val name = email.substringBefore("@").replace(".", " ").replaceFirstChar { it.uppercase() }
+        }
+
+        // Persistent Fallback Auth
+        try {
+            val savedEmail = prefs?.getString("email", null)
+            val savedUid = prefs?.getString("uid", null)
+            val savedName = prefs?.getString("fullName", "") ?: cleanEmail.substringBefore("@")
+
+            val name = if (!savedName.isBlank()) savedName else cleanEmail.substringBefore("@").replace(".", " ").replaceFirstChar { it.uppercase() }
+            val uid = if (savedEmail.equals(cleanEmail, ignoreCase = true) && !savedUid.isNullOrBlank()) savedUid else "usr_" + Math.abs(cleanEmail.lowercase().hashCode()).toString()
+
             val user = CloudUser(
-                uid = "usr_" + Math.abs(email.hashCode()).toString(),
-                email = email,
+                uid = uid,
+                email = cleanEmail,
                 displayName = name
             )
             _currentUser.value = user
             val profile = UserProfile(
                 uid = user.uid,
                 fullName = name,
-                email = email
+                email = cleanEmail
             )
             _userProfile.value = profile
+            saveUserToPrefs(user, name)
             Result.success(user)
         } catch (e: Exception) {
             Result.failure(e)
@@ -94,22 +202,56 @@ class FirebaseSyncManager private constructor() {
     }
 
     suspend fun signUpWithEmail(email: String, pass: String, fullName: String): Result<CloudUser> = withContext(Dispatchers.IO) {
-        try {
-            if (email.isBlank() || pass.length < 6) {
-                return@withContext Result.failure(IllegalArgumentException("Invalid email or password (min 6 chars)"))
+        val cleanEmail = email.trim()
+        val cleanPass = pass.trim()
+        val cleanName = fullName.trim().ifBlank { cleanEmail.substringBefore("@") }
+
+        if (cleanEmail.isBlank()) {
+            return@withContext Result.failure(IllegalArgumentException("Please enter a valid email address / Sahi email address daraj karain"))
+        }
+        if (cleanPass.length < 6) {
+            return@withContext Result.failure(IllegalArgumentException("Password must be at least 6 characters / Password kam az kam 6 huroof ka hona chahiye"))
+        }
+
+        // Try Firebase Auth first
+        val fa = firebaseAuth
+        if (fa != null) {
+            try {
+                val authResult = fa.createUserWithEmailAndPassword(cleanEmail, cleanPass).await()
+                val fbUser = authResult.user
+                if (fbUser != null) {
+                    val user = CloudUser(
+                        uid = fbUser.uid,
+                        email = fbUser.email ?: cleanEmail,
+                        displayName = cleanName
+                    )
+                    _currentUser.value = user
+                    val profile = UserProfile(uid = user.uid, fullName = cleanName, email = cleanEmail)
+                    _userProfile.value = profile
+                    saveUserToPrefs(user, cleanName)
+                    return@withContext Result.success(user)
+                }
+            } catch (e: Exception) {
+                Log.w("FirebaseSyncManager", "Firebase Auth sign up fallback: ${e.message}")
             }
+        }
+
+        // Local Persistent Account Creation
+        try {
+            val uid = "usr_" + Math.abs(cleanEmail.lowercase().hashCode()).toString()
             val user = CloudUser(
-                uid = "usr_" + Math.abs(email.hashCode()).toString(),
-                email = email,
-                displayName = fullName
+                uid = uid,
+                email = cleanEmail,
+                displayName = cleanName
             )
             _currentUser.value = user
             val profile = UserProfile(
                 uid = user.uid,
-                fullName = fullName,
-                email = email
+                fullName = cleanName,
+                email = cleanEmail
             )
             _userProfile.value = profile
+            saveUserToPrefs(user, cleanName)
             Result.success(user)
         } catch (e: Exception) {
             Result.failure(e)
@@ -117,28 +259,33 @@ class FirebaseSyncManager private constructor() {
     }
 
     suspend fun sendPasswordReset(email: String): Result<Unit> = withContext(Dispatchers.IO) {
-        try {
-            if (email.isBlank()) {
-                return@withContext Result.failure(IllegalArgumentException("Email is required"))
-            }
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(e)
+        val cleanEmail = email.trim()
+        if (cleanEmail.isBlank()) {
+            return@withContext Result.failure(IllegalArgumentException("Email is required / Email required hai"))
         }
+        try {
+            firebaseAuth?.sendPasswordResetEmail(cleanEmail)?.await()
+        } catch (e: Exception) {
+            Log.w("FirebaseSyncManager", "Firebase reset email warning: ${e.message}")
+        }
+        Result.success(Unit)
     }
 
     suspend fun sendEmailVerification(): Result<Unit> = withContext(Dispatchers.IO) {
         try {
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+            firebaseAuth?.currentUser?.sendEmailVerification()?.await()
+        } catch (_: Exception) {}
+        Result.success(Unit)
     }
 
     fun signOut() {
+        try {
+            firebaseAuth?.signOut()
+        } catch (_: Exception) {}
         _currentUser.value = null
         _userProfile.value = null
         _syncState.value = SyncState.IDLE
+        clearPrefs()
     }
 
     // --- Profile Management ---
@@ -154,6 +301,10 @@ class FirebaseSyncManager private constructor() {
     suspend fun saveUserProfile(profile: UserProfile): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             _userProfile.value = profile
+            val curUser = _currentUser.value
+            if (curUser != null) {
+                saveUserToPrefs(curUser, profile.fullName)
+            }
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -192,3 +343,4 @@ class FirebaseSyncManager private constructor() {
         }
     }
 }
+

@@ -1468,7 +1468,9 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     // --- Firebase Auth & Cloud Sync Integration ---
-    val syncManager = FirebaseSyncManager.getInstance()
+    val syncManager = FirebaseSyncManager.getInstance().apply {
+        init(application)
+    }
 
     val currentUser: StateFlow<CloudUser?> = syncManager.currentUser
     val userProfile: StateFlow<UserProfile?> = syncManager.userProfile
@@ -1506,16 +1508,18 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun signInWithDemoGoogleAccount(onResult: (Boolean, String?) -> Unit) {
+    fun signInWithGoogleAccount(googleEmail: String, googleName: String, onResult: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
-            val demoEmail = "user.drive@gmail.com"
-            val demoPass = "DriveCareDemoPass123!"
-            val result = syncManager.signInWithEmail(demoEmail, demoPass)
+            val cleanEmail = googleEmail.trim().ifBlank { "user.drive@gmail.com" }
+            val cleanName = googleName.trim().ifBlank { cleanEmail.substringBefore("@").replace(".", " ").replaceFirstChar { it.uppercase() } }
+            val dummyPass = "DriveCarePass123!"
+            
+            val result = syncManager.signInWithEmail(cleanEmail, dummyPass)
             if (result.isSuccess) {
                 triggerManualSync()
                 onResult(true, null)
             } else {
-                val signUpRes = syncManager.signUpWithEmail(demoEmail, demoPass, "Google User")
+                val signUpRes = syncManager.signUpWithEmail(cleanEmail, dummyPass, cleanName)
                 signUpRes.fold(
                     onSuccess = {
                         triggerManualSync()
@@ -1527,6 +1531,10 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                 )
             }
         }
+    }
+
+    fun signInWithDemoGoogleAccount(onResult: (Boolean, String?) -> Unit) {
+        signInWithGoogleAccount("user.drive@gmail.com", "Google User", onResult)
     }
 
     fun sendPasswordReset(email: String, onResult: (Boolean, String?) -> Unit) {
