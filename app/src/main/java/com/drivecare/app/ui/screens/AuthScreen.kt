@@ -64,31 +64,82 @@ fun AuthScreen(
     val googleLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+        val intentData = result.data
+        var selectedEmail: String? = null
+        var selectedName: String? = null
+        var idToken: String? = null
+
+        // 1. Task result
+        val task = GoogleSignIn.getSignedInAccountFromIntent(intentData)
         try {
             val account = task.getResult(ApiException::class.java)
             if (account != null && !account.email.isNullOrBlank()) {
-                val selectedEmail = account.email ?: ""
-                val selectedName = account.displayName ?: selectedEmail.substringBefore("@")
-                val idToken = account.idToken
-                viewModel.signInWithGoogleAccount(idToken, selectedEmail, selectedName) { success, msg ->
-                    if (success) {
-                        Toast.makeText(context, "Signed in as $selectedEmail", Toast.LENGTH_SHORT).show()
-                        onAuthSuccess()
-                    } else {
-                        Toast.makeText(context, msg ?: "Google sign in failed", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            } else {
-                googleEmailInput = email
-                googleNameInput = fullName
-                showGoogleDialog = true
+                selectedEmail = account.email
+                selectedName = account.displayName
+                idToken = account.idToken
             }
         } catch (e: Exception) {
-            Log.w("AuthScreen", "Google sign in launcher: ${e.message}")
-            googleEmailInput = email
-            googleNameInput = fullName
-            showGoogleDialog = true
+            Log.w("AuthScreen", "GoogleSignIn getResult exception: ${e.message}")
+        }
+
+        // 2. Direct task result
+        if (selectedEmail.isNullOrBlank()) {
+            try {
+                val acc = task.result
+                if (acc != null && !acc.email.isNullOrBlank()) {
+                    selectedEmail = acc.email
+                    selectedName = acc.displayName
+                    idToken = acc.idToken
+                }
+            } catch (_: Exception) {}
+        }
+
+        // 3. Last signed in account
+        if (selectedEmail.isNullOrBlank()) {
+            try {
+                val lastAcc = GoogleSignIn.getLastSignedInAccount(context)
+                if (lastAcc != null && !lastAcc.email.isNullOrBlank()) {
+                    selectedEmail = lastAcc.email
+                    selectedName = lastAcc.displayName
+                    idToken = lastAcc.idToken
+                }
+            } catch (_: Exception) {}
+        }
+
+        // 4. Inspect intent extras for selected Account email
+        if (selectedEmail.isNullOrBlank() && intentData != null) {
+            try {
+                val extras = intentData.extras
+                if (extras != null) {
+                    for (key in extras.keySet()) {
+                        val obj = extras.get(key)
+                        if (obj is android.accounts.Account && !obj.name.isNullOrBlank()) {
+                            selectedEmail = obj.name
+                            selectedName = obj.name?.substringBefore("@")?.replace(".", " ")?.replaceFirstChar { it.uppercase() }
+                            break
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+
+        if (!selectedEmail.isNullOrBlank()) {
+            val finalEmail = selectedEmail
+            val finalName = selectedName?.ifBlank { finalEmail.substringBefore("@") } ?: finalEmail.substringBefore("@")
+            viewModel.signInWithGoogleAccount(idToken, finalEmail, finalName) { success, msg ->
+                if (success) {
+                    Toast.makeText(context, "Signed in as $finalEmail", Toast.LENGTH_SHORT).show()
+                    onAuthSuccess()
+                } else {
+                    Toast.makeText(context, msg ?: "Google sign in failed", Toast.LENGTH_SHORT).show()
+                }
+            }
+        } else {
+            // If user cancelled or account picker returned empty, pre-fill default email if dialog opened
+            if (email.isNotBlank()) {
+                googleEmailInput = email
+                googleNameInput = fullName
+            }
         }
     }
 
