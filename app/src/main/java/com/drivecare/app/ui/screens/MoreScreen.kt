@@ -83,7 +83,10 @@ fun MoreScreen(
                 MoreSubSection.EMERGENCY -> EmergencyScreen(viewModel = viewModel)
                 MoreSubSection.ACHIEVEMENTS -> AchievementsScreen(viewModel = viewModel)
                 MoreSubSection.SETTINGS -> SettingsScreen(viewModel = viewModel)
-                MoreSubSection.PROFILE -> ProfileScreen(viewModel = viewModel)
+                MoreSubSection.PROFILE -> ProfileScreen(
+                    viewModel = viewModel,
+                    onNavigateToAuth = { onSubSectionSelect(MoreSubSection.AUTH) }
+                )
                 MoreSubSection.AUTH -> AuthScreen(
                     viewModel = viewModel,
                     onAuthSuccess = { onSubSectionSelect(MoreSubSection.PROFILE) }
