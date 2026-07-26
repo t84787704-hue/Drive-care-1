@@ -1,10 +1,13 @@
 package com.drivecare.app.ui.screens
 
+import android.accounts.Account
+import android.accounts.AccountManager
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -50,6 +53,15 @@ fun AuthScreen(
     var googleNameInput by remember { mutableStateOf("") }
     var resetEmailInput by remember { mutableStateOf("") }
 
+    val deviceAccounts = remember(context) {
+        try {
+            val am = AccountManager.get(context)
+            am.getAccountsByType("com.google").toList()
+        } catch (_: Exception) {
+            emptyList<Account>()
+        }
+    }
+
     val gso = remember {
         GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestEmail()
@@ -69,22 +81,34 @@ fun AuthScreen(
         var selectedName: String? = null
         var idToken: String? = null
 
-        // 1. Task result
-        val task = GoogleSignIn.getSignedInAccountFromIntent(intentData)
-        try {
-            val account = task.getResult(ApiException::class.java)
-            if (account != null && !account.email.isNullOrBlank()) {
-                selectedEmail = account.email
-                selectedName = account.displayName
-                idToken = account.idToken
+        // 1. AccountManager KEY_ACCOUNT_NAME
+        if (intentData != null) {
+            selectedEmail = intentData.getStringExtra(AccountManager.KEY_ACCOUNT_NAME)
+            if (selectedEmail.isNullOrBlank()) {
+                val extras = intentData.extras
+                selectedEmail = extras?.getString(AccountManager.KEY_ACCOUNT_NAME)
             }
-        } catch (e: Exception) {
-            Log.w("AuthScreen", "GoogleSignIn getResult exception: ${e.message}")
         }
 
-        // 2. Direct task result
+        // 2. GoogleSignIn Task result
+        if (selectedEmail.isNullOrBlank()) {
+            val task = GoogleSignIn.getSignedInAccountFromIntent(intentData)
+            try {
+                val account = task.getResult(ApiException::class.java)
+                if (account != null && !account.email.isNullOrBlank()) {
+                    selectedEmail = account.email
+                    selectedName = account.displayName
+                    idToken = account.idToken
+                }
+            } catch (e: Exception) {
+                Log.w("AuthScreen", "GoogleSignIn exception: ${e.message}")
+            }
+        }
+
+        // 3. Direct task result fallback
         if (selectedEmail.isNullOrBlank()) {
             try {
+                val task = GoogleSignIn.getSignedInAccountFromIntent(intentData)
                 val acc = task.result
                 if (acc != null && !acc.email.isNullOrBlank()) {
                     selectedEmail = acc.email
@@ -94,7 +118,7 @@ fun AuthScreen(
             } catch (_: Exception) {}
         }
 
-        // 3. Last signed in account
+        // 4. Last signed in account
         if (selectedEmail.isNullOrBlank()) {
             try {
                 val lastAcc = GoogleSignIn.getLastSignedInAccount(context)
@@ -106,26 +130,11 @@ fun AuthScreen(
             } catch (_: Exception) {}
         }
 
-        // 4. Inspect intent extras for selected Account email
-        if (selectedEmail.isNullOrBlank() && intentData != null) {
-            try {
-                val extras = intentData.extras
-                if (extras != null) {
-                    for (key in extras.keySet()) {
-                        val obj = extras.get(key)
-                        if (obj is android.accounts.Account && !obj.name.isNullOrBlank()) {
-                            selectedEmail = obj.name
-                            selectedName = obj.name?.substringBefore("@")?.replace(".", " ")?.replaceFirstChar { it.uppercase() }
-                            break
-                        }
-                    }
-                }
-            } catch (_: Exception) {}
-        }
-
         if (!selectedEmail.isNullOrBlank()) {
             val finalEmail = selectedEmail
-            val finalName = selectedName?.ifBlank { finalEmail.substringBefore("@") } ?: finalEmail.substringBefore("@")
+            val finalName = selectedName?.ifBlank { finalEmail.substringBefore("@") }
+                ?: finalEmail.substringBefore("@").replace(".", " ").replaceFirstChar { it.uppercase() }
+
             viewModel.signInWithGoogleAccount(idToken, finalEmail, finalName) { success, msg ->
                 if (success) {
                     Toast.makeText(context, "Signed in as $finalEmail", Toast.LENGTH_SHORT).show()
@@ -135,11 +144,9 @@ fun AuthScreen(
                 }
             }
         } else {
-            // If user cancelled or account picker returned empty, pre-fill default email if dialog opened
-            if (email.isNotBlank()) {
-                googleEmailInput = email
-                googleNameInput = fullName
-            }
+            googleEmailInput = if (deviceAccounts.isNotEmpty()) deviceAccounts[0].name else (if (email.contains("@")) email else "user.drive@gmail.com")
+            googleNameInput = fullName.ifBlank { googleEmailInput.substringBefore("@") }
+            showGoogleDialog = true
         }
     }
 
@@ -357,14 +364,28 @@ fun AuthScreen(
         OutlinedButton(
             onClick = {
                 try {
-                    googleSignInClient.signOut().addOnCompleteListener {
-                        val signInIntent = googleSignInClient.signInIntent
-                        googleLauncher.launch(signInIntent)
-                    }
+                    val chooserIntent = AccountManager.newChooseAccountIntent(
+                        null,
+                        null,
+                        arrayOf("com.google"),
+                        true,
+                        null,
+                        null,
+                        null,
+                        null
+                    )
+                    googleLauncher.launch(chooserIntent)
                 } catch (e: Exception) {
-                    googleEmailInput = email
-                    googleNameInput = fullName
-                    showGoogleDialog = true
+                    try {
+                        googleSignInClient.signOut().addOnCompleteListener {
+                            googleLauncher.launch(googleSignInClient.signInIntent)
+                        }
+                    } catch (_: Exception) {
+                        val defaultEmail = if (deviceAccounts.isNotEmpty()) deviceAccounts[0].name else (if (email.contains("@")) email else "")
+                        googleEmailInput = defaultEmail
+                        googleNameInput = fullName.ifBlank { defaultEmail.substringBefore("@") }
+                        showGoogleDialog = true
+                    }
                 }
             },
             modifier = Modifier
@@ -410,12 +431,75 @@ fun AuthScreen(
                 }
             },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Apna Gmail address yahan enter karain / Enter your Gmail address:")
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (deviceAccounts.isNotEmpty()) {
+                        Text(
+                            text = "Select your Google Account / Account muntakhib karain:",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        deviceAccounts.forEach { acc ->
+                            Card(
+                                onClick = {
+                                    val gEmail = acc.name
+                                    val gName = gEmail.substringBefore("@")
+                                        .replace(".", " ")
+                                        .replace("-", " ")
+                                        .replace("_", " ")
+                                        .split(" ")
+                                        .joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+                                    showGoogleDialog = false
+                                    viewModel.signInWithGoogleAccount(gEmail, gName) { success, msg ->
+                                        if (success) {
+                                            Toast.makeText(context, "Signed in as $gEmail!", Toast.LENGTH_SHORT).show()
+                                            onAuthSuccess()
+                                        } else {
+                                            Toast.makeText(context, msg ?: "Sign in failed", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                },
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.AccountCircle,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column {
+                                        Text(
+                                            text = acc.name,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            text = "Tap to connect account / Sign in karain",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.outline
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                        Text(
+                            text = "Or enter your Gmail address manually:",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    } else {
+                        Text("Apna Gmail address yahan enter karain / Enter your Gmail address:")
+                    }
+
                     OutlinedTextField(
                         value = googleEmailInput,
                         onValueChange = { googleEmailInput = it },
-                        label = { Text("Gmail Address (e.g. your.name@gmail.com)") },
+                        label = { Text("Gmail Address") },
                         leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
@@ -442,7 +526,7 @@ fun AuthScreen(
                         showGoogleDialog = false
                         viewModel.signInWithGoogleAccount(gEmail, gName) { success, msg ->
                             if (success) {
-                                Toast.makeText(context, "Signed in with Google ($gEmail)!", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Signed in as $gEmail!", Toast.LENGTH_SHORT).show()
                                 onAuthSuccess()
                             } else {
                                 Toast.makeText(context, msg ?: "Google sign in failed", Toast.LENGTH_SHORT).show()
