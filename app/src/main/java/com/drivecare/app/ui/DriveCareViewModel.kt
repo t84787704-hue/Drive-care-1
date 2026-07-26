@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.util.Locale
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -470,7 +471,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                         type = "Trip",
                         date = t.tripDate,
                         subtitle = "${t.vehicleName} • Driver: ${t.driverName} • ${t.durationMinutes} mins",
-                        costOrAmount = "${t.distanceKm} km"
+                        costOrAmount = "${String.format(Locale.US, "%.2f", t.distanceKm)} km"
                     )
                 )
             }

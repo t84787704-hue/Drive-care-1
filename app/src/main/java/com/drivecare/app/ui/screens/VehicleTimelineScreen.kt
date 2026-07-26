@@ -13,10 +13,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.drivecare.app.ui.DriveCareViewModel
 import com.drivecare.app.ui.TimelineEvent
 import com.drivecare.app.utils.LocalAppLanguage
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -131,6 +133,17 @@ fun VehicleTimelineScreen(
     }
 }
 
+private fun formatCostOrDistanceIfNeeded(input: String): String {
+    if (input.endsWith(" km", ignoreCase = true)) {
+        val numPart = input.removeSuffix(" km").removeSuffix("KM").trim()
+        val num = numPart.toDoubleOrNull()
+        if (num != null) {
+            return String.format(Locale.US, "%.2f km", num)
+        }
+    }
+    return input
+}
+
 @Composable
 fun TimelineEventRow(event: TimelineEvent) {
     Row(
@@ -144,6 +157,7 @@ fun TimelineEventRow(event: TimelineEvent) {
             "Service" -> Icons.Default.Build to MaterialTheme.colorScheme.tertiary
             "Reminder" -> Icons.Default.Notifications to MaterialTheme.colorScheme.secondary
             "Document" -> Icons.Default.Description to MaterialTheme.colorScheme.outline
+            "Trip" -> Icons.Default.DirectionsCar to MaterialTheme.colorScheme.primary
             "Expense" -> Icons.Default.AttachMoney to MaterialTheme.colorScheme.error
             else -> Icons.Default.Event to MaterialTheme.colorScheme.primary
         }
@@ -177,7 +191,13 @@ fun TimelineEventRow(event: TimelineEvent) {
                     Text(
                         text = event.title,
                         fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        softWrap = false,
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .padding(end = 8.dp)
                     )
                     Surface(
                         color = MaterialTheme.colorScheme.surfaceVariant,
@@ -186,7 +206,10 @@ fun TimelineEventRow(event: TimelineEvent) {
                         Text(
                             text = event.date,
                             style = MaterialTheme.typography.labelSmall,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            softWrap = false
                         )
                     }
                 }
@@ -199,14 +222,23 @@ fun TimelineEventRow(event: TimelineEvent) {
                     Text(
                         text = event.subtitle,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        softWrap = false,
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .padding(end = 8.dp)
                     )
                     if (event.costOrAmount.isNotBlank()) {
                         Text(
-                            text = event.costOrAmount,
+                            text = formatCostOrDistanceIfNeeded(event.costOrAmount),
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = color
+                            color = color,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            softWrap = false
                         )
                     }
                 }

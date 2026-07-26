@@ -1337,11 +1337,22 @@ fun TripCard(trip: TripLog, onDelete: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("${trip.vehicleName} • ${trip.tripDate}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(
-                    "${String.format(Locale.US, "%.1f", trip.distanceKm)} km (${trip.durationMinutes} min)",
+                    text = "${trip.vehicleName} • ${trip.tripDate}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    softWrap = false,
+                    modifier = Modifier.weight(1f, fill = false).padding(end = 8.dp)
+                )
+                Text(
+                    text = "${String.format(Locale.US, "%.2f", trip.distanceKm)} km (${trip.durationMinutes} min)",
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    softWrap = false
                 )
             }
         }

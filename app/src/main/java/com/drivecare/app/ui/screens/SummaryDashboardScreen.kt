@@ -742,6 +742,17 @@ fun VehicleHealthCard(
     }
 }
 
+private fun formatCostOrDistanceIfNeeded(input: String): String {
+    if (input.endsWith(" km", ignoreCase = true)) {
+        val numPart = input.removeSuffix(" km").removeSuffix("KM").trim()
+        val num = numPart.toDoubleOrNull()
+        if (num != null) {
+            return String.format(Locale.US, "%.2f km", num)
+        }
+    }
+    return input
+}
+
 @Composable
 fun DashboardTimelineEventRow(event: TimelineEvent) {
     val (icon, color) = when (event.type) {
@@ -749,6 +760,8 @@ fun DashboardTimelineEventRow(event: TimelineEvent) {
         "Service" -> Icons.Default.Build to MaterialTheme.colorScheme.secondary
         "Reminder" -> Icons.Default.Notifications to MaterialTheme.colorScheme.tertiary
         "Document" -> Icons.Default.Description to MaterialTheme.colorScheme.outline
+        "Trip" -> Icons.Default.DirectionsCar to MaterialTheme.colorScheme.primary
+        "Expense" -> Icons.Default.AttachMoney to MaterialTheme.colorScheme.error
         else -> Icons.Default.Receipt to MaterialTheme.colorScheme.error
     }
 
@@ -780,19 +793,56 @@ fun DashboardTimelineEventRow(event: TimelineEvent) {
             Column(modifier = Modifier.weight(1f)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(event.title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                    Text(event.date, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        text = event.title,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        softWrap = false,
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .padding(end = 8.dp)
+                    )
+                    Text(
+                        text = event.date,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        softWrap = false
+                    )
                 }
                 Spacer(modifier = Modifier.height(2.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(event.subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        text = event.subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        softWrap = false,
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .padding(end = 8.dp)
+                    )
                     if (event.costOrAmount.isNotBlank()) {
-                        Text(event.costOrAmount, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = color)
+                        Text(
+                            text = formatCostOrDistanceIfNeeded(event.costOrAmount),
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold,
+                            color = color,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            softWrap = false
+                        )
                     }
                 }
             }

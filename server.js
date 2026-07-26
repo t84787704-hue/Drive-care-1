@@ -384,11 +384,11 @@ const htmlContent = `<!DOCTYPE html>
           </div>
 
           <div class="nav-bar">
-            <div class="nav-item active" onclick="switchTab('vehicles')">🚗<br>Vehicles</div>
-            <div class="nav-item" onclick="switchTab('service')">🛠️<br>Service</div>
-            <div class="nav-item" onclick="switchTab('documents')">📄<br>Docs</div>
-            <div class="nav-item" onclick="switchTab('fuel')">⛽<br>Fuel</div>
-            <div class="nav-item" onclick="switchTab('more')">⚙️<br>More</div>
+            <div class="nav-item active" onclick="switchTab('vehicles', this)">🚗<br>Vehicles</div>
+            <div class="nav-item" onclick="switchTab('service', this)">🛠️<br>Service</div>
+            <div class="nav-item" onclick="switchTab('documents', this)">📄<br>Docs</div>
+            <div class="nav-item" onclick="switchTab('fuel', this)">⛽<br>Fuel</div>
+            <div class="nav-item" onclick="switchTab('more', this)">⚙️<br>More</div>
           </div>
         </div>
       </div>
@@ -416,9 +416,17 @@ const htmlContent = `<!DOCTYPE html>
       ]
     };
 
-    function switchTab(tab) {
-      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-      event.currentTarget.classList.add('active');
+    function switchTab(tab, el) {
+      document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+      if (el) {
+        el.classList.add('active');
+      } else {
+        const navItems = document.querySelectorAll('.nav-item');
+        const tabIndex = ['vehicles', 'service', 'documents', 'fuel', 'more'].indexOf(tab);
+        if (tabIndex >= 0 && navItems[tabIndex]) {
+          navItems[tabIndex].classList.add('active');
+        }
+      }
 
       const content = document.getElementById('phoneContent');
       if (tab === 'vehicles') {
