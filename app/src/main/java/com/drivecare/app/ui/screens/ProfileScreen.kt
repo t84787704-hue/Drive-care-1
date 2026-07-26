@@ -327,52 +327,6 @@ fun ProfileScreen(
             }
         }
 
-        // Email Verification & Information Card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.MarkEmailRead,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(22.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "EMAIL & SECURITY / TAHAFUZ",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-
-                Text(
-                    text = "Google Accounts sign in directly without requiring a manual confirmation link. If you want a verification email or password link sent to your Gmail inbox, tap below:",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                OutlinedButton(
-                    onClick = {
-                        viewModel.sendEmailVerification { success, msg ->
-                            Toast.makeText(context, msg ?: "Verification link sent to your Gmail inbox!", Toast.LENGTH_LONG).show()
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Send Verification Email to Gmail Inbox")
-                }
-            }
-        }
-
         // Actions
         if (currentUser != null) {
             Button(
