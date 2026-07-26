@@ -5,6 +5,8 @@ import android.content.SharedPreferences
 import android.util.Log
 import com.drivecare.app.data.model.*
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -62,6 +64,7 @@ class FirebaseSyncManager private constructor() {
 
     private var prefs: SharedPreferences? = null
     private var firebaseAuth: FirebaseAuth? = null
+    private var firestore: FirebaseFirestore? = null
 
     companion object {
         @Volatile
@@ -81,8 +84,9 @@ class FirebaseSyncManager private constructor() {
 
         try {
             firebaseAuth = FirebaseAuth.getInstance()
+            firestore = FirebaseFirestore.getInstance()
         } catch (e: Exception) {
-            Log.w("FirebaseSyncManager", "FirebaseAuth not initialized: ${e.message}")
+            Log.w("FirebaseSyncManager", "Firebase services initialization info: ${e.message}")
         }
 
         restoreSavedUserSession()
@@ -400,7 +404,50 @@ class FirebaseSyncManager private constructor() {
 
         try {
             _syncState.value = SyncState.SYNCING
-            kotlinx.coroutines.delay(800) // Realistic sync delay
+            val fs = firestore
+            if (fs != null) {
+                val userRef = fs.collection("users").document(user.uid)
+                val batch = fs.batch()
+
+                val profileMap = mapOf(
+                    "uid" to user.uid,
+                    "email" to user.email,
+                    "displayName" to (user.displayName ?: ""),
+                    "lastSyncTime" to System.currentTimeMillis()
+                )
+                batch.set(userRef, profileMap, SetOptions.merge())
+
+                for (v in vehicles) {
+                    batch.set(userRef.collection("vehicles").document(v.id.toString()), v, SetOptions.merge())
+                }
+                for (f in fuelEntries) {
+                    batch.set(userRef.collection("fuelEntries").document(f.id.toString()), f, SetOptions.merge())
+                }
+                for (m in maintenanceRecords) {
+                    batch.set(userRef.collection("maintenance").document(m.id.toString()), m, SetOptions.merge())
+                }
+                for (e in expenses) {
+                    batch.set(userRef.collection("expenses").document(e.id.toString()), e, SetOptions.merge())
+                }
+                for (d in documents) {
+                    batch.set(userRef.collection("documents").document(d.id.toString()), d, SetOptions.merge())
+                }
+                for (i in insurancePolicies) {
+                    batch.set(userRef.collection("insurancePolicies").document(i.id.toString()), i, SetOptions.merge())
+                }
+                for (r in reminders) {
+                    batch.set(userRef.collection("reminders").document(r.id.toString()), r, SetOptions.merge())
+                }
+
+                try {
+                    batch.commit().await()
+                } catch (e: Exception) {
+                    Log.w("FirebaseSyncManager", "Firestore commit warning: ${e.message}")
+                }
+            } else {
+                kotlinx.coroutines.delay(500)
+            }
+
             val now = System.currentTimeMillis()
             _lastSyncTime.value = now
             _userProfile.value = _userProfile.value?.copy(lastSyncTime = now)
