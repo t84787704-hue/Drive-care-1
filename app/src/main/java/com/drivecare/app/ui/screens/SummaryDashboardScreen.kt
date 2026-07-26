@@ -19,6 +19,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import com.drivecare.app.data.model.Vehicle
 import com.drivecare.app.ui.DriveCareViewModel
 import com.drivecare.app.ui.TimelineEvent
@@ -41,6 +43,20 @@ fun SummaryDashboardScreen(
     val reminders by viewModel.reminders.collectAsState()
     val expenses by viewModel.expenses.collectAsState()
     val documents by viewModel.documents.collectAsState()
+    val userProfile by viewModel.userProfile.collectAsState()
+    val currentUser by viewModel.currentUser.collectAsState()
+
+    val displayNameToShow = userProfile?.fullName?.ifBlank { null }
+        ?: currentUser?.displayName?.ifBlank { null }
+        ?: currentUser?.email?.substringBefore("@")
+            ?.replace(".", " ")
+            ?.replace("-", " ")
+            ?.replace("_", " ")
+            ?.split(" ")
+            ?.joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+        ?: "Driver"
+
+    val photoUrl = userProfile?.photoUrl?.ifBlank { null } ?: currentUser?.photoUrl?.ifBlank { null }
 
     val totalFuelSpent = fuelEntries.sumOf { it.amountPaid.toDoubleOrNull() ?: 0.0 }
     val totalMaintenanceSpent = maintenanceLogs.sumOf { it.serviceCost.toDoubleOrNull() ?: 0.0 }
@@ -91,22 +107,54 @@ fun SummaryDashboardScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = AppStrings.get("overview_title", lang),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = if (vehicles.isNotEmpty()) "${vehicles.size} ${AppStrings.get("vehicles_active_fleet", lang)}" else AppStrings.get("no_vehicles_registered", lang),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { onNavigateTab?.invoke("profile") },
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surface),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (!photoUrl.isNullOrBlank()) {
+                                AsyncImage(
+                                    model = photoUrl,
+                                    contentDescription = "Profile Picture",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else {
+                                Text(
+                                    text = displayNameToShow.take(1).uppercase(Locale.getDefault()),
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+
+                        Column {
+                            Text(
+                                text = "Welcome, $displayNameToShow",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = if (vehicles.isNotEmpty()) "${vehicles.size} ${AppStrings.get("vehicles_active_fleet", lang)}" else AppStrings.get("no_vehicles_registered", lang),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
 
                     Surface(

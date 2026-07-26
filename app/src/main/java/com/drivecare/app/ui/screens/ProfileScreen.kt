@@ -20,6 +20,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import com.drivecare.app.data.cloud.UserProfile
 import com.drivecare.app.ui.DriveCareViewModel
 import java.text.SimpleDateFormat
@@ -85,24 +87,44 @@ fun ProfileScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                val photoUrl = userProfile?.photoUrl?.ifBlank { null } ?: currentUser?.photoUrl?.ifBlank { null }
+                val displayNameToShow = userProfile?.fullName?.ifBlank { null }
+                    ?: currentUser?.displayName?.ifBlank { null }
+                    ?: currentUser?.email?.substringBefore("@")
+                        ?.replace(".", " ")
+                        ?.replace("-", " ")
+                        ?.replace("_", " ")
+                        ?.split(" ")
+                        ?.joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+                    ?: "DriveCare User"
+
                 Box(
                     modifier = Modifier
                         .size(80.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary),
+                        .background(MaterialTheme.colorScheme.primaryContainer),
                     contentAlignment = Alignment.Center
                 ) {
-                    val initialLetter = (userProfile?.fullName?.take(1) ?: currentUser?.email?.take(1) ?: "D").uppercase(Locale.getDefault())
-                    Text(
-                        text = initialLetter,
-                        style = MaterialTheme.typography.headlineLarge,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        fontWeight = FontWeight.Bold
-                    )
+                    if (!photoUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = photoUrl,
+                            contentDescription = "Google Profile Picture",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        val initialLetter = displayNameToShow.take(1).uppercase(Locale.getDefault())
+                        Text(
+                            text = initialLetter,
+                            style = MaterialTheme.typography.headlineLarge,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
 
                 Text(
-                    text = userProfile?.fullName?.ifBlank { null } ?: currentUser?.displayName ?: "DriveCare User",
+                    text = displayNameToShow,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )

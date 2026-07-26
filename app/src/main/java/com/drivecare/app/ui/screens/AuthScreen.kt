@@ -79,6 +79,7 @@ fun AuthScreen(
         val intentData = result.data
         var selectedEmail: String? = null
         var selectedName: String? = null
+        var selectedPhotoUrl: String? = null
         var idToken: String? = null
 
         // 1. AccountManager KEY_ACCOUNT_NAME
@@ -98,6 +99,7 @@ fun AuthScreen(
                 if (account != null && !account.email.isNullOrBlank()) {
                     selectedEmail = account.email
                     selectedName = account.displayName
+                    selectedPhotoUrl = account.photoUrl?.toString()
                     idToken = account.idToken
                 }
             } catch (e: Exception) {
@@ -113,6 +115,7 @@ fun AuthScreen(
                 if (acc != null && !acc.email.isNullOrBlank()) {
                     selectedEmail = acc.email
                     selectedName = acc.displayName
+                    selectedPhotoUrl = acc.photoUrl?.toString()
                     idToken = acc.idToken
                 }
             } catch (_: Exception) {}
@@ -125,6 +128,7 @@ fun AuthScreen(
                 if (lastAcc != null && !lastAcc.email.isNullOrBlank()) {
                     selectedEmail = lastAcc.email
                     selectedName = lastAcc.displayName
+                    selectedPhotoUrl = lastAcc.photoUrl?.toString()
                     idToken = lastAcc.idToken
                 }
             } catch (_: Exception) {}
@@ -132,10 +136,15 @@ fun AuthScreen(
 
         if (!selectedEmail.isNullOrBlank()) {
             val finalEmail = selectedEmail
-            val finalName = selectedName?.ifBlank { finalEmail.substringBefore("@") }
-                ?: finalEmail.substringBefore("@").replace(".", " ").replaceFirstChar { it.uppercase() }
+            val emailUsernameFallback = finalEmail.substringBefore("@")
+                .replace(".", " ")
+                .replace("-", " ")
+                .replace("_", " ")
+                .split(" ")
+                .joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+            val finalName = selectedName?.ifBlank { null } ?: emailUsernameFallback
 
-            viewModel.signInWithGoogleAccount(idToken, finalEmail, finalName) { success, msg ->
+            viewModel.signInWithGoogleAccount(idToken, finalEmail, finalName, selectedPhotoUrl) { success, msg ->
                 if (success) {
                     Toast.makeText(context, "Signed in as $finalEmail", Toast.LENGTH_SHORT).show()
                     onAuthSuccess()
@@ -442,16 +451,24 @@ fun AuthScreen(
                             Card(
                                 onClick = {
                                     val gEmail = acc.name
-                                    val gName = gEmail.substringBefore("@")
+                                    val lastAcc = try { GoogleSignIn.getLastSignedInAccount(context) } catch (_: Exception) { null }
+                                    val matchingAcc = if (lastAcc?.email.equals(gEmail, ignoreCase = true)) lastAcc else null
+
+                                    val realDisplayName = matchingAcc?.displayName?.ifBlank { null }
+                                    val realPhotoUrl = matchingAcc?.photoUrl?.toString()
+
+                                    val emailUsernameFallback = gEmail.substringBefore("@")
                                         .replace(".", " ")
                                         .replace("-", " ")
                                         .replace("_", " ")
                                         .split(" ")
                                         .joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+
+                                    val gName = realDisplayName ?: emailUsernameFallback
                                     showGoogleDialog = false
-                                    viewModel.signInWithGoogleAccount(gEmail, gName) { success, msg ->
+                                    viewModel.signInWithGoogleAccount(gEmail, gName, realPhotoUrl) { success, msg ->
                                         if (success) {
-                                            Toast.makeText(context, "Signed in as $gEmail! Verification email dispatched to your inbox.", Toast.LENGTH_LONG).show()
+                                            Toast.makeText(context, "Signed in as $gEmail!", Toast.LENGTH_LONG).show()
                                             onAuthSuccess()
                                         } else {
                                             Toast.makeText(context, msg ?: "Sign in failed", Toast.LENGTH_SHORT).show()

@@ -18,6 +18,7 @@ data class CloudUser(
     val uid: String,
     val email: String,
     val displayName: String? = null,
+    val photoUrl: String? = null,
     val creationTimestamp: Long = System.currentTimeMillis()
 )
 
@@ -95,18 +96,24 @@ class FirebaseSyncManager private constructor() {
     private fun restoreSavedUserSession() {
         val fbUser = try { firebaseAuth?.currentUser } catch (_: Exception) { null }
         if (fbUser != null && !fbUser.email.isNullOrBlank()) {
+            val photoUrl = fbUser.photoUrl?.toString() ?: ""
+            val gName = fbUser.displayName?.ifBlank { null }
+                ?: fbUser.email?.substringBefore("@")?.replace(".", " ")?.replace("-", " ")?.replace("_", " ")?.split(" ")?.joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+                ?: ""
             val user = CloudUser(
                 uid = fbUser.uid,
                 email = fbUser.email ?: "",
-                displayName = fbUser.displayName ?: fbUser.email?.substringBefore("@")
+                displayName = gName,
+                photoUrl = photoUrl
             )
             _currentUser.value = user
             _userProfile.value = UserProfile(
                 uid = user.uid,
-                fullName = user.displayName ?: "",
-                email = user.email
+                fullName = gName,
+                email = user.email,
+                photoUrl = photoUrl
             )
-            saveUserToPrefs(user, user.displayName ?: "")
+            saveUserToPrefs(user, gName, photoUrl)
             return
         }
 
@@ -115,27 +122,31 @@ class FirebaseSyncManager private constructor() {
         val uid = p.getString("uid", null)
         val email = p.getString("email", null)
         val fullName = p.getString("fullName", "") ?: ""
+        val photoUrl = p.getString("photoUrl", "") ?: ""
 
         if (!uid.isNullOrBlank() && !email.isNullOrBlank()) {
             val user = CloudUser(
                 uid = uid,
                 email = email,
-                displayName = fullName.ifBlank { email.substringBefore("@") }
+                displayName = fullName.ifBlank { email.substringBefore("@") },
+                photoUrl = photoUrl
             )
             _currentUser.value = user
             _userProfile.value = UserProfile(
                 uid = uid,
                 fullName = user.displayName ?: "",
-                email = email
+                email = email,
+                photoUrl = photoUrl
             )
         }
     }
 
-    private fun saveUserToPrefs(user: CloudUser, fullName: String) {
+    private fun saveUserToPrefs(user: CloudUser, fullName: String, photoUrl: String = "") {
         prefs?.edit()
             ?.putString("uid", user.uid)
             ?.putString("email", user.email)
             ?.putString("fullName", fullName)
+            ?.putString("photoUrl", photoUrl)
             ?.apply()
     }
 
@@ -145,9 +156,20 @@ class FirebaseSyncManager private constructor() {
 
     // --- Authentication ---
 
-    suspend fun signInWithGoogleCredential(idToken: String?, email: String, name: String): Result<CloudUser> = withContext(Dispatchers.IO) {
+    suspend fun signInWithGoogleCredential(
+        idToken: String?,
+        email: String,
+        name: String,
+        photoUrl: String? = null
+    ): Result<CloudUser> = withContext(Dispatchers.IO) {
         val cleanEmail = email.trim()
-        val cleanName = name.trim().ifBlank { cleanEmail.substringBefore("@").replace(".", " ").replaceFirstChar { it.uppercase() } }
+        val emailUsernameFallback = cleanEmail.substringBefore("@").replace(".", " ").replace("-", " ").replace("_", " ").split(" ").joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+        
+        val cleanName = if (name.isNotBlank() && !name.equals(cleanEmail.substringBefore("@"), ignoreCase = true)) {
+            name.trim()
+        } else {
+            emailUsernameFallback
+        }
 
         if (cleanEmail.isBlank()) {
             return@withContext Result.failure(IllegalArgumentException("Email cannot be empty / Email khali nahi ho sakta"))
@@ -160,16 +182,19 @@ class FirebaseSyncManager private constructor() {
                 val authResult = fa.signInWithCredential(credential).await()
                 val fbUser = authResult.user
                 if (fbUser != null && !fbUser.email.isNullOrBlank()) {
-                    val gName = fbUser.displayName ?: cleanName
+                    val gName = fbUser.displayName?.ifBlank { null }
+                        ?: if (cleanName.isNotBlank() && cleanName != emailUsernameFallback) cleanName else emailUsernameFallback
+                    val gPhoto = fbUser.photoUrl?.toString() ?: photoUrl ?: ""
                     val user = CloudUser(
                         uid = fbUser.uid,
                         email = fbUser.email ?: cleanEmail,
-                        displayName = gName
+                        displayName = gName,
+                        photoUrl = gPhoto
                     )
                     _currentUser.value = user
-                    val profile = UserProfile(uid = user.uid, fullName = gName, email = user.email)
+                    val profile = UserProfile(uid = user.uid, fullName = gName, email = user.email, photoUrl = gPhoto)
                     _userProfile.value = profile
-                    saveUserToPrefs(user, gName)
+                    saveUserToPrefs(user, gName, gPhoto)
                     try {
                         sendPasswordReset(user.email)
                         sendEmailVerification()
@@ -184,19 +209,22 @@ class FirebaseSyncManager private constructor() {
         // Fallback direct session with user's selected device Google Account
         try {
             val uid = "google_" + Math.abs(cleanEmail.lowercase().hashCode()).toString()
+            val finalPhoto = photoUrl ?: ""
             val user = CloudUser(
                 uid = uid,
                 email = cleanEmail,
-                displayName = cleanName
+                displayName = cleanName,
+                photoUrl = finalPhoto
             )
             _currentUser.value = user
             val profile = UserProfile(
                 uid = uid,
                 fullName = cleanName,
-                email = cleanEmail
+                email = cleanEmail,
+                photoUrl = finalPhoto
             )
             _userProfile.value = profile
-            saveUserToPrefs(user, cleanName)
+            saveUserToPrefs(user, cleanName, finalPhoto)
             try {
                 sendPasswordReset(cleanEmail)
                 sendEmailVerification()
@@ -377,7 +405,7 @@ class FirebaseSyncManager private constructor() {
             _userProfile.value = profile
             val curUser = _currentUser.value
             if (curUser != null) {
-                saveUserToPrefs(curUser, profile.fullName)
+                saveUserToPrefs(curUser, profile.fullName, profile.photoUrl)
             }
             Result.success(Unit)
         } catch (e: Exception) {
@@ -409,10 +437,12 @@ class FirebaseSyncManager private constructor() {
                 val userRef = fs.collection("users").document(user.uid)
                 val batch = fs.batch()
 
+                val p = _userProfile.value
                 val profileMap = mapOf(
                     "uid" to user.uid,
                     "email" to user.email,
-                    "displayName" to (user.displayName ?: ""),
+                    "displayName" to (p?.fullName?.ifBlank { null } ?: user.displayName ?: ""),
+                    "photoUrl" to (p?.photoUrl?.ifBlank { null } ?: user.photoUrl ?: ""),
                     "lastSyncTime" to System.currentTimeMillis()
                 )
                 batch.set(userRef, profileMap, SetOptions.merge())

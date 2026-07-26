@@ -142,6 +142,9 @@ dependencies {
     implementation("com.google.firebase:firebase-messaging")
     implementation("com.google.android.gms:play-services-auth:21.2.0")
 
+    // Coil Image Loader
+    implementation("io.coil-kt:coil-compose:2.7.0")
+
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 }

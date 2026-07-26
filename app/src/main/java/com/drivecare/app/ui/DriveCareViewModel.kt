@@ -1508,13 +1508,13 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun signInWithGoogleAccount(googleEmail: String, googleName: String, onResult: (Boolean, String?) -> Unit) {
-        signInWithGoogleAccount(null, googleEmail, googleName, onResult)
+    fun signInWithGoogleAccount(googleEmail: String, googleName: String, photoUrl: String? = null, onResult: (Boolean, String?) -> Unit) {
+        signInWithGoogleAccount(null, googleEmail, googleName, photoUrl, onResult)
     }
 
-    fun signInWithGoogleAccount(idToken: String?, googleEmail: String, googleName: String, onResult: (Boolean, String?) -> Unit) {
+    fun signInWithGoogleAccount(idToken: String?, googleEmail: String, googleName: String, photoUrl: String? = null, onResult: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
-            val res = syncManager.signInWithGoogleCredential(idToken, googleEmail, googleName)
+            val res = syncManager.signInWithGoogleCredential(idToken, googleEmail, googleName, photoUrl)
             if (res.isSuccess) {
                 triggerManualSync()
                 onResult(true, null)
@@ -1525,7 +1525,12 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun signInWithDemoGoogleAccount(onResult: (Boolean, String?) -> Unit) {
-        signInWithGoogleAccount("user.drive@gmail.com", "Google User", onResult)
+        signInWithGoogleAccount(
+            googleEmail = "user.drive@gmail.com",
+            googleName = "Google User",
+            photoUrl = null,
+            onResult = onResult
+        )
     }
 
     fun sendPasswordReset(email: String, onResult: (Boolean, String?) -> Unit) {
