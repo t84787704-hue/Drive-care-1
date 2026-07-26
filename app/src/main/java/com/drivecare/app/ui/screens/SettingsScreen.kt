@@ -59,6 +59,8 @@ fun SettingsScreen(
     var showRestoreDialog by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
     var showPermissionOnboardingDialog by remember { mutableStateOf(false) }
+    var showPrivacyPolicyDialog by remember { mutableStateOf(false) }
+    var showTermsDialog by remember { mutableStateOf(false) }
 
     var backupJsonText by remember { mutableStateOf("") }
     var restoreJsonInput by remember { mutableStateOf("") }
@@ -488,18 +490,67 @@ fun SettingsScreen(
             }
         }
 
-        // About DriveCare
+        // About DriveCare & Play Store Release Info
         Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Column {
+                        Text(
+                            text = AppStrings.get("app_name", currentLang),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Version 2.4.0 (Build 240)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+
+                Divider()
+
                 Text(
-                    text = AppStrings.get("app_name", currentLang),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    text = "DriveCare is a vehicle management system featuring vehicle-centric document vault with expiration alerts, GPS trip logger, geofencing safety perimeter, maintenance logs, and fuel economy analytics.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text("DriveCare Core Edition v2.0.0", style = MaterialTheme.typography.bodyMedium)
-                Spacer(modifier = Modifier.height(4.dp))
-                Text("Complete vehicle care platform with Room DB, WorkManager notifications, Insurance Renewal tracking, and multi-currency support.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                Text(
+                    text = "Developer: DriveCare Software Team\nSupport Contact: support@drivecare.app",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { showPrivacyPolicyDialog = true },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Policy, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Privacy Policy")
+                    }
+
+                    OutlinedButton(
+                        onClick = { showTermsDialog = true },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Gavel, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Terms of Use")
+                    }
+                }
             }
         }
     }
@@ -660,6 +711,143 @@ fun SettingsScreen(
     if (showPermissionOnboardingDialog) {
         PermissionOnboardingDialog(
             onDismiss = { showPermissionOnboardingDialog = false }
+        )
+    }
+
+    // Privacy Policy Dialog
+    if (showPrivacyPolicyDialog) {
+        AlertDialog(
+            onDismissRequest = { showPrivacyPolicyDialog = false },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.Policy, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Text("Privacy Policy", fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        "Last Updated: July 2026",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    Text(
+                        "DriveCare values your privacy. This Privacy Policy details how we handle your personal and vehicle data across all application features.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+
+                    Text("1. Offline-First Storage", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "All vehicle records, fuel logs, maintenance history, and document files are stored locally on your device inside an encrypted SQLite database and app-private directory.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+
+                    Text("2. Location Usage & GPS Tracking", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "Fine and coarse location permissions are accessed solely when you explicitly initiate GPS trip recording or enable geofence perimeter alerts. Coordinates are stored locally and are never shared with third parties.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+
+                    Text("3. Vehicle Document Storage", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "Vehicle registrations, insurance cards, driver licenses, and service receipts uploaded via Camera or Gallery are stored securely in internal storage (`/files/documents/`).",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+
+                    Text("4. System Notifications", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "DriveCare uses Android WorkManager and AlarmManager to schedule local expiration alerts for documents, insurance policies, and service due dates.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+
+                    Text("5. Cloud Sync & Backup", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "If you opt to sign in with Firebase, your vehicle records are securely synchronized to your account in Cloud Firestore. Offline JSON backup files remain under your manual control.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+
+                    Text("6. Contact Us", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "For privacy inquiries or account deletion requests, email support@drivecare.app.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = { showPrivacyPolicyDialog = false }) {
+                    Text("I Understand")
+                }
+            }
+        )
+    }
+
+    // Terms & Conditions Dialog
+    if (showTermsDialog) {
+        AlertDialog(
+            onDismissRequest = { showTermsDialog = false },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.Gavel, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Text("Terms of Use", fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        "Terms & Conditions",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    Text("1. Safe Driving Agreement", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "DO NOT operate DriveCare while driving or operating a vehicle. Always interact with the app when safely parked in compliance with traffic safety laws.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+
+                    Text("2. Courtesy Reminders Disclaimer", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "DriveCare provides document expiration, insurance renewal, and service maintenance notifications as a convenience. Vehicle owners remain fully responsible for maintaining valid vehicle registrations, insurance coverage, and mechanical roadworthiness.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+
+                    Text("3. Limitation of Liability", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "DriveCare and its developers shall not be liable for traffic fines, missed renewal deadlines, vehicle mechanical failures, or loss of local data.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+
+                    Text("4. User Account & Data Control", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "You retain full ownership of your vehicle data and backup files. You may export or clear local data at any time from the Settings menu.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = { showTermsDialog = false }) {
+                    Text("Accept Terms")
+                }
+            }
         )
     }
 }

@@ -25,6 +25,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -147,7 +148,8 @@ fun DocumentsScreen(
 
     var selectedFilterCategory by remember { mutableStateOf("All") }
     var selectedStatusFilter by remember { mutableStateOf("All") } // "All", "Valid", "Expiring Soon", "Expired"
-    var selectedVehicleIdFilter by remember { mutableStateOf<Long?>(null) }
+    val vmVehicleFilter by viewModel.selectedDocumentVehicleId.collectAsState()
+    var selectedVehicleIdFilter by remember(vmVehicleFilter) { mutableStateOf(vmVehicleFilter) }
     var searchQuery by remember { mutableStateOf("") }
     var sortOption by remember { mutableStateOf(DocumentSortOption.EXPIRY_ASC) }
     var showSortMenu by remember { mutableStateOf(false) }
@@ -321,14 +323,20 @@ fun DocumentsScreen(
                             item {
                                 FilterChip(
                                     selected = selectedVehicleIdFilter == null,
-                                    onClick = { selectedVehicleIdFilter = null },
+                                    onClick = {
+                                        selectedVehicleIdFilter = null
+                                        viewModel.selectDocumentVehicleFilter(null)
+                                    },
                                     label = { Text(AppStrings.get("all_vehicles", lang)) }
                                 )
                             }
                             items(vehicles, key = { it.id }) { v ->
                                 FilterChip(
                                     selected = selectedVehicleIdFilter == v.id,
-                                    onClick = { selectedVehicleIdFilter = v.id },
+                                    onClick = {
+                                        selectedVehicleIdFilter = v.id
+                                        viewModel.selectDocumentVehicleFilter(v.id)
+                                    },
                                     label = { Text(v.vehicleName) },
                                     leadingIcon = {
                                         Icon(

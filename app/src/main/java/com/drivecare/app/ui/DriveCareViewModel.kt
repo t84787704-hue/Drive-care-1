@@ -126,6 +126,13 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     private val _selectedFuelVehicle = MutableStateFlow<Vehicle?>(null)
     val selectedFuelVehicle: StateFlow<Vehicle?> = _selectedFuelVehicle.asStateFlow()
 
+    private val _selectedDocumentVehicleId = MutableStateFlow<Long?>(null)
+    val selectedDocumentVehicleId: StateFlow<Long?> = _selectedDocumentVehicleId.asStateFlow()
+
+    fun selectDocumentVehicleFilter(vehicleId: Long?) {
+        _selectedDocumentVehicleId.value = vehicleId
+    }
+
     private val prefs = application.getSharedPreferences("drivecare_prefs", Context.MODE_PRIVATE)
 
     private val _currentCurrencySymbol = MutableStateFlow(
@@ -208,6 +215,16 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun deleteVehicle(vehicle: Vehicle) {
         viewModelScope.launch {
+            // Remove associated document files from internal storage
+            try {
+                val vehicleDocs = documentDao.getAllDocumentsSync().filter { it.vehicleId == vehicle.id }
+                vehicleDocs.forEach { doc ->
+                    com.drivecare.app.utils.DocumentFileHelper.deleteFileFromInternalStorage(doc.fileUri)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
             vehicleDao.deleteVehicle(vehicle)
             fuelDao.deleteByVehicle(vehicle.id)
             maintenanceDao.deleteByVehicle(vehicle.id)
@@ -218,6 +235,9 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
             geofenceZoneDao.deleteByVehicle(vehicle.id)
             if (_selectedFuelVehicle.value?.id == vehicle.id) {
                 _selectedFuelVehicle.value = null
+            }
+            if (_selectedDocumentVehicleId.value == vehicle.id) {
+                _selectedDocumentVehicleId.value = null
             }
         }
     }
