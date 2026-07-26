@@ -183,9 +183,9 @@ class MainActivity : ComponentActivity() {
                             MoreSubSection.EXPENSES -> AppStrings.get("expense_manager_title", currentLang)
                             MoreSubSection.TIMELINE -> AppStrings.get("timeline_title", currentLang)
                             MoreSubSection.GPS_TRACKING -> AppStrings.get("gps_title", currentLang)
-                            MoreSubSection.GPS_HARDWARE_TRACKERS -> "GPS Tracker Devices"
-                            MoreSubSection.GPS_LIVE_TRACKING -> "Live GPS Tracking"
-                            MoreSubSection.GPS_LOCATION_HISTORY -> "Location History Logs"
+                            MoreSubSection.GPS_HARDWARE_TRACKERS -> AppStrings.get("gps_hardware_trackers", currentLang)
+                            MoreSubSection.GPS_LIVE_TRACKING -> AppStrings.get("gps_live_tracking", currentLang)
+                            MoreSubSection.GPS_LOCATION_HISTORY -> AppStrings.get("location_history_logs", currentLang)
                             MoreSubSection.FAMILY_SHARING -> AppStrings.get("family_sharing_title", currentLang)
                             MoreSubSection.DOCUMENTS -> AppStrings.get("tab_documents", currentLang)
                             MoreSubSection.EMERGENCY -> AppStrings.get("tab_emergency", currentLang)
@@ -396,35 +396,35 @@ class MainActivity : ComponentActivity() {
             navigationIcon = {
                 if (showBackButton) {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Default.ArrowBack, contentDescription = AppStrings.get("back", currentLanguage))
                     }
                 }
             },
             actions = {
                 // Theme Mode Selector
                 IconButton(onClick = { themeMenuExpanded = true }) {
-                    Icon(themeIcon, contentDescription = "App Theme")
+                    Icon(themeIcon, contentDescription = AppStrings.get("app_theme", currentLanguage))
                 }
                 DropdownMenu(
                     expanded = themeMenuExpanded,
                     onDismissRequest = { themeMenuExpanded = false }
                 ) {
                     DropdownMenuItem(
-                        text = { Text("System Default ${if (currentThemeMode == "SYSTEM") "✓" else ""}") },
+                        text = { Text("${AppStrings.get("system_default", currentLanguage)} ${if (currentThemeMode == "SYSTEM") "✓" else ""}") },
                         onClick = {
                             onThemeModeSelected("SYSTEM")
                             themeMenuExpanded = false
                         }
                     )
                     DropdownMenuItem(
-                        text = { Text("Light Mode ${if (currentThemeMode == "LIGHT") "✓" else ""}") },
+                        text = { Text("${AppStrings.get("light_mode", currentLanguage)} ${if (currentThemeMode == "LIGHT") "✓" else ""}") },
                         onClick = {
                             onThemeModeSelected("LIGHT")
                             themeMenuExpanded = false
                         }
                     )
                     DropdownMenuItem(
-                        text = { Text("Dark Mode ${if (currentThemeMode == "DARK") "✓" else ""}") },
+                        text = { Text("${AppStrings.get("dark_mode", currentLanguage)} ${if (currentThemeMode == "DARK") "✓" else ""}") },
                         onClick = {
                             onThemeModeSelected("DARK")
                             themeMenuExpanded = false
@@ -434,7 +434,7 @@ class MainActivity : ComponentActivity() {
 
                 // Language Selector
                 IconButton(onClick = { langMenuExpanded = true }) {
-                    Icon(Icons.Default.Language, contentDescription = "Language")
+                    Icon(Icons.Default.Language, contentDescription = AppStrings.get("language", currentLanguage))
                 }
                 DropdownMenu(
                     expanded = langMenuExpanded,

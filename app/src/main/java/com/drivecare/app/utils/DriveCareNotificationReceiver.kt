@@ -56,17 +56,23 @@ class DriveCareNotificationReceiver : BroadcastReceiver() {
             val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
             val todayStr = sdf.format(Calendar.getInstance().time)
 
+            val prefs = context.getSharedPreferences("drivecare_prefs", Context.MODE_PRIVATE)
+            val langCode = prefs.getString("selected_language", AppLanguage.ENGLISH.code) ?: AppLanguage.ENGLISH.code
+            val lang = AppLanguage.entries.find { it.code == langCode } ?: AppLanguage.ENGLISH
+
             var notificationId = 1000
 
             // 1. Check Service & Maintenance Reminders
             val reminders = db.reminderDao().getAllRemindersSync()
             reminders.filter { !it.isCompleted }.forEach { r ->
                 if (r.dueDate.isNotBlank() && r.dueDate <= todayStr) {
+                    val titleFormat = AppStrings.get("notif_service_due_title", lang)
+                    val msgFormat = AppStrings.get("notif_service_due_msg", lang)
                     showNotification(
                         context = context,
                         id = (10000 + r.id).toInt(),
-                        title = "Service Due: ${r.vehicleName}",
-                        message = "${r.reminderTitle} is due on ${r.dueDate}. Keep your vehicle maintained!",
+                        title = String.format(titleFormat, r.vehicleName),
+                        message = String.format(msgFormat, r.reminderTitle, r.dueDate),
                         targetTab = "SERVICE",
                         recordId = r.id
                     )
@@ -81,21 +87,25 @@ class DriveCareNotificationReceiver : BroadcastReceiver() {
             documents.forEach { doc ->
                 if (doc.expiryDate.isNotBlank()) {
                     if (doc.expiryDate < todayStr) {
+                        val titleFormat = AppStrings.get("notif_doc_expired_title", lang)
+                        val msgFormat = AppStrings.get("notif_doc_expired_msg", lang)
                         showNotification(
                             context = context,
                             id = (20000 + doc.id).toInt(),
-                            title = "Document Expired: ${doc.docTitle}",
-                            message = "${doc.docType} for ${doc.vehicleName} expired on ${doc.expiryDate}. Please renew immediately.",
+                            title = String.format(titleFormat, doc.docTitle),
+                            message = String.format(msgFormat, doc.docType, doc.vehicleName, doc.expiryDate),
                             targetTab = "MORE",
                             targetSection = "DOCUMENTS",
                             recordId = doc.id
                         )
                     } else if (doc.expiryDate <= warnDateStr) {
+                        val titleFormat = AppStrings.get("notif_doc_expiring_title", lang)
+                        val msgFormat = AppStrings.get("notif_doc_expiring_msg", lang)
                         showNotification(
                             context = context,
                             id = (20000 + doc.id).toInt(),
-                            title = "Document Expiring Soon: ${doc.docTitle}",
-                            message = "${doc.docType} for ${doc.vehicleName} expires on ${doc.expiryDate}.",
+                            title = String.format(titleFormat, doc.docTitle),
+                            message = String.format(msgFormat, doc.docType, doc.vehicleName, doc.expiryDate),
                             targetTab = "MORE",
                             targetSection = "DOCUMENTS",
                             recordId = doc.id
@@ -112,21 +122,25 @@ class DriveCareNotificationReceiver : BroadcastReceiver() {
             insurancePolicies.forEach { policy ->
                 if (policy.expiryDate.isNotBlank()) {
                     if (policy.expiryDate < todayStr) {
+                        val titleFormat = AppStrings.get("notif_ins_expired_title", lang)
+                        val msgFormat = AppStrings.get("notif_ins_expired_msg", lang)
                         showNotification(
                             context = context,
                             id = (30000 + policy.id).toInt(),
-                            title = "Insurance Expired: ${policy.vehicleName}",
-                            message = "Insurance Policy #${policy.policyNumber} (${policy.providerName}) expired on ${policy.expiryDate}!",
+                            title = String.format(titleFormat, policy.vehicleName),
+                            message = String.format(msgFormat, policy.policyNumber, policy.providerName, policy.expiryDate),
                             targetTab = "MORE",
                             targetSection = "INSURANCE",
                             recordId = policy.id
                         )
                     } else if (policy.expiryDate <= insWarnDateStr) {
+                        val title = AppStrings.get("notif_ins_expiring_title", lang)
+                        val msgFormat = AppStrings.get("notif_ins_expiring_msg", lang)
                         showNotification(
                             context = context,
                             id = (30000 + policy.id).toInt(),
-                            title = "Insurance Renewal Alert",
-                            message = "${policy.vehicleName} policy #${policy.policyNumber} expires in less than 30 days (${policy.expiryDate}).",
+                            title = title,
+                            message = String.format(msgFormat, policy.vehicleName, policy.policyNumber, policy.expiryDate),
                             targetTab = "MORE",
                             targetSection = "INSURANCE",
                             recordId = policy.id
@@ -143,11 +157,13 @@ class DriveCareNotificationReceiver : BroadcastReceiver() {
             trackers.forEach { tracker ->
                 val lastUpdate = tracker.lastUpdatedTime
                 if (lastUpdate != null && (nowMs - lastUpdate) > offlineThresholdMs) {
+                    val title = AppStrings.get("notif_tracker_offline_title", lang)
+                    val msgFormat = AppStrings.get("notif_tracker_offline_msg", lang)
                     showNotification(
                         context = context,
                         id = (40000 + tracker.id).toInt(),
-                        title = "GPS Tracker Offline Alert",
-                        message = "Tracker '${tracker.trackerName}' (IMEI: ${tracker.imeiNumber}) has been silent for over 24 hours. Check hardware power or SIM card signal.",
+                        title = title,
+                        message = String.format(msgFormat, tracker.trackerName, tracker.imeiNumber),
                         targetTab = "MORE",
                         targetSection = "GPS",
                         recordId = tracker.id

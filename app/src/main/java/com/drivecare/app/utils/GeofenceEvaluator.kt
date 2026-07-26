@@ -269,8 +269,16 @@ object GeofenceEvaluator {
         val dayStr = dayFormat.format(dateNow)
         val timeStr = timeFormat.format(dateNow)
 
-        val eventLabel = if (isEnter) "Entered Safe Zone: ${zone.zoneName}" else "Exited Safe Zone: ${zone.zoneName}"
-        val notifMessage = "Vehicle: $vehicleName\n$eventLabel\n$dayStr, $dateStr\n$timeStr"
+        val appPrefs = context.getSharedPreferences("drivecare_prefs", Context.MODE_PRIVATE)
+        val langCode = appPrefs.getString("selected_language", AppLanguage.ENGLISH.code) ?: AppLanguage.ENGLISH.code
+        val lang = AppLanguage.entries.find { it.code == langCode } ?: AppLanguage.ENGLISH
+
+        val eventLabel = if (isEnter) {
+            String.format(AppStrings.get("notif_geofence_entered", lang), zone.zoneName)
+        } else {
+            String.format(AppStrings.get("notif_geofence_exited", lang), zone.zoneName)
+        }
+        val notifMessage = "Vehicle: $vehicleName\n$eventLabel\n$dayStr, $dateStr • $timeStr"
 
         logEvaluation(
             zoneName = zone.zoneName,

@@ -28,6 +28,10 @@ object PdfReportGenerator {
         val page = pdfDocument.startPage(pageInfo)
         val canvas: Canvas = page.canvas
 
+        val prefs = context.getSharedPreferences("drivecare_prefs", Context.MODE_PRIVATE)
+        val langCode = prefs.getString("selected_language", AppLanguage.ENGLISH.code) ?: AppLanguage.ENGLISH.code
+        val lang = AppLanguage.entries.find { it.code == langCode } ?: AppLanguage.ENGLISH
+
         val paint = Paint()
         val titlePaint = Paint()
         val subTitlePaint = Paint()
@@ -43,7 +47,7 @@ object PdfReportGenerator {
         titlePaint.color = Color.WHITE
         titlePaint.textSize = 24f
         titlePaint.isFakeBoldText = true
-        canvas.drawText("DriveCare Vehicle Report", 30f, 50f, titlePaint)
+        canvas.drawText("${AppStrings.get("app_name", lang)} Vehicle Report", 30f, 50f, titlePaint)
 
         subTitlePaint.color = Color.WHITE
         subTitlePaint.textSize = 12f
@@ -57,28 +61,28 @@ object PdfReportGenerator {
         var y = 140f
 
         // Vehicle Summary Box
-        canvas.drawText("Vehicle Specifications & Health", 30f, y, paint)
+        canvas.drawText(AppStrings.get("vehicle_profile", lang), 30f, y, paint)
         y += 20f
 
         paint.isFakeBoldText = false
         paint.textSize = 11f
-        canvas.drawText("Type: ${vehicle.vehicleType} | Year: ${vehicle.manufacturingYear} | Fuel: ${vehicle.fuelType}", 30f, y, paint)
+        canvas.drawText("${AppStrings.get("type", lang)}: ${vehicle.vehicleType} | ${AppStrings.get("year", lang)}: ${vehicle.manufacturingYear} | ${AppStrings.get("fuel_type", lang)}: ${vehicle.fuelType}", 30f, y, paint)
         y += 18f
-        canvas.drawText("Odometer: ${vehicle.odometerReading} km | Plate: ${vehicle.registrationNumber}", 30f, y, paint)
+        canvas.drawText("${AppStrings.get("odometer", lang)}: ${vehicle.odometerReading} km | ${AppStrings.get("plate_no", lang)}: ${vehicle.registrationNumber}", 30f, y, paint)
         y += 18f
-        canvas.drawText("Vehicle Health Score: $healthScore / 100", 30f, y, paint)
+        canvas.drawText("${AppStrings.get("vehicle_health_score", lang)}: $healthScore / 100", 30f, y, paint)
         y += 35f
 
         // Fuel Summary
         paint.isFakeBoldText = true
         paint.textSize = 14f
-        canvas.drawText("Recent Fuel Records (${fuelEntries.size} entries)", 30f, y, paint)
+        canvas.drawText("${AppStrings.get("tab_fuel", lang)} (${fuelEntries.size})", 30f, y, paint)
         y += 20f
 
         paint.isFakeBoldText = false
         paint.textSize = 10f
         if (fuelEntries.isEmpty()) {
-            canvas.drawText("No fuel entries recorded yet.", 30f, y, paint)
+            canvas.drawText(AppStrings.get("no_fuel_entries", lang), 30f, y, paint)
             y += 20f
         } else {
             fuelEntries.take(8).forEach { entry ->
@@ -91,13 +95,13 @@ object PdfReportGenerator {
         // Maintenance Summary
         paint.isFakeBoldText = true
         paint.textSize = 14f
-        canvas.drawText("Service & Maintenance History (${maintenanceLogs.size} logs)", 30f, y, paint)
+        canvas.drawText("${AppStrings.get("tab_services", lang)} (${maintenanceLogs.size})", 30f, y, paint)
         y += 20f
 
         paint.isFakeBoldText = false
         paint.textSize = 10f
         if (maintenanceLogs.isEmpty()) {
-            canvas.drawText("No maintenance logs recorded yet.", 30f, y, paint)
+            canvas.drawText(AppStrings.get("no_service_logs", lang), 30f, y, paint)
             y += 20f
         } else {
             maintenanceLogs.take(8).forEach { log ->
