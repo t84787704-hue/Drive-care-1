@@ -23,6 +23,11 @@ import com.drivecare.app.data.model.TripLog
 import com.drivecare.app.data.model.Vehicle
 import com.drivecare.app.data.model.VehicleShare
 import com.drivecare.app.data.model.VehicleTelemetry
+import com.drivecare.app.data.model.GpsTrackerDevice
+import com.drivecare.app.data.model.TrackerLocationPoint
+import com.drivecare.app.data.model.GeofenceEventLog
+import com.drivecare.app.data.tracker.GpsTrackerRepository
+import com.drivecare.app.data.tracker.TrackerPayload
 import com.drivecare.app.utils.AppLanguage
 import com.drivecare.app.utils.DriveCareNotificationScheduler
 import com.drivecare.app.utils.GeofenceManager
@@ -83,6 +88,18 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     private val geofenceZoneDao = db.geofenceZoneDao()
     private val vehicleTelemetryDao = db.vehicleTelemetryDao()
     private val insurancePolicyDao = db.insurancePolicyDao()
+    private val gpsTrackerDao = db.gpsTrackerDao()
+    private val trackerLocationDao = db.trackerLocationDao()
+    private val geofenceEventDao = db.geofenceEventDao()
+
+    val gpsTrackerRepository = GpsTrackerRepository(
+        context = application,
+        gpsTrackerDao = gpsTrackerDao,
+        trackerLocationDao = trackerLocationDao,
+        geofenceZoneDao = geofenceZoneDao,
+        geofenceEventDao = geofenceEventDao,
+        vehicleDao = vehicleDao
+    )
 
     val vehicles: StateFlow<List<Vehicle>> = vehicleDao.getAllVehicles()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -121,6 +138,15 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val insurancePolicies: StateFlow<List<InsurancePolicy>> = insurancePolicyDao.getAllInsurancePolicies()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val gpsTrackers: StateFlow<List<GpsTrackerDevice>> = gpsTrackerRepository.getAllTrackers()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val trackerLocations: StateFlow<List<TrackerLocationPoint>> = gpsTrackerRepository.getAllLocations()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val geofenceEvents: StateFlow<List<GeofenceEventLog>> = gpsTrackerRepository.getAllGeofenceEvents()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _selectedFuelVehicle = MutableStateFlow<Vehicle?>(null)
@@ -1317,6 +1343,47 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             insurancePolicyDao.insertPolicy(policy)
             DriveCareNotificationScheduler.triggerImmediateCheck(getApplication())
+        }
+    }
+
+    // GPS Hardware Tracker Methods
+    fun addGpsTracker(tracker: GpsTrackerDevice) {
+        viewModelScope.launch {
+            gpsTrackerRepository.insertTracker(tracker)
+        }
+    }
+
+    fun updateGpsTracker(tracker: GpsTrackerDevice) {
+        viewModelScope.launch {
+            gpsTrackerRepository.updateTracker(tracker)
+        }
+    }
+
+    fun saveGpsTracker(tracker: GpsTrackerDevice) {
+        viewModelScope.launch {
+            if (tracker.id == 0L) {
+                gpsTrackerRepository.insertTracker(tracker)
+            } else {
+                gpsTrackerRepository.updateTracker(tracker)
+            }
+        }
+    }
+
+    fun deleteGpsTracker(tracker: GpsTrackerDevice) {
+        viewModelScope.launch {
+            gpsTrackerRepository.deleteTracker(tracker)
+        }
+    }
+
+    fun deleteLocationHistoryForTracker(trackerId: String) {
+        viewModelScope.launch {
+            gpsTrackerRepository.deleteHistoryForTracker(trackerId)
+        }
+    }
+
+    fun ingestTrackerPayload(payload: TrackerPayload) {
+        viewModelScope.launch {
+            gpsTrackerRepository.ingestPayload(payload)
         }
     }
 

@@ -6,6 +6,6 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "build": "if command -v java >/dev/null 2>&1; then ./gradlew assembleDebug; else echo 'Native Android Kotlin project verified. GitHub Actions will build app-debug.apk on push.'; fi"
+    "build": "chmod +x ./gradlew && if command -v java >/dev/null 2>&1; then ./gradlew assembleDebug; else echo 'Native Android Kotlin project verified. GitHub Actions will build app-debug.apk on push.'; fi"
   }
 }

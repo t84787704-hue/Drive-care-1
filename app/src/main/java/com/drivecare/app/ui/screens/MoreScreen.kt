@@ -32,6 +32,9 @@ enum class MoreSubSection {
     EXPENSES,
     TIMELINE,
     GPS_TRACKING,
+    GPS_HARDWARE_TRACKERS,
+    GPS_LIVE_TRACKING,
+    GPS_LOCATION_HISTORY,
     FAMILY_SHARING,
     DOCUMENTS,
     EMERGENCY,
@@ -68,6 +71,13 @@ fun MoreScreen(
                 MoreSubSection.EXPENSES -> ExpenseManagerScreen(viewModel = viewModel, highlightRecordId = highlightRecordId)
                 MoreSubSection.TIMELINE -> VehicleTimelineScreen(viewModel = viewModel)
                 MoreSubSection.GPS_TRACKING -> GpsTrackingScreen(viewModel = viewModel)
+                MoreSubSection.GPS_HARDWARE_TRACKERS -> GpsTrackerManagementScreen(
+                    viewModel = viewModel,
+                    onOpenLiveTracking = { vehicleId -> onSubSectionSelect(MoreSubSection.GPS_LIVE_TRACKING) },
+                    onOpenLocationHistory = { vehicleId -> onSubSectionSelect(MoreSubSection.GPS_LOCATION_HISTORY) }
+                )
+                MoreSubSection.GPS_LIVE_TRACKING -> LiveTrackingScreen(viewModel = viewModel)
+                MoreSubSection.GPS_LOCATION_HISTORY -> LocationHistoryScreen(viewModel = viewModel)
                 MoreSubSection.FAMILY_SHARING -> FamilySharingScreen(viewModel = viewModel)
                 MoreSubSection.DOCUMENTS -> DocumentsScreen(viewModel = viewModel, highlightRecordId = highlightRecordId)
                 MoreSubSection.EMERGENCY -> EmergencyScreen(viewModel = viewModel)
@@ -177,6 +187,33 @@ fun MoreScreen(
                         title = AppStrings.get("vehicle_timeline_menu", lang),
                         subtitle = AppStrings.get("vehicle_timeline_sub", lang),
                         onClick = { onSubSectionSelect(MoreSubSection.TIMELINE) }
+                    )
+
+                    Divider()
+
+                    MoreMenuItem(
+                        icon = Icons.Default.Router,
+                        title = "GPS Tracker Devices",
+                        subtitle = "Manage Teltonika, Concox, SinoTrack, Coban hardware & IMEI",
+                        onClick = { onSubSectionSelect(MoreSubSection.GPS_HARDWARE_TRACKERS) }
+                    )
+
+                    Divider()
+
+                    MoreMenuItem(
+                        icon = Icons.Default.MyLocation,
+                        title = "Live Worldwide Tracking",
+                        subtitle = "Real-time hardware positioning, speed & coordinates",
+                        onClick = { onSubSectionSelect(MoreSubSection.GPS_LIVE_TRACKING) }
+                    )
+
+                    Divider()
+
+                    MoreMenuItem(
+                        icon = Icons.Default.History,
+                        title = "Location History",
+                        subtitle = "Historical route points & position logs",
+                        onClick = { onSubSectionSelect(MoreSubSection.GPS_LOCATION_HISTORY) }
                     )
 
                     Divider()

@@ -12,6 +12,9 @@ interface GeofenceZoneDao {
     @Query("SELECT * FROM geofence_zones WHERE vehicleId = :vehicleId ORDER BY id DESC")
     fun getGeofencesByVehicle(vehicleId: Long): Flow<List<GeofenceZone>>
 
+    @Query("SELECT * FROM geofence_zones WHERE vehicleId = :vehicleId AND isActive = 1 ORDER BY id DESC")
+    suspend fun getActiveGeofencesByVehicleSync(vehicleId: Long): List<GeofenceZone>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertGeofence(geofence: GeofenceZone): Long
 

@@ -134,6 +134,26 @@ class DriveCareNotificationReceiver : BroadcastReceiver() {
                     }
                 }
             }
+
+            // 4. Check GPS Hardware Trackers Connectivity Status
+            val trackers = db.gpsTrackerDao().getAllTrackersSync()
+            val nowMs = System.currentTimeMillis()
+            val offlineThresholdMs = 24 * 60 * 60 * 1000L // 24 hours silent
+
+            trackers.forEach { tracker ->
+                val lastUpdate = tracker.lastUpdatedTime
+                if (lastUpdate != null && (nowMs - lastUpdate) > offlineThresholdMs) {
+                    showNotification(
+                        context = context,
+                        id = (40000 + tracker.id).toInt(),
+                        title = "GPS Tracker Offline Alert",
+                        message = "Tracker '${tracker.trackerName}' (IMEI: ${tracker.imeiNumber}) has been silent for over 24 hours. Check hardware power or SIM card signal.",
+                        targetTab = "MORE",
+                        targetSection = "GPS",
+                        recordId = tracker.id
+                    )
+                }
+            }
         }
 
         private fun createNotificationChannel(context: Context) {

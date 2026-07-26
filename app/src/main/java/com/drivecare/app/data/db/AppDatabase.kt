@@ -23,9 +23,12 @@ import com.drivecare.app.data.model.*
         TripLog::class,
         GeofenceZone::class,
         VehicleTelemetry::class,
-        InsurancePolicy::class
+        InsurancePolicy::class,
+        GpsTrackerDevice::class,
+        TrackerLocationPoint::class,
+        GeofenceEventLog::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -42,6 +45,9 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun geofenceZoneDao(): GeofenceZoneDao
     abstract fun vehicleTelemetryDao(): VehicleTelemetryDao
     abstract fun insurancePolicyDao(): InsurancePolicyDao
+    abstract fun gpsTrackerDao(): GpsTrackerDao
+    abstract fun trackerLocationDao(): TrackerLocationDao
+    abstract fun geofenceEventDao(): GeofenceEventDao
 
     companion object {
         @Volatile
@@ -211,6 +217,55 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `gps_trackers` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `trackerName` TEXT NOT NULL,
+                        `trackerId` TEXT NOT NULL,
+                        `imeiNumber` TEXT NOT NULL,
+                        `simNumber` TEXT NOT NULL DEFAULT '',
+                        `vehicleId` INTEGER,
+                        `notes` TEXT NOT NULL DEFAULT '',
+                        `isOnline` INTEGER NOT NULL DEFAULT 1,
+                        `lastLatitude` REAL,
+                        `lastLongitude` REAL,
+                        `lastSpeedKmh` REAL,
+                        `lastUpdatedTime` INTEGER,
+                        `createdDate` TEXT NOT NULL DEFAULT ''
+                    )"""
+                )
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `tracker_location_history` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `trackerId` TEXT NOT NULL,
+                        `vehicleId` INTEGER,
+                        `latitude` REAL NOT NULL,
+                        `longitude` REAL NOT NULL,
+                        `speedKmh` REAL NOT NULL DEFAULT 0.0,
+                        `timestamp` INTEGER NOT NULL,
+                        `addressName` TEXT NOT NULL DEFAULT ''
+                    )"""
+                )
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `geofence_events` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `vehicleId` INTEGER NOT NULL,
+                        `vehicleName` TEXT NOT NULL,
+                        `trackerId` TEXT NOT NULL DEFAULT '',
+                        `zoneName` TEXT NOT NULL,
+                        `eventType` TEXT NOT NULL,
+                        `latitude` REAL NOT NULL,
+                        `longitude` REAL NOT NULL,
+                        `eventDate` TEXT NOT NULL,
+                        `eventTime` TEXT NOT NULL,
+                        `timestamp` INTEGER NOT NULL
+                    )"""
+                )
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -218,7 +273,16 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "drivecare_database"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                    .addMigrations(
+                        MIGRATION_1_2,
+                        MIGRATION_2_3,
+                        MIGRATION_3_4,
+                        MIGRATION_4_5,
+                        MIGRATION_5_6,
+                        MIGRATION_6_7,
+                        MIGRATION_7_8,
+                        MIGRATION_8_9
+                    )
                     .fallbackToDestructiveMigrationOnDowngrade()
                     .build()
                 INSTANCE = instance
