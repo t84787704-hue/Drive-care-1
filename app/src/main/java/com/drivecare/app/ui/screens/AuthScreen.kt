@@ -1,6 +1,9 @@
 package com.drivecare.app.ui.screens
 
+import android.util.Log
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -20,6 +23,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.drivecare.app.ui.DriveCareViewModel
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,6 +49,48 @@ fun AuthScreen(
     var googleEmailInput by remember { mutableStateOf("") }
     var googleNameInput by remember { mutableStateOf("") }
     var resetEmailInput by remember { mutableStateOf("") }
+
+    val gso = remember {
+        GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestEmail()
+            .requestProfile()
+            .build()
+    }
+
+    val googleSignInClient = remember(context) {
+        GoogleSignIn.getClient(context, gso)
+    }
+
+    val googleLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+        try {
+            val account = task.getResult(ApiException::class.java)
+            if (account != null && !account.email.isNullOrBlank()) {
+                val selectedEmail = account.email ?: ""
+                val selectedName = account.displayName ?: selectedEmail.substringBefore("@")
+                val idToken = account.idToken
+                viewModel.signInWithGoogleAccount(idToken, selectedEmail, selectedName) { success, msg ->
+                    if (success) {
+                        Toast.makeText(context, "Signed in as $selectedEmail", Toast.LENGTH_SHORT).show()
+                        onAuthSuccess()
+                    } else {
+                        Toast.makeText(context, msg ?: "Google sign in failed", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } else {
+                googleEmailInput = email
+                googleNameInput = fullName
+                showGoogleDialog = true
+            }
+        } catch (e: Exception) {
+            Log.w("AuthScreen", "Google sign in launcher: ${e.message}")
+            googleEmailInput = email
+            googleNameInput = fullName
+            showGoogleDialog = true
+        }
+    }
 
     Column(
         modifier = modifier
@@ -257,9 +305,16 @@ fun AuthScreen(
         // Google Sign-In Button
         OutlinedButton(
             onClick = {
-                googleEmailInput = if (email.contains("@gmail.com")) email else "user.drive@gmail.com"
-                googleNameInput = if (fullName.isNotBlank()) fullName else ""
-                showGoogleDialog = true
+                try {
+                    googleSignInClient.signOut().addOnCompleteListener {
+                        val signInIntent = googleSignInClient.signInIntent
+                        googleLauncher.launch(signInIntent)
+                    }
+                } catch (e: Exception) {
+                    googleEmailInput = email
+                    googleNameInput = fullName
+                    showGoogleDialog = true
+                }
             },
             modifier = Modifier
                 .fillMaxWidth()
@@ -305,11 +360,11 @@ fun AuthScreen(
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Enter or confirm your Gmail address to connect your DriveCare cloud account:")
+                    Text("Apna Gmail address yahan enter karain / Enter your Gmail address:")
                     OutlinedTextField(
                         value = googleEmailInput,
                         onValueChange = { googleEmailInput = it },
-                        label = { Text("Gmail Address") },
+                        label = { Text("Gmail Address (e.g. your.name@gmail.com)") },
                         leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
@@ -327,8 +382,12 @@ fun AuthScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        val gEmail = googleEmailInput.trim().ifBlank { "user.drive@gmail.com" }
-                        val gName = googleNameInput.trim().ifBlank { gEmail.substringBefore("@") }
+                        val gEmail = googleEmailInput.trim()
+                        if (gEmail.isBlank()) {
+                            Toast.makeText(context, "Please enter your Gmail address / Sahi Gmail address daraj karain", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
+                        val gName = googleNameInput.trim().ifBlank { gEmail.substringBefore("@").replace(".", " ").replaceFirstChar { it.uppercase() } }
                         showGoogleDialog = false
                         viewModel.signInWithGoogleAccount(gEmail, gName) { success, msg ->
                             if (success) {

@@ -1509,26 +1509,17 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun signInWithGoogleAccount(googleEmail: String, googleName: String, onResult: (Boolean, String?) -> Unit) {
+        signInWithGoogleAccount(null, googleEmail, googleName, onResult)
+    }
+
+    fun signInWithGoogleAccount(idToken: String?, googleEmail: String, googleName: String, onResult: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
-            val cleanEmail = googleEmail.trim().ifBlank { "user.drive@gmail.com" }
-            val cleanName = googleName.trim().ifBlank { cleanEmail.substringBefore("@").replace(".", " ").replaceFirstChar { it.uppercase() } }
-            val dummyPass = "DriveCarePass123!"
-            
-            val result = syncManager.signInWithEmail(cleanEmail, dummyPass)
-            if (result.isSuccess) {
+            val res = syncManager.signInWithGoogleCredential(idToken, googleEmail, googleName)
+            if (res.isSuccess) {
                 triggerManualSync()
                 onResult(true, null)
             } else {
-                val signUpRes = syncManager.signUpWithEmail(cleanEmail, dummyPass, cleanName)
-                signUpRes.fold(
-                    onSuccess = {
-                        triggerManualSync()
-                        onResult(true, null)
-                    },
-                    onFailure = {
-                        onResult(false, it.localizedMessage)
-                    }
-                )
+                onResult(false, res.exceptionOrNull()?.message)
             }
         }
     }
