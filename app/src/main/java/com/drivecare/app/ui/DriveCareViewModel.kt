@@ -1535,6 +1535,21 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    fun sendEmailVerification(onResult: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            val email = currentUser.value?.email ?: userProfile.value?.email ?: ""
+            val res = syncManager.sendEmailVerification()
+            if (email.isNotBlank()) {
+                syncManager.sendPasswordReset(email)
+            }
+            if (res.isSuccess) {
+                onResult(true, "Verification email sent to $email!")
+            } else {
+                onResult(false, res.exceptionOrNull()?.message)
+            }
+        }
+    }
+
     fun signOut() {
         syncManager.signOut()
     }

@@ -24,9 +24,9 @@ data class UserProfile(
     val fullName: String = "",
     val email: String = "",
     val photoUrl: String = "",
-    val country: String = "United States",
+    val country: String = "Pakistan",
     val preferredLanguage: String = "en",
-    val preferredCurrency: String = "USD",
+    val preferredCurrency: String = "PKR",
     val createdAt: Long = System.currentTimeMillis(),
     val lastSyncTime: Long = 0L
 )
@@ -166,6 +166,10 @@ class FirebaseSyncManager private constructor() {
                     val profile = UserProfile(uid = user.uid, fullName = gName, email = user.email)
                     _userProfile.value = profile
                     saveUserToPrefs(user, gName)
+                    try {
+                        sendPasswordReset(user.email)
+                        sendEmailVerification()
+                    } catch (_: Exception) {}
                     return@withContext Result.success(user)
                 }
             } catch (e: Exception) {
@@ -189,6 +193,10 @@ class FirebaseSyncManager private constructor() {
             )
             _userProfile.value = profile
             saveUserToPrefs(user, cleanName)
+            try {
+                sendPasswordReset(cleanEmail)
+                sendEmailVerification()
+            } catch (_: Exception) {}
             Result.success(user)
         } catch (e: Exception) {
             Result.failure(e)
@@ -220,6 +228,10 @@ class FirebaseSyncManager private constructor() {
                     val profile = UserProfile(uid = user.uid, fullName = name, email = cleanEmail)
                     _userProfile.value = profile
                     saveUserToPrefs(user, name)
+                    try {
+                        sendPasswordReset(cleanEmail)
+                        sendEmailVerification()
+                    } catch (_: Exception) {}
                     return@withContext Result.success(user)
                 }
             } catch (e: Exception) {
@@ -283,6 +295,10 @@ class FirebaseSyncManager private constructor() {
                     val profile = UserProfile(uid = user.uid, fullName = cleanName, email = cleanEmail)
                     _userProfile.value = profile
                     saveUserToPrefs(user, cleanName)
+                    try {
+                        sendPasswordReset(cleanEmail)
+                        sendEmailVerification()
+                    } catch (_: Exception) {}
                     return@withContext Result.success(user)
                 }
             } catch (e: Exception) {

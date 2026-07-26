@@ -451,7 +451,7 @@ fun AuthScreen(
                                     showGoogleDialog = false
                                     viewModel.signInWithGoogleAccount(gEmail, gName) { success, msg ->
                                         if (success) {
-                                            Toast.makeText(context, "Signed in as $gEmail!", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, "Signed in as $gEmail! Verification email dispatched to your inbox.", Toast.LENGTH_LONG).show()
                                             onAuthSuccess()
                                         } else {
                                             Toast.makeText(context, msg ?: "Sign in failed", Toast.LENGTH_SHORT).show()
