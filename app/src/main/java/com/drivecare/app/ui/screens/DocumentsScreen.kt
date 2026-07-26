@@ -5,8 +5,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
+import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.Build
+import android.os.ParcelFileDescriptor
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -32,6 +34,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -62,6 +65,70 @@ enum class DocumentSortOption(val label: String) {
     NEWEST("Newest Created")
 }
 
+data class DocumentStatusInfo(
+    val status: String, // "VALID", "EXPIRING_SOON", "EXPIRED", "NO_EXPIRY"
+    val labelText: String,
+    val containerColor: Color,
+    val textColor: Color
+)
+
+fun getDocumentStatusInfo(doc: Document, todayStr: String): DocumentStatusInfo {
+    if (doc.expiryDate.isBlank()) {
+        return DocumentStatusInfo(
+            status = "NO_EXPIRY",
+            labelText = "Valid (No Expiry)",
+            containerColor = Color(0xFFD4EDDA),
+            textColor = Color(0xFF155724)
+        )
+    }
+
+    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+    return try {
+        val expDate = sdf.parse(doc.expiryDate)
+        val todayDate = sdf.parse(todayStr)
+        if (expDate == null || todayDate == null) {
+            return DocumentStatusInfo("VALID", "Valid", Color(0xFFD4EDDA), Color(0xFF155724))
+        }
+
+        val diffMillis = expDate.time - todayDate.time
+        val diffDays = (diffMillis / (1000 * 60 * 60 * 24)).toInt()
+
+        if (diffDays < 0) {
+            val daysAgo = Math.abs(diffDays)
+            val label = if (daysAgo == 0) "Expired Today" else "Expired $daysAgo Days Ago"
+            DocumentStatusInfo(
+                status = "EXPIRED",
+                labelText = label,
+                containerColor = Color(0xFFF8D7DA),
+                textColor = Color(0xFF721C24)
+            )
+        } else if (diffDays == 0) {
+            DocumentStatusInfo(
+                status = "EXPIRING_SOON",
+                labelText = "Expires Today",
+                containerColor = Color(0xFFFFF3CD),
+                textColor = Color(0xFF856404)
+            )
+        } else if (diffDays <= doc.reminderDaysBefore || diffDays <= 30) {
+            DocumentStatusInfo(
+                status = "EXPIRING_SOON",
+                labelText = "Expires in $diffDays Days",
+                containerColor = Color(0xFFFFF3CD),
+                textColor = Color(0xFF856404)
+            )
+        } else {
+            DocumentStatusInfo(
+                status = "VALID",
+                labelText = "Valid ($diffDays Days Left)",
+                containerColor = Color(0xFFD4EDDA),
+                textColor = Color(0xFF155724)
+            )
+        }
+    } catch (e: Exception) {
+        DocumentStatusInfo("VALID", "Valid", Color(0xFFD4EDDA), Color(0xFF155724))
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DocumentsScreen(
@@ -79,26 +146,63 @@ fun DocumentsScreen(
     var docToDelete by remember { mutableStateOf<Document?>(null) }
 
     var selectedFilterCategory by remember { mutableStateOf("All") }
+    var selectedStatusFilter by remember { mutableStateOf("All") } // "All", "Valid", "Expiring Soon", "Expired"
     var selectedVehicleIdFilter by remember { mutableStateOf<Long?>(null) }
     var searchQuery by remember { mutableStateOf("") }
     var sortOption by remember { mutableStateOf(DocumentSortOption.EXPIRY_ASC) }
     var showSortMenu by remember { mutableStateOf(false) }
 
-    var previewImageDoc by remember { mutableStateOf<Document?>(null) }
+    var previewDocument by remember { mutableStateOf<Document?>(null) }
+
+    val sdf = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US) }
+    val todayStr = remember { sdf.format(Date()) }
 
     val categories = remember {
-        listOf("All", "Registration", "Insurance", "Driving License", "Inspection", "Other")
+        listOf(
+            "All",
+            "Registration",
+            "Insurance",
+            "Driving License",
+            "Inspection",
+            "Service Records",
+            "Tax Documents",
+            "Warranty",
+            "Other"
+        )
     }
 
-    val filteredDocs = remember(documents, selectedVehicleIdFilter, selectedFilterCategory, searchQuery, sortOption) {
+    val statusFilters = remember {
+        listOf("All", "Valid", "Expiring Soon", "Expired")
+    }
+
+    val filteredDocs = remember(
+        documents,
+        selectedVehicleIdFilter,
+        selectedFilterCategory,
+        selectedStatusFilter,
+        searchQuery,
+        sortOption,
+        todayStr
+    ) {
         var list = documents.filter { doc ->
-            (selectedVehicleIdFilter == null || doc.vehicleId == selectedVehicleIdFilter) &&
-            (selectedFilterCategory == "All" || doc.docType.equals(selectedFilterCategory, ignoreCase = true)) &&
-            (searchQuery.isBlank() ||
-                doc.docTitle.contains(searchQuery, ignoreCase = true) ||
-                doc.docType.contains(searchQuery, ignoreCase = true) ||
-                doc.vehicleName.contains(searchQuery, ignoreCase = true) ||
-                doc.notes.contains(searchQuery, ignoreCase = true))
+            val statusInfo = getDocumentStatusInfo(doc, todayStr)
+
+            val matchesVehicle = selectedVehicleIdFilter == null || doc.vehicleId == selectedVehicleIdFilter
+            val matchesCategory = selectedFilterCategory == "All" || doc.docType.equals(selectedFilterCategory, ignoreCase = true)
+            val matchesStatus = when (selectedStatusFilter) {
+                "Valid" -> statusInfo.status == "VALID" || statusInfo.status == "NO_EXPIRY"
+                "Expiring Soon" -> statusInfo.status == "EXPIRING_SOON"
+                "Expired" -> statusInfo.status == "EXPIRED"
+                else -> true
+            }
+            val matchesSearch = searchQuery.isBlank() ||
+                    doc.docTitle.contains(searchQuery, ignoreCase = true) ||
+                    doc.docType.contains(searchQuery, ignoreCase = true) ||
+                    doc.vehicleName.contains(searchQuery, ignoreCase = true) ||
+                    doc.notes.contains(searchQuery, ignoreCase = true) ||
+                    doc.fileUri.contains(searchQuery, ignoreCase = true)
+
+            matchesVehicle && matchesCategory && matchesStatus && matchesSearch
         }
 
         when (sortOption) {
@@ -129,11 +233,38 @@ fun DocumentsScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
-                Text(
-                    text = AppStrings.get("tab_documents", lang),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = AppStrings.get("tab_documents", lang),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "${filteredDocs.size} of ${documents.size} documents",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    if (vehicles.isEmpty()) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.errorContainer,
+                            shape = MaterialTheme.shapes.small
+                        ) {
+                            Text(
+                                text = "Add a vehicle first",
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
+                }
             }
 
             // Search Bar & Sort Menu
@@ -147,7 +278,7 @@ fun DocumentsScreen(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
                         modifier = Modifier.weight(1f),
-                        placeholder = { Text("Search documents...") },
+                        placeholder = { Text("Search documents, vehicles, notes...") },
                         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                         trailingIcon = {
                             if (searchQuery.isNotEmpty()) {
@@ -181,28 +312,55 @@ fun DocumentsScreen(
                 }
             }
 
-            // Vehicle filter chips
+            // Vehicle Filter Row
             if (vehicles.isNotEmpty()) {
                 item {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        item {
-                            FilterChip(
-                                selected = selectedVehicleIdFilter == null,
-                                onClick = { selectedVehicleIdFilter = null },
-                                label = { Text(AppStrings.get("all_vehicles", lang)) }
-                            )
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Vehicle:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            item {
+                                FilterChip(
+                                    selected = selectedVehicleIdFilter == null,
+                                    onClick = { selectedVehicleIdFilter = null },
+                                    label = { Text(AppStrings.get("all_vehicles", lang)) }
+                                )
+                            }
+                            items(vehicles, key = { it.id }) { v ->
+                                FilterChip(
+                                    selected = selectedVehicleIdFilter == v.id,
+                                    onClick = { selectedVehicleIdFilter = v.id },
+                                    label = { Text(v.vehicleName) },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = VehicleTypeHelper.getVehicleIcon(v.vehicleType),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                )
+                            }
                         }
-                        items(vehicles, key = { it.id }) { v ->
+                    }
+                }
+            }
+
+            // Status Filter Row
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Status:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(statusFilters) { status ->
                             FilterChip(
-                                selected = selectedVehicleIdFilter == v.id,
-                                onClick = { selectedVehicleIdFilter = v.id },
-                                label = { Text(v.vehicleName) },
+                                selected = selectedStatusFilter == status,
+                                onClick = { selectedStatusFilter = status },
+                                label = { Text(status) },
                                 leadingIcon = {
-                                    Icon(
-                                        imageVector = VehicleTypeHelper.getVehicleIcon(v.vehicleType),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp)
-                                    )
+                                    when (status) {
+                                        "Valid" -> Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF28A745), modifier = Modifier.size(16.dp))
+                                        "Expiring Soon" -> Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFFFC107), modifier = Modifier.size(16.dp))
+                                        "Expired" -> Icon(Icons.Default.Error, contentDescription = null, tint = Color(0xFFDC3545), modifier = Modifier.size(16.dp))
+                                        else -> null
+                                    }
                                 }
                             )
                         }
@@ -210,31 +368,56 @@ fun DocumentsScreen(
                 }
             }
 
-            // Category filter chips
+            // Category Filter Row
             item {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(categories) { cat ->
-                        FilterChip(
-                            selected = selectedFilterCategory == cat,
-                            onClick = { selectedFilterCategory = cat },
-                            label = { Text(cat) }
-                        )
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Category:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(categories) { cat ->
+                            FilterChip(
+                                selected = selectedFilterCategory == cat,
+                                onClick = { selectedFilterCategory = cat },
+                                label = { Text(cat) }
+                            )
+                        }
                     }
                 }
             }
 
             if (filteredDocs.isEmpty()) {
                 item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 32.dp),
-                        contentAlignment = Alignment.Center
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.outline)
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(AppStrings.get("no_documents", lang), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Column(
+                            modifier = Modifier.padding(24.dp).fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.FolderOpen,
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = if (documents.isEmpty()) "No documents saved yet" else "No documents match your filters",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = if (documents.isEmpty()) "Upload registration, insurance, or license documents for your vehicles." else "Try clearing your search query or status filter.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (vehicles.isNotEmpty() && documents.isEmpty()) {
+                                Button(onClick = { showAddDialog = true }) {
+                                    Icon(Icons.Default.Add, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Add First Document")
+                                }
+                            }
                         }
                     }
                 }
@@ -242,13 +425,9 @@ fun DocumentsScreen(
                 items(filteredDocs, key = { it.id }) { doc ->
                     DocumentCardItem(
                         doc = doc,
-                        onViewClick = {
-                            if (isImageDocument(doc)) {
-                                previewImageDoc = doc
-                            } else {
-                                openDocumentFile(context, doc)
-                            }
-                        },
+                        todayStr = todayStr,
+                        isHighlighted = highlightRecordId == doc.id,
+                        onCardClick = { previewDocument = doc },
                         onEditClick = { docToEdit = doc },
                         onDeleteClick = { docToDelete = doc }
                     )
@@ -257,46 +436,42 @@ fun DocumentsScreen(
         }
     }
 
-    if (showAddDialog && vehicles.isNotEmpty()) {
-        AddDocumentDialog(
+    // Add Document Dialog
+    if (showAddDialog) {
+        AddOrEditDocumentDialog(
+            docToEdit = null,
             vehicles = vehicles,
+            viewModel = viewModel,
             onDismiss = { showAddDialog = false },
-            onSave = { doc ->
-                viewModel.addDocument(doc)
-                showAddDialog = false
-                Toast.makeText(context, "Document added successfully!", Toast.LENGTH_SHORT).show()
-            },
-            lang = lang
+            onSaved = { showAddDialog = false }
         )
     }
 
+    // Edit Document Dialog
     docToEdit?.let { doc ->
-        EditDocumentDialog(
+        AddOrEditDocumentDialog(
+            docToEdit = doc,
             vehicles = vehicles,
-            doc = doc,
+            viewModel = viewModel,
             onDismiss = { docToEdit = null },
-            onSave = { updated ->
-                viewModel.updateDocument(updated)
-                docToEdit = null
-                Toast.makeText(context, "Document updated!", Toast.LENGTH_SHORT).show()
-            },
-            lang = lang
+            onSaved = { docToEdit = null }
         )
     }
 
+    // Delete Confirmation Dialog
     docToDelete?.let { doc ->
         AlertDialog(
             onDismissRequest = { docToDelete = null },
-            title = { Text("Delete Document?", fontWeight = FontWeight.Bold) },
-            text = { Text("Are you sure you want to delete '${doc.docTitle}'? The attached file will also be deleted from storage.") },
+            title = { Text("Delete Document?") },
+            text = { Text("Are you sure you want to delete '${doc.docTitle}'? The attached file will also be removed.") },
             confirmButton = {
-                Button(
+                TextButton(
                     onClick = {
                         viewModel.deleteDocument(doc)
                         docToDelete = null
-                        Toast.makeText(context, "Document deleted.", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Document deleted", Toast.LENGTH_SHORT).show()
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) {
                     Text("Delete")
                 }
@@ -309,10 +484,16 @@ fun DocumentsScreen(
         )
     }
 
-    if (previewImageDoc != null) {
-        FullImagePreviewDialog(
-            doc = previewImageDoc!!,
-            onDismiss = { previewImageDoc = null }
+    // Document Preview Dialog
+    previewDocument?.let { doc ->
+        FullDocumentPreviewDialog(
+            doc = doc,
+            todayStr = todayStr,
+            onDismiss = { previewDocument = null },
+            onEdit = {
+                docToEdit = doc
+                previewDocument = null
+            }
         )
     }
 }
@@ -320,50 +501,25 @@ fun DocumentsScreen(
 @Composable
 fun DocumentCardItem(
     doc: Document,
-    onViewClick: () -> Unit,
+    todayStr: String,
+    isHighlighted: Boolean,
+    onCardClick: () -> Unit,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
-    val context = LocalContext.current
-    val isImage = remember(doc.fileUri, doc.mimeType) { isImageDocument(doc) }
-    val isPdf = remember(doc.fileUri, doc.mimeType, doc.docType) {
-        doc.mimeType == "application/pdf" || doc.docType.equals("PDF", ignoreCase = true) || doc.fileUri.lowercase().endsWith(".pdf")
-    }
-
-    val imageBitmap = remember(doc.fileUri) {
-        if (isImage && doc.fileUri.isNotBlank()) {
-            loadLocalImageBitmap(context, doc.fileUri)
-        } else null
-    }
-
-    // Expiry Status
-    val todayStr = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()) }
-    val expiryStatus = remember(doc.expiryDate, doc.reminderDaysBefore, todayStr) {
-        if (doc.expiryDate.isBlank()) null
-        else if (doc.expiryDate < todayStr) "EXPIRED"
-        else {
-            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-            try {
-                val expDate = sdf.parse(doc.expiryDate)
-                val cal = Calendar.getInstance().apply { time = Date(); add(Calendar.DAY_OF_YEAR, doc.reminderDaysBefore) }
-                if (expDate != null && expDate.before(cal.time)) {
-                    "EXPIRING SOON"
-                } else "VALID"
-            } catch (e: Exception) {
-                "VALID"
-            }
-        }
-    }
+    val statusInfo = getDocumentStatusInfo(doc, todayStr)
+    val isPdf = doc.mimeType == "application/pdf" || doc.fileUri.endsWith(".pdf", ignoreCase = true)
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCardClick() },
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isHighlighted) 6.dp else 2.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isHighlighted) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else MaterialTheme.colorScheme.surface
+        )
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -371,865 +527,128 @@ fun DocumentCardItem(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.weight(1f)
                 ) {
-                    // Preview box / icon
-                    if (imageBitmap != null) {
-                        Image(
-                            bitmap = imageBitmap,
-                            contentDescription = doc.docTitle,
-                            modifier = Modifier
-                                .size(56.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
-                                .clickable { onViewClick() },
-                            contentScale = ContentScale.Crop
+                    Surface(
+                        color = if (isPdf) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer,
+                        shape = MaterialTheme.shapes.small
+                    ) {
+                        Icon(
+                            imageVector = if (isPdf) Icons.Default.PictureAsPdf else Icons.Default.InsertDriveFile,
+                            contentDescription = null,
+                            modifier = Modifier.padding(8.dp).size(22.dp),
+                            tint = if (isPdf) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                         )
-                    } else if (isPdf) {
-                        Box(
-                            modifier = Modifier
-                                .size(56.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.errorContainer)
-                                .clickable { onViewClick() },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.PictureAsPdf,
-                                contentDescription = "PDF Document",
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(32.dp)
-                            )
-                        }
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .size(56.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.primaryContainer),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.Description,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(32.dp)
-                            )
-                        }
                     }
 
                     Column(modifier = Modifier.weight(1f)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Text(
-                                doc.docTitle,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f, fill = false)
-                            )
-
-                            expiryStatus?.let { status ->
-                                Surface(
-                                    color = when (status) {
-                                        "EXPIRED" -> MaterialTheme.colorScheme.errorContainer
-                                        "EXPIRING SOON" -> Color(0xFFFFF3CD)
-                                        else -> Color(0xFFD4EDDA)
-                                    },
-                                    shape = RoundedCornerShape(4.dp)
-                                ) {
-                                    Text(
-                                        text = status,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = when (status) {
-                                            "EXPIRED" -> MaterialTheme.colorScheme.error
-                                            "EXPIRING SOON" -> Color(0xFF856404)
-                                            else -> Color(0xFF155724)
-                                        },
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                    )
-                                }
-                            }
-                        }
-
                         Text(
-                            "${doc.vehicleName} • ${doc.docType}",
-                            style = MaterialTheme.typography.bodySmall
+                            text = doc.docTitle,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
-                        if (doc.expiryDate.isNotBlank()) {
-                            Text(
-                                "Expires: ${doc.expiryDate} (Remind ${doc.reminderDaysBefore}d before)",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.secondary
-                            )
-                        }
-                        if (doc.fileSize > 0) {
-                            Text(
-                                "File: ${DocumentFileHelper.formatFileSize(doc.fileSize)}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.outline
-                            )
-                        }
+                        Text(
+                            text = "${doc.docType} • ${doc.vehicleName}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                // Status Chip
+                Surface(
+                    color = statusInfo.containerColor,
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        text = statusInfo.labelText,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = statusInfo.textColor
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    if (doc.issueDate.isNotBlank()) {
+                        Text(
+                            text = "Issued: ${doc.issueDate}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (doc.expiryDate.isNotBlank()) {
+                        Text(
+                            text = "Expires: ${doc.expiryDate}",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    } else {
+                        Text(
+                            text = "No Expiry Date",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onEditClick) {
-                        Icon(Icons.Default.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.primary)
+                    Text(
+                        text = DocumentFileHelper.formatFileSize(doc.fileSize),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(end = 4.dp)
+                    )
+                    IconButton(onClick = onEditClick, modifier = Modifier.size(36.dp)) {
+                        Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(18.dp))
                     }
-                    IconButton(onClick = onDeleteClick) {
-                        Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                    IconButton(onClick = onDeleteClick, modifier = Modifier.size(36.dp)) {
+                        Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
                     }
                 }
             }
 
             if (doc.notes.isNotBlank()) {
-                Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    "Notes: ${doc.notes}",
+                    text = doc.notes,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f), RoundedCornerShape(4.dp)).padding(6.dp).fillMaxWidth()
                 )
-            }
-
-            if (doc.fileUri.isNotBlank()) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    OutlinedButton(
-                        onClick = onViewClick,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(
-                            imageVector = if (isImage) Icons.Default.Visibility else Icons.Default.OpenInNew,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(if (isImage) "View Photo" else if (isPdf) "Open PDF" else "Open Document")
-                    }
-                }
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddDocumentDialog(
-    vehicles: List<Vehicle>,
-    onDismiss: () -> Unit,
-    onSave: (Document) -> Unit,
-    lang: com.drivecare.app.utils.AppLanguage
-) {
-    val context = LocalContext.current
-
-    var selectedVehicle by remember { mutableStateOf<Vehicle?>(vehicles.firstOrNull()) }
-    var expandedVehicleDropdown by remember { mutableStateOf(false) }
-
-    var title by remember { mutableStateOf("") }
-    var docType by remember { mutableStateOf("Registration") }
-    var expandedDocTypeDropdown by remember { mutableStateOf(false) }
-
-    var expiryDate by remember { mutableStateOf("2027-12-31") }
-    var reminderDaysBefore by remember { mutableStateOf(7) }
-    var expandedReminderDropdown by remember { mutableStateOf(false) }
-    var notes by remember { mutableStateOf("") }
-
-    var attachedFileInfo by remember { mutableStateOf<SavedFileInfo?>(null) }
-    var isProcessingFile by remember { mutableStateOf(false) }
-
-    var showPermissionDeniedDialog by remember { mutableStateOf(false) }
-    var permissionDeniedReason by remember { mutableStateOf("") }
-    var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
-
-    val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicture()
-    ) { success: Boolean ->
-        val uri = tempCameraUri
-        if (success && uri != null) {
-            isProcessingFile = true
-            val saved = DocumentFileHelper.saveFileToInternalStorage(context, uri)
-            isProcessingFile = false
-            if (saved != null) {
-                attachedFileInfo = saved
-                Toast.makeText(context, "Photo captured successfully", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(context, "Failed to process photo", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    fun launchCameraCapture() {
-        try {
-            val cacheDir = File(context.cacheDir, "camera_photos").apply { if (!exists()) mkdirs() }
-            val tempFile = File(cacheDir, "doc_photo_${System.currentTimeMillis()}.jpg")
-            val uri = FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.fileprovider",
-                tempFile
-            )
-            tempCameraUri = uri
-            cameraLauncher.launch(uri)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            Toast.makeText(context, "Could not launch camera: ${e.message}", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    val cameraPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { isGranted: Boolean ->
-        if (isGranted) {
-            launchCameraCapture()
-        } else {
-            permissionDeniedReason = "Camera permission is required to take photo attachments for your vehicle documents."
-            showPermissionDeniedDialog = true
-        }
-    }
-
-    val galleryLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            isProcessingFile = true
-            val saved = DocumentFileHelper.saveFileToInternalStorage(context, uri)
-            isProcessingFile = false
-            if (saved != null) {
-                attachedFileInfo = saved
-                Toast.makeText(context, "Image selected from gallery successfully", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(context, "Failed to process gallery image", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    val galleryPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { isGranted: Boolean ->
-        if (isGranted) {
-            galleryLauncher.launch("image/*")
-        } else {
-            permissionDeniedReason = "Photos and media access permission is required to select document images from your gallery."
-            showPermissionDeniedDialog = true
-        }
-    }
-
-    val docPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            isProcessingFile = true
-            val saved = DocumentFileHelper.saveFileToInternalStorage(context, uri)
-            isProcessingFile = false
-            if (saved != null) {
-                attachedFileInfo = saved
-                Toast.makeText(context, "Document attached successfully", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(context, "Failed to process document", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    val docTypes = listOf("Registration", "Insurance", "Driving License", "Inspection", "Other")
-    val reminderOptions = listOf(0 to "On Expiry Day", 7 to "7 Days Before", 14 to "14 Days Before", 30 to "30 Days Before")
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(AppStrings.get("add_document", lang)) },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Text("Select Vehicle *", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
-
-                ExposedDropdownMenuBox(
-                    expanded = expandedVehicleDropdown,
-                    onExpandedChange = { expandedVehicleDropdown = !expandedVehicleDropdown }
-                ) {
-                    OutlinedTextField(
-                        value = selectedVehicle?.let { "${it.vehicleName} (${VehicleTypeHelper.getDisplayName(it.vehicleType, lang)})" } ?: "Select Vehicle",
-                        onValueChange = {},
-                        readOnly = true,
-                        leadingIcon = selectedVehicle?.let { v ->
-                            {
-                                Icon(
-                                    imageVector = VehicleTypeHelper.getVehicleIcon(v.vehicleType),
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedVehicleDropdown) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = expandedVehicleDropdown,
-                        onDismissRequest = { expandedVehicleDropdown = false }
-                    ) {
-                        vehicles.forEach { v ->
-                            DropdownMenuItem(
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = VehicleTypeHelper.getVehicleIcon(v.vehicleType),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(20.dp),
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                },
-                                text = { Text("${v.vehicleName} (${VehicleTypeHelper.getDisplayName(v.vehicleType, lang)} • ${v.brand} ${v.model})") },
-                                onClick = {
-                                    selectedVehicle = v
-                                    expandedVehicleDropdown = false
-                                }
-                            )
-                        }
-                    }
-                }
-
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text("Document Title *") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                // Document Type Dropdown
-                ExposedDropdownMenuBox(
-                    expanded = expandedDocTypeDropdown,
-                    onExpandedChange = { expandedDocTypeDropdown = !expandedDocTypeDropdown }
-                ) {
-                    OutlinedTextField(
-                        value = docType,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text(AppStrings.get("doc_type", lang)) },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedDocTypeDropdown) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = expandedDocTypeDropdown,
-                        onDismissRequest = { expandedDocTypeDropdown = false }
-                    ) {
-                        docTypes.forEach { dt ->
-                            DropdownMenuItem(
-                                text = { Text(dt) },
-                                onClick = {
-                                    docType = dt
-                                    if (title.isBlank()) title = "$dt Certificate"
-                                    expandedDocTypeDropdown = false
-                                }
-                            )
-                        }
-                    }
-                }
-
-                OutlinedTextField(
-                    value = expiryDate,
-                    onValueChange = { expiryDate = it },
-                    label = { Text("Expiry Date (e.g. 2027-12-31) *") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                // Reminder Before Expiry Dropdown
-                ExposedDropdownMenuBox(
-                    expanded = expandedReminderDropdown,
-                    onExpandedChange = { expandedReminderDropdown = !expandedReminderDropdown }
-                ) {
-                    OutlinedTextField(
-                        value = reminderOptions.find { it.first == reminderDaysBefore }?.second ?: "7 Days Before",
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Reminder Alert") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedReminderDropdown) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = expandedReminderDropdown,
-                        onDismissRequest = { expandedReminderDropdown = false }
-                    ) {
-                        reminderOptions.forEach { (days, label) ->
-                            DropdownMenuItem(
-                                text = { Text(label) },
-                                onClick = {
-                                    reminderDaysBefore = days
-                                    expandedReminderDropdown = false
-                                }
-                            )
-                        }
-                    }
-                }
-
-                OutlinedTextField(
-                    value = notes,
-                    onValueChange = { notes = it },
-                    label = { Text("Notes (Optional)") },
-                    singleLine = false,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-                Text("File / Photo Attachment", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
-
-                if (isProcessingFile) {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                } else if (attachedFileInfo != null) {
-                    val info = attachedFileInfo!!
-                    val isImg = info.mimeType.startsWith("image")
-                    val isPdf = info.mimeType == "application/pdf" || info.fileName.lowercase().endsWith(".pdf")
-
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Icon(
-                                    imageVector = if (isImg) Icons.Default.Image else if (isPdf) Icons.Default.PictureAsPdf else Icons.Default.InsertDriveFile,
-                                    contentDescription = null,
-                                    tint = if (isPdf) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-                                )
-                                Column {
-                                    Text(
-                                        info.fileName,
-                                        fontWeight = FontWeight.Bold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                    Text(
-                                        DocumentFileHelper.formatFileSize(info.fileSize),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.outline
-                                    )
-                                }
-                            }
-                            IconButton(onClick = { attachedFileInfo = null }) {
-                                Icon(Icons.Default.Close, contentDescription = "Remove attachment")
-                            }
-                        }
-                    }
-                } else {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            OutlinedButton(
-                                onClick = {
-                                    val cameraPermission = Manifest.permission.CAMERA
-                                    if (ContextCompat.checkSelfPermission(context, cameraPermission) == PackageManager.PERMISSION_GRANTED) {
-                                        launchCameraCapture()
-                                    } else {
-                                        cameraPermissionLauncher.launch(cameraPermission)
-                                    }
-                                },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Take Photo")
-                            }
-
-                            OutlinedButton(
-                                onClick = {
-                                    val galleryPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                        Manifest.permission.READ_MEDIA_IMAGES
-                                    } else {
-                                        Manifest.permission.READ_EXTERNAL_STORAGE
-                                    }
-
-                                    if (ContextCompat.checkSelfPermission(context, galleryPermission) == PackageManager.PERMISSION_GRANTED) {
-                                        galleryLauncher.launch("image/*")
-                                    } else {
-                                        galleryPermissionLauncher.launch(galleryPermission)
-                                    }
-                                },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Choose Gallery")
-                            }
-                        }
-
-                        OutlinedButton(
-                            onClick = { docPickerLauncher.launch("*/*") },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Attach Document File / PDF")
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    val v = selectedVehicle
-                    if (v == null) {
-                        Toast.makeText(context, "Please select a vehicle", Toast.LENGTH_SHORT).show()
-                        return@Button
-                    }
-
-                    val cleanTitle = title.trim()
-                    if (cleanTitle.isBlank()) {
-                        Toast.makeText(context, "Please enter document title", Toast.LENGTH_SHORT).show()
-                        return@Button
-                    }
-
-                    val cleanExpiry = expiryDate.trim()
-                    if (cleanExpiry.isBlank()) {
-                        Toast.makeText(context, "Please enter expiry date", Toast.LENGTH_SHORT).show()
-                        return@Button
-                    }
-
-                    val doc = Document(
-                        vehicleId = v.id,
-                        vehicleName = v.vehicleName,
-                        docTitle = cleanTitle,
-                        docType = docType,
-                        expiryDate = cleanExpiry,
-                        reminderDaysBefore = reminderDaysBefore,
-                        notes = notes.trim(),
-                        fileUri = attachedFileInfo?.fileUriString ?: "",
-                        mimeType = attachedFileInfo?.mimeType ?: "",
-                        fileSize = attachedFileInfo?.fileSize ?: 0L
-                    )
-                    onSave(doc)
-                }
-            ) {
-                Text(AppStrings.get("save", lang))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(AppStrings.get("cancel", lang))
-            }
-        }
-    )
-
-    if (showPermissionDeniedDialog) {
-        AlertDialog(
-            onDismissRequest = { showPermissionDeniedDialog = false },
-            title = { Text("Permission Required", fontWeight = FontWeight.Bold) },
-            text = { Text(permissionDeniedReason) },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showPermissionDeniedDialog = false
-                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                            data = Uri.fromParts("package", context.packageName, null)
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        }
-                        context.startActivity(intent)
-                    }
-                ) {
-                    Text("Open Settings")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showPermissionDeniedDialog = false }) {
-                    Text(AppStrings.get("cancel", lang))
-                }
-            }
-        )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun EditDocumentDialog(
-    vehicles: List<Vehicle>,
+fun FullDocumentPreviewDialog(
     doc: Document,
+    todayStr: String,
     onDismiss: () -> Unit,
-    onSave: (Document) -> Unit,
-    lang: com.drivecare.app.utils.AppLanguage
+    onEdit: () -> Unit
 ) {
     val context = LocalContext.current
+    val statusInfo = getDocumentStatusInfo(doc, todayStr)
+    val isPdf = doc.mimeType == "application/pdf" || doc.fileUri.endsWith(".pdf", ignoreCase = true)
 
-    var selectedVehicle by remember { mutableStateOf(vehicles.find { it.id == doc.vehicleId } ?: vehicles.firstOrNull()) }
-    var expandedVehicleDropdown by remember { mutableStateOf(false) }
+    var zoomScale by remember { mutableFloatStateOf(1f) }
+    var rotationDegrees by remember { mutableFloatStateOf(0f) }
 
-    var title by remember { mutableStateOf(doc.docTitle) }
-    var docType by remember { mutableStateOf(doc.docType) }
-    var expandedDocTypeDropdown by remember { mutableStateOf(false) }
-
-    var expiryDate by remember { mutableStateOf(doc.expiryDate) }
-    var reminderDaysBefore by remember { mutableStateOf(doc.reminderDaysBefore) }
-    var expandedReminderDropdown by remember { mutableStateOf(false) }
-    var notes by remember { mutableStateOf(doc.notes) }
-
-    var attachedFileInfo by remember { mutableStateOf<SavedFileInfo?>(null) }
-    var fileUri by remember { mutableStateOf(doc.fileUri) }
-    var mimeType by remember { mutableStateOf(doc.mimeType) }
-    var fileSize by remember { mutableStateOf(doc.fileSize) }
-
-    val docTypes = listOf("Registration", "Insurance", "Driving License", "Inspection", "Other")
-    val reminderOptions = listOf(0 to "On Expiry Day", 7 to "7 Days Before", 14 to "14 Days Before", 30 to "30 Days Before")
-
-    val galleryLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            val saved = DocumentFileHelper.saveFileToInternalStorage(context, uri)
-            if (saved != null) {
-                attachedFileInfo = saved
-                fileUri = saved.fileUriString
-                mimeType = saved.mimeType
-                fileSize = saved.fileSize
-                Toast.makeText(context, "Attachment updated", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Edit Document", fontWeight = FontWeight.Bold) },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Text("Select Vehicle *", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
-
-                ExposedDropdownMenuBox(
-                    expanded = expandedVehicleDropdown,
-                    onExpandedChange = { expandedVehicleDropdown = !expandedVehicleDropdown }
-                ) {
-                    OutlinedTextField(
-                        value = selectedVehicle?.let { "${it.vehicleName} (${VehicleTypeHelper.getDisplayName(it.vehicleType, lang)})" } ?: "Select Vehicle",
-                        onValueChange = {},
-                        readOnly = true,
-                        leadingIcon = selectedVehicle?.let { v ->
-                            {
-                                Icon(
-                                    imageVector = VehicleTypeHelper.getVehicleIcon(v.vehicleType),
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedVehicleDropdown) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = expandedVehicleDropdown,
-                        onDismissRequest = { expandedVehicleDropdown = false }
-                    ) {
-                        vehicles.forEach { v ->
-                            DropdownMenuItem(
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = VehicleTypeHelper.getVehicleIcon(v.vehicleType),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(20.dp),
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                },
-                                text = { Text("${v.vehicleName} (${VehicleTypeHelper.getDisplayName(v.vehicleType, lang)} • ${v.brand} ${v.model})") },
-                                onClick = {
-                                    selectedVehicle = v
-                                    expandedVehicleDropdown = false
-                                }
-                            )
-                        }
-                    }
-                }
-
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text("Document Title *") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                ExposedDropdownMenuBox(
-                    expanded = expandedDocTypeDropdown,
-                    onExpandedChange = { expandedDocTypeDropdown = !expandedDocTypeDropdown }
-                ) {
-                    OutlinedTextField(
-                        value = docType,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Category") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedDocTypeDropdown) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = expandedDocTypeDropdown,
-                        onDismissRequest = { expandedDocTypeDropdown = false }
-                    ) {
-                        docTypes.forEach { dt ->
-                            DropdownMenuItem(
-                                text = { Text(dt) },
-                                onClick = {
-                                    docType = dt
-                                    expandedDocTypeDropdown = false
-                                }
-                            )
-                        }
-                    }
-                }
-
-                OutlinedTextField(
-                    value = expiryDate,
-                    onValueChange = { expiryDate = it },
-                    label = { Text("Expiry Date (YYYY-MM-DD) *") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                ExposedDropdownMenuBox(
-                    expanded = expandedReminderDropdown,
-                    onExpandedChange = { expandedReminderDropdown = !expandedReminderDropdown }
-                ) {
-                    OutlinedTextField(
-                        value = reminderOptions.find { it.first == reminderDaysBefore }?.second ?: "7 Days Before",
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Reminder Alert") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedReminderDropdown) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = expandedReminderDropdown,
-                        onDismissRequest = { expandedReminderDropdown = false }
-                    ) {
-                        reminderOptions.forEach { (days, label) ->
-                            DropdownMenuItem(
-                                text = { Text(label) },
-                                onClick = {
-                                    reminderDaysBefore = days
-                                    expandedReminderDropdown = false
-                                }
-                            )
-                        }
-                    }
-                }
-
-                OutlinedTextField(
-                    value = notes,
-                    onValueChange = { notes = it },
-                    label = { Text("Notes (Optional)") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Text("File Attachment", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
-                if (fileUri.isNotBlank()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Attached File (${DocumentFileHelper.formatFileSize(fileSize)})", style = MaterialTheme.typography.bodySmall)
-                        OutlinedButton(onClick = { galleryLauncher.launch("*/*") }) {
-                            Text("Change File")
-                        }
-                    }
-                } else {
-                    OutlinedButton(
-                        onClick = { galleryLauncher.launch("*/*") },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Attach File")
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    val v = selectedVehicle
-                    if (v == null) {
-                        Toast.makeText(context, "Please select a vehicle", Toast.LENGTH_SHORT).show()
-                        return@Button
-                    }
-
-                    val cleanTitle = title.trim()
-                    if (cleanTitle.isBlank()) {
-                        Toast.makeText(context, "Please enter document title", Toast.LENGTH_SHORT).show()
-                        return@Button
-                    }
-
-                    val updated = doc.copy(
-                        vehicleId = v.id,
-                        vehicleName = v.vehicleName,
-                        docTitle = cleanTitle,
-                        docType = docType,
-                        expiryDate = expiryDate.trim(),
-                        reminderDaysBefore = reminderDaysBefore,
-                        notes = notes.trim(),
-                        fileUri = fileUri,
-                        mimeType = mimeType,
-                        fileSize = fileSize
-                    )
-                    onSave(updated)
-                }
-            ) {
-                Text("Update Document")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(AppStrings.get("cancel", lang))
-            }
-        }
-    )
-}
-
-@Composable
-fun FullImagePreviewDialog(
-    doc: Document,
-    onDismiss: () -> Unit
-) {
-    val context = LocalContext.current
-    val imageBitmap = remember(doc.fileUri) {
-        if (doc.fileUri.isNotBlank()) {
-            loadLocalImageBitmap(context, doc.fileUri)
-        } else null
+    val pdfBitmap = remember(doc.fileUri, isPdf) {
+        if (isPdf) renderPdfPageToBitmap(context, doc.fileUri) else null
     }
 
     Dialog(
@@ -1237,78 +656,209 @@ fun FullImagePreviewDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surface
+            modifier = Modifier.fillMaxWidth(0.95f).wrapContentHeight().padding(12.dp),
+            shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                // Top Header Row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(doc.docTitle, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text("${doc.vehicleName} • ${doc.docType}", style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            text = doc.docTitle,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "${doc.docType} • ${doc.vehicleName}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
+
                     IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Close preview")
+                        Icon(Icons.Default.Close, contentDescription = "Close")
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Column(
+                // Controls Row (Zoom In/Out/Reset, Rotate)
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(max = 420.dp)
-                        .verticalScroll(rememberScrollState())
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        IconButton(onClick = { zoomScale = (zoomScale - 0.25f).coerceAtLeast(0.5f) }, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Default.ZoomOut, contentDescription = "Zoom Out", modifier = Modifier.size(18.dp))
+                        }
+                        Text(
+                            text = "${(zoomScale * 100).toInt()}%",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        IconButton(onClick = { zoomScale = (zoomScale + 0.25f).coerceAtMost(3.0f) }, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Default.ZoomIn, contentDescription = "Zoom In", modifier = Modifier.size(18.dp))
+                        }
+                        IconButton(onClick = { zoomScale = 1f; rotationDegrees = 0f }, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Default.RestartAlt, contentDescription = "Reset Zoom", modifier = Modifier.size(18.dp))
+                        }
+                    }
+
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        IconButton(onClick = { rotationDegrees = (rotationDegrees + 90f) % 360f }, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Default.RotateRight, contentDescription = "Rotate 90", modifier = Modifier.size(18.dp))
+                        }
+                        Text(
+                            text = "${rotationDegrees.toInt()}°",
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
+
+                // Scrollable Document Render Box (Max 400dp height constraint as required)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 400.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color.Black.copy(alpha = 0.05f))
+                        .verticalScroll(rememberScrollState()),
+                    contentAlignment = Alignment.Center
                 ) {
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 400.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(Color.Black),
+                            .graphicsLayer(
+                                scaleX = zoomScale,
+                                scaleY = zoomScale,
+                                rotationZ = rotationDegrees
+                            )
+                            .padding(8.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (imageBitmap != null) {
-                            Image(
-                                bitmap = imageBitmap,
-                                contentDescription = doc.docTitle,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(max = 400.dp),
-                                contentScale = ContentScale.Crop
-                            )
+                        if (isPdf) {
+                            if (pdfBitmap != null) {
+                                Image(
+                                    bitmap = pdfBitmap,
+                                    contentDescription = "PDF Preview Page 1",
+                                    modifier = Modifier.fillMaxWidth(),
+                                    contentScale = ContentScale.Fit
+                                )
+                            } else {
+                                Column(
+                                    modifier = Modifier.padding(32.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.PictureAsPdf,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(64.dp),
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                    Text("PDF Document Attached", fontWeight = FontWeight.Bold)
+                                    Text("Tap 'Open External' below to view full PDF document.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
                         } else {
-                            Text("Unable to load image preview", color = Color.White, modifier = Modifier.padding(16.dp))
+                            val imgBitmap = remember(doc.fileUri) {
+                                loadBitmapFromUri(context, doc.fileUri)
+                            }
+                            if (imgBitmap != null) {
+                                Image(
+                                    bitmap = imgBitmap,
+                                    contentDescription = "Document Image Preview",
+                                    modifier = Modifier.fillMaxWidth(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Column(
+                                    modifier = Modifier.padding(32.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.InsertDriveFile,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(64.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text("File Attached", fontWeight = FontWeight.Bold)
+                                    Text(doc.fileUri.substringAfterLast("/"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
                         }
                     }
                 }
 
+                // Document Meta Card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                ) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text("Status:", style = MaterialTheme.typography.labelMedium)
+                            Surface(color = statusInfo.containerColor, shape = RoundedCornerShape(8.dp)) {
+                                Text(statusInfo.labelText, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = statusInfo.textColor)
+                            }
+                        }
+                        if (doc.issueDate.isNotBlank()) {
+                            Text("Issue Date: ${doc.issueDate}", style = MaterialTheme.typography.bodySmall)
+                        }
+                        if (doc.expiryDate.isNotBlank()) {
+                            Text("Expiry Date: ${doc.expiryDate} (Reminder: ${doc.reminderDaysBefore} days before)", style = MaterialTheme.typography.bodySmall)
+                        }
+                        Text("File Size: ${DocumentFileHelper.formatFileSize(doc.fileSize)} • ${doc.mimeType.ifBlank { "File" }}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (doc.notes.isNotBlank()) {
+                            Text("Notes: ${doc.notes}", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+
+                // Fixed Bottom Action Buttons Row
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        "File size: ${DocumentFileHelper.formatFileSize(doc.fileSize)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline
-                    )
-                    Button(onClick = { openDocumentFile(context, doc) }) {
-                        Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
+                    OutlinedButton(
+                        onClick = {
+                            openDocumentInExternalApp(context, doc.fileUri, doc.mimeType)
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text("Open External")
+                    }
+
+                    OutlinedButton(
+                        onClick = onEdit,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Edit")
+                    }
+
+                    Button(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Close")
                     }
                 }
             }
@@ -1316,62 +866,483 @@ fun FullImagePreviewDialog(
     }
 }
 
-private fun isImageDocument(doc: Document): Boolean {
-    val mime = doc.mimeType.lowercase()
-    val uri = doc.fileUri.lowercase()
-    return mime.startsWith("image/") ||
-            uri.endsWith(".jpg") || uri.endsWith(".jpeg") ||
-            uri.endsWith(".png") || uri.endsWith(".webp") || uri.endsWith(".gif")
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AddOrEditDocumentDialog(
+    docToEdit: Document?,
+    vehicles: List<Vehicle>,
+    viewModel: DriveCareViewModel,
+    onDismiss: () -> Unit,
+    onSaved: () -> Unit
+) {
+    val context = LocalContext.current
+    var docTitle by remember { mutableStateOf(docToEdit?.docTitle ?: "") }
+    var selectedVehicle by remember { mutableStateOf(vehicles.find { it.id == docToEdit?.vehicleId } ?: vehicles.firstOrNull()) }
+    var docCategory by remember { mutableStateOf(docToEdit?.docType ?: "Registration") }
+    var issueDate by remember { mutableStateOf(docToEdit?.issueDate ?: "") }
+    var expiryDate by remember { mutableStateOf(docToEdit?.expiryDate ?: "") }
+    var reminderDaysBefore by remember { mutableIntStateOf(docToEdit?.reminderDaysBefore ?: 7) }
+    var notes by remember { mutableStateOf(docToEdit?.notes ?: "") }
+
+    var attachedSavedFile by remember { mutableStateOf<SavedFileInfo?>(null) }
+    var fileErrorMessage by remember { mutableStateOf("") }
+
+    var showVehicleDropdown by remember { mutableStateOf(false) }
+    var showCategoryDropdown by remember { mutableStateOf(false) }
+    var showReminderDropdown by remember { mutableStateOf(false) }
+
+    val categories = remember {
+        listOf(
+            "Registration",
+            "Insurance",
+            "Driving License",
+            "Inspection",
+            "Service Records",
+            "Tax Documents",
+            "Warranty",
+            "Other"
+        )
+    }
+
+    val reminderOptions = remember {
+        listOf(
+            90 to "90 Days Before",
+            60 to "60 Days Before",
+            30 to "30 Days Before",
+            7 to "7 Days Before",
+            0 to "On Expiry Day"
+        )
+    }
+
+    // Camera Image Capture Launcher
+    var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
+
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+        if (success && tempCameraUri != null) {
+            val saved = DocumentFileHelper.saveFileToInternalStorage(context, tempCameraUri!!)
+            if (saved != null) {
+                attachedSavedFile = saved
+                fileErrorMessage = ""
+                Toast.makeText(context, "Photo captured successfully", Toast.LENGTH_SHORT).show()
+            } else {
+                fileErrorMessage = "Failed to process captured image"
+            }
+        }
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            val uri = createTempImageUri(context)
+            tempCameraUri = uri
+            if (uri != null) cameraLauncher.launch(uri)
+        } else {
+            Toast.makeText(context, "Camera permission denied", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // Gallery Picker Launcher
+    val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            val saved = DocumentFileHelper.saveFileToInternalStorage(context, uri)
+            if (saved != null) {
+                attachedSavedFile = saved
+                fileErrorMessage = ""
+                Toast.makeText(context, "Image selected successfully", Toast.LENGTH_SHORT).show()
+            } else {
+                fileErrorMessage = "Failed to copy image to internal storage"
+            }
+        }
+    }
+
+    // General File / PDF Picker Launcher
+    val filePickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            val saved = DocumentFileHelper.saveFileToInternalStorage(context, uri)
+            if (saved != null) {
+                attachedSavedFile = saved
+                fileErrorMessage = ""
+                Toast.makeText(context, "Document attached successfully", Toast.LENGTH_SHORT).show()
+            } else {
+                fileErrorMessage = "Failed to copy file to internal storage"
+            }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(if (docToEdit == null) "Add Vehicle Document" else "Edit Document Details")
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Title Input
+                OutlinedTextField(
+                    value = docTitle,
+                    onValueChange = { docTitle = it },
+                    label = { Text("Document Title *") },
+                    placeholder = { Text("e.g. Annual Vehicle Registration") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Vehicle Selection Dropdown
+                ExposedDropdownMenuBox(
+                    expanded = showVehicleDropdown,
+                    onExpandedChange = { showVehicleDropdown = it }
+                ) {
+                    OutlinedTextField(
+                        value = selectedVehicle?.vehicleName ?: "Select Vehicle",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Associated Vehicle *") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showVehicleDropdown) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = showVehicleDropdown,
+                        onDismissRequest = { showVehicleDropdown = false }
+                    ) {
+                        vehicles.forEach { v ->
+                            DropdownMenuItem(
+                                text = { Text("${v.vehicleName} (${v.registrationNumber})") },
+                                onClick = {
+                                    selectedVehicle = v
+                                    showVehicleDropdown = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // Category Selection Dropdown
+                ExposedDropdownMenuBox(
+                    expanded = showCategoryDropdown,
+                    onExpandedChange = { showCategoryDropdown = it }
+                ) {
+                    OutlinedTextField(
+                        value = docCategory,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Category *") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showCategoryDropdown) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = showCategoryDropdown,
+                        onDismissRequest = { showCategoryDropdown = false }
+                    ) {
+                        categories.forEach { cat ->
+                            DropdownMenuItem(
+                                text = { Text(cat) },
+                                onClick = {
+                                    docCategory = cat
+                                    showCategoryDropdown = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // Issue Date & Expiry Date Row
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = issueDate,
+                        onValueChange = { issueDate = it },
+                        label = { Text("Issue Date") },
+                        placeholder = { Text("YYYY-MM-DD") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    OutlinedTextField(
+                        value = expiryDate,
+                        onValueChange = { expiryDate = it },
+                        label = { Text("Expiry Date") },
+                        placeholder = { Text("YYYY-MM-DD") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                // Reminder Days Dropdown
+                ExposedDropdownMenuBox(
+                    expanded = showReminderDropdown,
+                    onExpandedChange = { showReminderDropdown = it }
+                ) {
+                    val labelText = reminderOptions.find { it.first == reminderDaysBefore }?.second ?: "$reminderDaysBefore Days Before"
+                    OutlinedTextField(
+                        value = labelText,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Expiry Reminder Alert") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showReminderDropdown) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = showReminderDropdown,
+                        onDismissRequest = { showReminderDropdown = false }
+                    ) {
+                        reminderOptions.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(option.second) },
+                                onClick = {
+                                    reminderDaysBefore = option.first
+                                    showReminderDropdown = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // Notes Input
+                OutlinedTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = { Text("Notes & Registration Details") },
+                    modifier = Modifier.fillMaxWidth(),
+                    maxLines = 3
+                )
+
+                // Attachment Section
+                Text("Attach Document File / Photo *", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                                val uri = createTempImageUri(context)
+                                tempCameraUri = uri
+                                if (uri != null) cameraLauncher.launch(uri)
+                            } else {
+                                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+                    ) {
+                        Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Text("Camera", style = MaterialTheme.typography.labelSmall)
+                    }
+
+                    OutlinedButton(
+                        onClick = { galleryLauncher.launch("image/*") },
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+                    ) {
+                        Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Text("Gallery", style = MaterialTheme.typography.labelSmall)
+                    }
+
+                    OutlinedButton(
+                        onClick = { filePickerLauncher.launch("*/*") },
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+                    ) {
+                        Icon(Icons.Default.AttachFile, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Text("File/PDF", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+
+                // Selected File Banner
+                val currentFileUri = attachedSavedFile?.fileUriString ?: docToEdit?.fileUri ?: ""
+                val currentFileSize = attachedSavedFile?.fileSize ?: docToEdit?.fileSize ?: 0L
+                val currentFileName = attachedSavedFile?.fileName ?: docToEdit?.fileUri?.substringAfterLast("/") ?: ""
+
+                if (currentFileUri.isNotBlank()) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                        shape = MaterialTheme.shapes.small,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Attached File:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                Text(currentFileName, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(DocumentFileHelper.formatFileSize(currentFileSize), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                } else {
+                    Text("No file attached yet. Please capture a photo or choose a file.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                }
+
+                if (fileErrorMessage.isNotBlank()) {
+                    Text(fileErrorMessage, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (docTitle.isBlank()) {
+                        Toast.makeText(context, "Please enter a document title", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+                    if (selectedVehicle == null) {
+                        Toast.makeText(context, "Please select a vehicle", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+
+                    val finalUri = attachedSavedFile?.fileUriString ?: docToEdit?.fileUri ?: ""
+                    val finalMime = attachedSavedFile?.mimeType ?: docToEdit?.mimeType ?: ""
+                    val finalSize = attachedSavedFile?.fileSize ?: docToEdit?.fileSize ?: 0L
+
+                    if (finalUri.isBlank()) {
+                        Toast.makeText(context, "Please attach a document file or photo", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+
+                    val vehicle = selectedVehicle!!
+
+                    if (docToEdit == null) {
+                        val newDoc = Document(
+                            vehicleId = vehicle.id,
+                            vehicleName = vehicle.vehicleName,
+                            docTitle = docTitle.trim(),
+                            docType = docCategory,
+                            issueDate = issueDate.trim(),
+                            expiryDate = expiryDate.trim(),
+                            notes = notes.trim(),
+                            fileUri = finalUri,
+                            mimeType = finalMime,
+                            fileSize = finalSize,
+                            reminderDaysBefore = reminderDaysBefore
+                        )
+                        viewModel.addDocument(newDoc)
+                        Toast.makeText(context, "Document added successfully", Toast.LENGTH_SHORT).show()
+                    } else {
+                        val updatedDoc = docToEdit.copy(
+                            vehicleId = vehicle.id,
+                            vehicleName = vehicle.vehicleName,
+                            docTitle = docTitle.trim(),
+                            docType = docCategory,
+                            issueDate = issueDate.trim(),
+                            expiryDate = expiryDate.trim(),
+                            notes = notes.trim(),
+                            fileUri = finalUri,
+                            mimeType = if (attachedSavedFile != null) finalMime else docToEdit.mimeType,
+                            fileSize = if (attachedSavedFile != null) finalSize else docToEdit.fileSize,
+                            reminderDaysBefore = reminderDaysBefore
+                        )
+                        viewModel.updateDocument(updatedDoc)
+                        Toast.makeText(context, "Document updated successfully", Toast.LENGTH_SHORT).show()
+                    }
+                    onSaved()
+                }
+            ) {
+                Text(if (docToEdit == null) "Save Document" else "Update")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
-private fun loadLocalImageBitmap(context: Context, uriString: String): ImageBitmap? {
+fun renderPdfPageToBitmap(context: Context, fileUriString: String): ImageBitmap? {
+    if (fileUriString.isBlank()) return null
     return try {
-        val uri = Uri.parse(uriString)
-        if (uri.scheme == "file") {
+        val uri = Uri.parse(fileUriString)
+        val pfd = if (uri.scheme == "file") {
             val file = File(uri.path ?: return null)
-            if (file.exists()) {
-                BitmapFactory.decodeFile(file.absolutePath)?.asImageBitmap()
-            } else null
+            if (!file.exists()) return null
+            ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
         } else {
-            val inputStream = context.contentResolver.openInputStream(uri)
-            val bitmap = BitmapFactory.decodeStream(inputStream)
-            inputStream?.close()
-            bitmap?.asImageBitmap()
+            context.contentResolver.openFileDescriptor(uri, "r")
+        } ?: return null
+
+        val renderer = PdfRenderer(pfd)
+        if (renderer.pageCount == 0) {
+            renderer.close()
+            pfd.close()
+            return null
         }
+        val page = renderer.openPage(0)
+        val density = context.resources.displayMetrics.density
+        val targetWidth = (page.width * density * 1.5f).toInt().coerceAtLeast(600)
+        val targetHeight = (page.height * density * 1.5f).toInt().coerceAtLeast(800)
+
+        val bitmap = android.graphics.Bitmap.createBitmap(targetWidth, targetHeight, android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bitmap)
+        canvas.drawColor(android.graphics.Color.WHITE)
+
+        page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+
+        page.close()
+        renderer.close()
+        pfd.close()
+        bitmap.asImageBitmap()
     } catch (e: Exception) {
         e.printStackTrace()
         null
     }
 }
 
-private fun openDocumentFile(context: Context, doc: Document) {
-    if (doc.fileUri.isBlank()) {
-        Toast.makeText(context, "No file attached to document", Toast.LENGTH_SHORT).show()
-        return
-    }
-
-    try {
-        val uri = Uri.parse(doc.fileUri)
-        val contentUri: Uri = if (uri.scheme == "file") {
-            val file = File(uri.path ?: "")
-            if (!file.exists()) {
-                Toast.makeText(context, "File does not exist on device storage", Toast.LENGTH_SHORT).show()
-                return
-            }
-            FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+fun loadBitmapFromUri(context: Context, uriString: String): ImageBitmap? {
+    if (uriString.isBlank()) return null
+    return try {
+        val uri = Uri.parse(uriString)
+        val inputStream = if (uri.scheme == "file") {
+            val file = File(uri.path ?: return null)
+            if (!file.exists()) return null
+            file.inputStream()
         } else {
-            uri
-        }
+            context.contentResolver.openInputStream(uri)
+        } ?: return null
 
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            val mime = if (doc.mimeType.isNotBlank()) doc.mimeType else "*/*"
-            setDataAndType(contentUri, mime)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        context.startActivity(Intent.createChooser(intent, "Open ${doc.docTitle}"))
+        val bitmap = BitmapFactory.decodeStream(inputStream)
+        inputStream.close()
+        bitmap?.asImageBitmap()
     } catch (e: Exception) {
         e.printStackTrace()
-        Toast.makeText(context, "Could not open document: ${e.message}", Toast.LENGTH_SHORT).show()
+        null
+    }
+}
+
+fun openDocumentInExternalApp(context: Context, uriString: String, mimeType: String) {
+    try {
+        val uri = Uri.parse(uriString)
+        val contentUri = if (uri.scheme == "file") {
+            val file = File(uri.path ?: return)
+            FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        } else uri
+
+        val type = if (mimeType.isNotBlank()) mimeType else "*/*"
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(contentUri, type)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(intent, "Open Document With"))
+    } catch (e: Exception) {
+        Toast.makeText(context, "No app available to open this document", Toast.LENGTH_SHORT).show()
+    }
+}
+
+fun createTempImageUri(context: Context): Uri? {
+    return try {
+        val cacheDir = File(context.cacheDir, "camera_photos").apply { if (!exists()) mkdirs() }
+        val tempFile = File(cacheDir, "photo_${System.currentTimeMillis()}.jpg")
+        FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", tempFile)
+    } catch (e: Exception) {
+        e.printStackTrace()
+        null
     }
 }

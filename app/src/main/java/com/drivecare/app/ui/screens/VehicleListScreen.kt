@@ -116,9 +116,11 @@ fun VehicleListScreen(
                 ) {
                     items(filteredVehicles, key = { it.id }) { v ->
                         val health = viewModel.calculateHealthScore(v, reminders, fuelEntries, maintenanceLogs, documents)
+                        val vehicleDocsCount = documents.count { it.vehicleId == v.id }
                         VehicleCard(
                             vehicle = v,
                             healthScore = health,
+                            docCount = vehicleDocsCount,
                             onProfileClick = { selectedVehicleForProfile = v },
                             onEditClick = { vehicleToEdit = v },
                             onDeleteClick = { vehicleToDelete = v },
@@ -207,6 +209,7 @@ fun VehicleListScreen(
 fun VehicleCard(
     vehicle: Vehicle,
     healthScore: Int,
+    docCount: Int = 0,
     onProfileClick: () -> Unit,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit,
@@ -252,16 +255,39 @@ fun VehicleCard(
                     }
                 }
 
-                Surface(
-                    color = if (healthScore >= 80) MaterialTheme.colorScheme.primaryContainer else if (healthScore >= 50) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.errorContainer,
-                    shape = MaterialTheme.shapes.small
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "$healthScore%",
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.labelSmall
-                    )
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = MaterialTheme.shapes.small
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                        ) {
+                            Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                text = "$docCount Docs",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Surface(
+                        color = if (healthScore >= 80) MaterialTheme.colorScheme.primaryContainer else if (healthScore >= 50) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.errorContainer,
+                        shape = MaterialTheme.shapes.small
+                    ) {
+                        Text(
+                            text = "$healthScore%",
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
                 }
             }
 

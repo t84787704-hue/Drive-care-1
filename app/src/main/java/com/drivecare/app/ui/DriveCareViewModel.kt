@@ -754,6 +754,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                 put("fileUri", d.fileUri)
                 put("mimeType", d.mimeType)
                 put("fileSize", d.fileSize)
+                put("reminderDaysBefore", d.reminderDaysBefore)
                 put("createdAt", d.createdAt)
             })
         }
@@ -1110,6 +1111,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                             fileUri = obj.optString("fileUri", ""),
                             mimeType = obj.optString("mimeType", ""),
                             fileSize = obj.optLong("fileSize", 0L),
+                            reminderDaysBefore = obj.optInt("reminderDaysBefore", 7),
                             createdAt = obj.optLong("createdAt", System.currentTimeMillis())
                         )
                         documentDao.insertDocument(d)
