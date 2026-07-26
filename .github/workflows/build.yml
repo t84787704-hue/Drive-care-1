@@ -36,39 +36,9 @@ jobs:
 
       - name: Ensure google-services.json Exists
         run: |
-          if [ ! -f app/google-services.json ]; then
-            mkdir -p app
-            cat << 'EOF' > app/google-services.json
-          {
-            "project_info": {
-              "project_number": "258091011057",
-              "project_id": "drivecare-1734e",
-              "storage_bucket": "drivecare-1734e.firebasestorage.app"
-            },
-            "client": [
-              {
-                "client_info": {
-                  "mobilesdk_app_id": "1:258091011057:android:5160477ee7ae39e1359250",
-                  "android_client_info": {
-                    "package_name": "com.drivecare.app"
-                  }
-                },
-                "oauth_client": [],
-                "api_key": [
-                  {
-                    "current_key": "AIzaSyCP1-IE6dGRnHYyrQWiKbQUcT6hr9mj1uc"
-                  }
-                ],
-                "services": {
-                  "appinvite_service": {
-                    "other_platform_oauth_client": []
-                  }
-                }
-              }
-            ],
-            "configuration_version": "1"
-          }
-          EOF
+          mkdir -p app
+          if [ -f google-services.json.base64 ]; then
+            tr -d '\r\n ' < google-services.json.base64 | base64 -d > app/google-services.json
           fi
 
       - name: Build Debug APK

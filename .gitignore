@@ -23,10 +23,12 @@ misc.xml
 deploymentTargetDropDown.xml
 render.experimental.xml
 
-# Keystore files
+# Keystore and secret base64 files
 *.jks
 *.keystore
 !debug.keystore
+!debug.keystore.base64
+!google-services.json.base64
 
 # Allow google-services.json to be committed to repository for CI/CD builds
 !google-services.json
