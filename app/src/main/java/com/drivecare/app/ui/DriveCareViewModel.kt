@@ -73,6 +73,43 @@ data class FuelEfficiencyStats(
     val totalSpent: Double
 )
 
+data class VehicleDeletionSummary(
+    val vehicleId: Long = 0L,
+    val vehicleName: String = "",
+    val vehicleImageUri: String = "",
+    val fuelCount: Int = 0,
+    val maintenanceCount: Int = 0,
+    val documentsCount: Int = 0,
+    val expensesCount: Int = 0,
+    val insuranceCount: Int = 0,
+    val remindersCount: Int = 0,
+    val geofencesCount: Int = 0,
+    val galleryCount: Int = 0,
+    val estimatedStorageBytes: Long = 0L
+) {
+    fun formattedStorageSize(): String = com.drivecare.app.utils.DocumentFileHelper.formatFileSize(estimatedStorageBytes)
+}
+
+enum class DeletionStage {
+    IDLE,
+    ANALYZING,
+    PREPARING,
+    ROOM_CLEANUP,
+    FIRESTORE_CLEANUP,
+    STORAGE_CLEANUP,
+    NOTIFICATION_CLEANUP,
+    SUCCESS,
+    FAILED
+}
+
+data class DeletionProgressState(
+    val isDeleting: Boolean = false,
+    val currentStage: DeletionStage = DeletionStage.IDLE,
+    val statusMessage: String = "",
+    val logs: List<String> = emptyList(),
+    val errorMessage: String? = null
+)
+
 class DriveCareViewModel(application: Application) : AndroidViewModel(application) {
     val db = AppDatabase.getDatabase(application)
 
@@ -86,6 +123,9 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     val syncState: StateFlow<SyncState> = syncManager.syncState
     val lastSyncTime: StateFlow<Long> = syncManager.lastSyncTime
     val isFirebaseAvailable: StateFlow<Boolean> = syncManager.isFirebaseAvailable
+
+    private val _deletionProgress = MutableStateFlow(DeletionProgressState())
+    val deletionProgress: StateFlow<DeletionProgressState> = _deletionProgress.asStateFlow()
 
     private val vehicleDao = db.vehicleDao()
     private val fuelDao = db.fuelDao()
@@ -281,36 +321,208 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun deleteVehicle(vehicle: Vehicle) {
-        viewModelScope.launch {
-            // Remove associated document files from internal storage
-            try {
-                val vehicleDocs = documentDao.getAllDocumentsSync().filter { it.vehicleId == vehicle.id }
-                vehicleDocs.forEach { doc ->
-                    com.drivecare.app.utils.DocumentFileHelper.deleteFileFromInternalStorage(doc.fileUri)
-                    syncManager.deleteSingleDocument(doc.id)
+    suspend fun computeVehicleDeletionSummary(vehicle: Vehicle): VehicleDeletionSummary {
+        return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val vId = vehicle.id
+            val fuelList = fuelDao.getAllFuelEntriesSync().filter { it.vehicleId == vId }
+            val maintList = maintenanceDao.getAllMaintenanceSync().filter { it.vehicleId == vId }
+            val docList = documentDao.getAllDocumentsSync().filter { it.vehicleId == vId }
+            val expList = expenseDao.getAllExpensesSync().filter { it.vehicleId == vId }
+            val insList = insurancePolicyDao.getAllInsurancePoliciesSync().filter { it.vehicleId == vId }
+            val remList = reminderDao.getAllRemindersSync().filter { it.vehicleId == vId }
+            val geoList = geofenceZoneDao.getGeofencesByVehicleSync(vId)
+
+            val galleryCount = docList.count { it.docType == "Gallery" || it.docType == "Photo" }
+            val documentsCount = docList.count { it.docType != "Gallery" && it.docType != "Photo" }
+
+            var storageBytes = 0L
+            docList.forEach { doc ->
+                if (doc.fileSize > 0) {
+                    storageBytes += doc.fileSize
+                } else if (doc.fileUri.isNotBlank()) {
+                    try {
+                        val uri = android.net.Uri.parse(doc.fileUri)
+                        if (uri.scheme == "file" && uri.path != null) {
+                            val f = java.io.File(uri.path!!)
+                            if (f.exists()) storageBytes += f.length()
+                        }
+                    } catch (_: Exception) {}
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
             }
 
-            vehicleDao.deleteVehicle(vehicle)
-            fuelDao.deleteByVehicle(vehicle.id)
-            maintenanceDao.deleteByVehicle(vehicle.id)
-            reminderDao.deleteByVehicle(vehicle.id)
-            documentDao.deleteByVehicle(vehicle.id)
-            expenseDao.deleteByVehicle(vehicle.id)
-            insurancePolicyDao.deleteByVehicle(vehicle.id)
-            geofenceZoneDao.deleteByVehicle(vehicle.id)
-            if (_selectedFuelVehicle.value?.id == vehicle.id) {
-                _selectedFuelVehicle.value = null
+            if (vehicle.imageUri.isNotBlank()) {
+                try {
+                    val uri = android.net.Uri.parse(vehicle.imageUri)
+                    if (uri.scheme == "file" && uri.path != null) {
+                        val f = java.io.File(uri.path!!)
+                        if (f.exists()) storageBytes += f.length()
+                    }
+                } catch (_: Exception) {}
             }
-            if (_selectedDocumentVehicleId.value == vehicle.id) {
-                _selectedDocumentVehicleId.value = null
+
+            insList.forEach { pol ->
+                if (pol.documentUri.isNotBlank()) {
+                    try {
+                        val uri = android.net.Uri.parse(pol.documentUri)
+                        if (uri.scheme == "file" && uri.path != null) {
+                            val f = java.io.File(uri.path!!)
+                            if (f.exists()) storageBytes += f.length()
+                        }
+                    } catch (_: Exception) {}
+                }
             }
-            syncManager.deleteSingleVehicle(vehicle.id)
-            triggerManualSync()
+
+            maintList.forEach { m ->
+                if (m.invoicePhotoUri.isNotBlank()) {
+                    try {
+                        val uri = android.net.Uri.parse(m.invoicePhotoUri)
+                        if (uri.scheme == "file" && uri.path != null) {
+                            val f = java.io.File(uri.path!!)
+                            if (f.exists()) storageBytes += f.length()
+                        }
+                    } catch (_: Exception) {}
+                }
+            }
+
+            VehicleDeletionSummary(
+                vehicleId = vId,
+                vehicleName = vehicle.vehicleName,
+                vehicleImageUri = vehicle.imageUri,
+                fuelCount = fuelList.size,
+                maintenanceCount = maintList.size,
+                documentsCount = documentsCount,
+                expensesCount = expList.size,
+                insuranceCount = insList.size,
+                remindersCount = remList.size,
+                geofencesCount = geoList.size,
+                galleryCount = galleryCount,
+                estimatedStorageBytes = storageBytes
+            )
         }
+    }
+
+    fun deleteVehicleAdvanced(vehicle: Vehicle, onComplete: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            val context = getApplication<Application>()
+            val logs = mutableListOf<String>()
+            fun addLog(msg: String) {
+                logs.add(msg)
+                syncManager.addAuditLog(msg)
+                _deletionProgress.value = _deletionProgress.value.copy(
+                    logs = logs.toList(),
+                    statusMessage = msg
+                )
+            }
+
+            try {
+                _deletionProgress.value = DeletionProgressState(
+                    isDeleting = true,
+                    currentStage = DeletionStage.PREPARING,
+                    statusMessage = "[DELETE START] Initiating advanced vehicle cleanup for ${vehicle.vehicleName}",
+                    logs = emptyList()
+                )
+                addLog("[DELETE START] Vehicle deletion requested for ID ${vehicle.id} (${vehicle.vehicleName})")
+
+                val vehicleDocs = documentDao.getAllDocumentsSync().filter { it.vehicleId == vehicle.id }
+                val vehicleInsurance = insurancePolicyDao.getAllInsurancePoliciesSync().filter { it.vehicleId == vehicle.id }
+                val vehicleMaintenance = maintenanceDao.getAllMaintenanceSync().filter { it.vehicleId == vehicle.id }
+                val vehicleReminders = reminderDao.getAllRemindersSync().filter { it.vehicleId == vehicle.id }
+                val vehicleGeofences = geofenceZoneDao.getGeofencesByVehicleSync(vehicle.id)
+
+                val remoteUrls = mutableListOf<String>()
+                if (vehicle.imageUri.isNotBlank()) remoteUrls.add(vehicle.imageUri)
+                vehicleDocs.forEach { if (it.fileUri.isNotBlank()) remoteUrls.add(it.fileUri) }
+                vehicleInsurance.forEach { if (it.documentUri.isNotBlank()) remoteUrls.add(it.documentUri) }
+                vehicleMaintenance.forEach { if (it.invoicePhotoUri.isNotBlank()) remoteUrls.add(it.invoicePhotoUri) }
+
+                // 1. Room DB & Local Internal Storage Cleanup
+                _deletionProgress.value = _deletionProgress.value.copy(currentStage = DeletionStage.ROOM_CLEANUP)
+                addLog("Deleting local files from internal storage...")
+                vehicleDocs.forEach { doc -> com.drivecare.app.utils.DocumentFileHelper.deleteFileFromInternalStorage(doc.fileUri) }
+                vehicleInsurance.forEach { pol -> com.drivecare.app.utils.DocumentFileHelper.deleteFileFromInternalStorage(pol.documentUri) }
+                vehicleMaintenance.forEach { m -> com.drivecare.app.utils.DocumentFileHelper.deleteFileFromInternalStorage(m.invoicePhotoUri) }
+                if (vehicle.imageUri.isNotBlank()) {
+                    com.drivecare.app.utils.DocumentFileHelper.deleteFileFromInternalStorage(vehicle.imageUri)
+                }
+
+                addLog("Purging Room Database tables for vehicle ${vehicle.id}...")
+                fuelDao.deleteByVehicle(vehicle.id)
+                maintenanceDao.deleteByVehicle(vehicle.id)
+                documentDao.deleteByVehicle(vehicle.id)
+                expenseDao.deleteByVehicle(vehicle.id)
+                insurancePolicyDao.deleteByVehicle(vehicle.id)
+                reminderDao.deleteByVehicle(vehicle.id)
+                geofenceZoneDao.deleteByVehicle(vehicle.id)
+                db.geofenceEventDao().deleteByVehicle(vehicle.id)
+                db.trackerLocationDao().deleteHistoryForVehicle(vehicle.id)
+                gpsTrackerDao.unassignTrackerFromVehicle(vehicle.id)
+                vehicleShareDao.deleteByVehicle(vehicle.id)
+                tripLogDao.deleteByVehicle(vehicle.id)
+                vehicleDao.deleteVehicle(vehicle)
+                addLog("[ROOM DELETE SUCCESS] Local database tables & internal files purged")
+
+                // 2. Firestore Cloud Cleanup
+                _deletionProgress.value = _deletionProgress.value.copy(currentStage = DeletionStage.FIRESTORE_CLEANUP)
+                addLog("Deleting Firestore documents and linked subcollections...")
+                syncManager.deleteSingleVehicle(vehicle.id)
+                addLog("[FIRESTORE DELETE SUCCESS] Firestore cloud documents deleted")
+
+                // 3. Firebase Storage Cleanup
+                _deletionProgress.value = _deletionProgress.value.copy(currentStage = DeletionStage.STORAGE_CLEANUP)
+                if (remoteUrls.any { it.startsWith("https://firebasestorage.googleapis.com") || it.startsWith("gs://") }) {
+                    addLog("Deleting uploaded files from Firebase Storage...")
+                    syncManager.deleteStorageFilesForUrls(remoteUrls)
+                    addLog("[STORAGE DELETE SUCCESS] Firebase Storage objects deleted")
+                } else {
+                    addLog("[STORAGE DELETE SUCCESS] No remote Firebase Storage objects found")
+                }
+
+                // 4. Notification & Geofence Cleanup
+                _deletionProgress.value = _deletionProgress.value.copy(currentStage = DeletionStage.NOTIFICATION_CLEANUP)
+                addLog("Cancelling pending notifications & geofence alerts...")
+                val notificationManager = androidx.core.app.NotificationManagerCompat.from(context)
+                vehicleReminders.forEach { r -> notificationManager.cancel((10000 + r.id).toInt()) }
+                vehicleDocs.forEach { d -> notificationManager.cancel((20000 + d.id).toInt()) }
+                vehicleInsurance.forEach { p -> notificationManager.cancel((30000 + p.id).toInt()) }
+                vehicleGeofences.forEach { g: com.drivecare.app.data.model.GeofenceZone -> GeofenceManager.unregisterGeofence(context, g.id) }
+                addLog("[NOTIFICATIONS REMOVED] Active alerts and geofences unregistered")
+
+                // 5. App State Refresh
+                if (_selectedFuelVehicle.value?.id == vehicle.id) {
+                    _selectedFuelVehicle.value = null
+                }
+                if (_selectedDocumentVehicleId.value == vehicle.id) {
+                    _selectedDocumentVehicleId.value = null
+                }
+                triggerManualSync()
+
+                addLog("[DELETE COMPLETE] Advanced vehicle deletion successfully finished")
+                _deletionProgress.value = _deletionProgress.value.copy(
+                    isDeleting = false,
+                    currentStage = DeletionStage.SUCCESS,
+                    statusMessage = "[DELETE COMPLETE] Vehicle ${vehicle.vehicleName} deleted successfully"
+                )
+                onComplete(true)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                val errorMsg = e.message ?: "Unknown deletion failure"
+                addLog("[DELETE FAILED] Error deleting vehicle: $errorMsg")
+                _deletionProgress.value = _deletionProgress.value.copy(
+                    isDeleting = false,
+                    currentStage = DeletionStage.FAILED,
+                    errorMessage = errorMsg
+                )
+                onComplete(false)
+            }
+        }
+    }
+
+    fun resetDeletionProgress() {
+        _deletionProgress.value = DeletionProgressState()
+    }
+
+    fun deleteVehicle(vehicle: Vehicle) {
+        deleteVehicleAdvanced(vehicle)
     }
 
     fun addFuelEntry(entry: FuelEntry) {

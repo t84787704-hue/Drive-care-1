@@ -42,6 +42,7 @@ import com.drivecare.app.utils.AppStrings
 import com.drivecare.app.utils.DocumentFileHelper
 import com.drivecare.app.utils.PdfReportGenerator
 import com.drivecare.app.utils.VehicleTypeHelper
+import com.drivecare.app.ui.components.AdvancedVehicleDeleteDialog
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -405,28 +406,15 @@ fun VehicleDetailScreen(
     }
 
     if (showDeleteConfirmDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirmDialog = false },
-            title = { Text(AppStrings.get("delete_vehicle", lang).ifBlank { "Delete Vehicle" }) },
-            text = {
-                Text("Are you sure you want to delete ${vehicle.vehicleName}? This will permanently remove the vehicle and ALL associated fuel logs, maintenance records, documents, expenses, insurance policies, reminders, and geofences from both local storage and cloud sync.")
-            },
-            confirmButton = {
-                Button(
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                    onClick = {
-                        viewModel.deleteVehicle(vehicle)
-                        showDeleteConfirmDialog = false
-                        onBackClick()
-                    }
-                ) {
-                    Text(AppStrings.get("delete_vehicle", lang).ifBlank { "Delete" })
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirmDialog = false }) {
-                    Text(AppStrings.get("cancel", lang).ifBlank { "Cancel" })
-                }
+        AdvancedVehicleDeleteDialog(
+            vehicle = vehicle,
+            viewModel = viewModel,
+            lang = lang,
+            onDismiss = { showDeleteConfirmDialog = false },
+            onDeletedSuccessfully = {
+                showDeleteConfirmDialog = false
+                Toast.makeText(context, "Vehicle ${vehicle.vehicleName} deleted successfully", Toast.LENGTH_SHORT).show()
+                onBackClick()
             }
         )
     }

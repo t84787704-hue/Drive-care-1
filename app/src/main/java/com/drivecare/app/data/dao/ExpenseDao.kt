@@ -9,6 +9,9 @@ interface ExpenseDao {
     @Query("SELECT * FROM expenses ORDER BY id DESC")
     fun getAllExpenses(): Flow<List<Expense>>
 
+    @Query("SELECT * FROM expenses ORDER BY id DESC")
+    suspend fun getAllExpensesSync(): List<Expense>
+
     @Query("SELECT * FROM expenses WHERE vehicleId = :vehicleId ORDER BY id DESC")
     fun getExpensesForVehicle(vehicleId: Long): Flow<List<Expense>>
 

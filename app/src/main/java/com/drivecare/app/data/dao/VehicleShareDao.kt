@@ -17,4 +17,7 @@ interface VehicleShareDao {
 
     @Delete
     suspend fun deleteShare(share: VehicleShare)
+
+    @Query("DELETE FROM vehicle_shares WHERE vehicleId = :vehicleId")
+    suspend fun deleteByVehicle(vehicleId: Long)
 }

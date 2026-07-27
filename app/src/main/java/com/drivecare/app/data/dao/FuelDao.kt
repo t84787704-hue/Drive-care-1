@@ -13,6 +13,9 @@ interface FuelDao {
     @Query("SELECT * FROM fuel_entries ORDER BY id DESC")
     fun getAllFuelEntries(): Flow<List<FuelEntry>>
 
+    @Query("SELECT * FROM fuel_entries ORDER BY id DESC")
+    suspend fun getAllFuelEntriesSync(): List<FuelEntry>
+
     @Query("SELECT * FROM fuel_entries WHERE vehicleId = :vehicleId ORDER BY id DESC")
     fun getFuelEntriesByVehicle(vehicleId: Long): Flow<List<FuelEntry>>
 

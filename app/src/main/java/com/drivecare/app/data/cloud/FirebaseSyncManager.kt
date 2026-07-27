@@ -797,7 +797,7 @@ class FirebaseSyncManager private constructor() {
             val userRef = firestore?.collection("users")?.document(user.uid) ?: return@withContext
             userRef.collection("vehicles").document(vehicleId.toString()).delete().await()
 
-            val childCollections = listOf("fuelEntries", "maintenance", "documents", "expenses", "insurancePolicies", "reminders", "geofences")
+            val childCollections = listOf("fuelEntries", "maintenance", "documents", "expenses", "insurancePolicies", "reminders", "geofences", "vehicleShares", "tripLogs")
             childCollections.forEach { col ->
                 try {
                     val querySnap = userRef.collection(col).whereEqualTo("vehicleId", vehicleId).get().await()
@@ -808,9 +808,24 @@ class FirebaseSyncManager private constructor() {
                     e.printStackTrace()
                 }
             }
-            addAuditLog("[REALTIME DELETE] Removed vehicle ID $vehicleId and linked records from Firestore")
+            addAuditLog("[FIRESTORE DELETE SUCCESS] Removed vehicle ID $vehicleId and linked subcollections from Firestore")
         } catch (e: Exception) {
             addAuditLog("[REALTIME ERROR] Vehicle delete failed: ${e.message}")
+            throw e
+        }
+    }
+
+    suspend fun deleteStorageFilesForUrls(urls: List<String>) = withContext(Dispatchers.IO) {
+        val st = firebaseStorage ?: return@withContext
+        urls.distinct().filter { it.isNotBlank() }.forEach { url ->
+            try {
+                if (url.startsWith("https://firebasestorage.googleapis.com") || url.startsWith("gs://")) {
+                    st.getReferenceFromUrl(url).delete().await()
+                    addAuditLog("[STORAGE DELETE SUCCESS] Deleted Firebase Storage object: $url")
+                }
+            } catch (e: Exception) {
+                Log.w("FirebaseSyncManager", "Storage file delete error: ${e.message}")
+            }
         }
     }
 

@@ -17,4 +17,7 @@ interface TripLogDao {
 
     @Delete
     suspend fun deleteTrip(trip: TripLog)
+
+    @Query("DELETE FROM trip_logs WHERE vehicleId = :vehicleId")
+    suspend fun deleteByVehicle(vehicleId: Long)
 }

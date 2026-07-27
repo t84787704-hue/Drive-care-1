@@ -12,6 +12,12 @@ interface GeofenceZoneDao {
     @Query("SELECT * FROM geofence_zones WHERE vehicleId = :vehicleId ORDER BY id DESC")
     fun getGeofencesByVehicle(vehicleId: Long): Flow<List<GeofenceZone>>
 
+    @Query("SELECT * FROM geofence_zones WHERE vehicleId = :vehicleId ORDER BY id DESC")
+    suspend fun getGeofencesByVehicleSync(vehicleId: Long): List<GeofenceZone>
+
+    @Query("SELECT * FROM geofence_zones ORDER BY id DESC")
+    suspend fun getAllGeofencesSync(): List<GeofenceZone>
+
     @Query("SELECT * FROM geofence_zones WHERE vehicleId = :vehicleId AND isActive = 1 ORDER BY id DESC")
     suspend fun getActiveGeofencesByVehicleSync(vehicleId: Long): List<GeofenceZone>
 

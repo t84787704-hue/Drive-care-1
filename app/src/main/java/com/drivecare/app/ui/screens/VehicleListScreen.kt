@@ -25,6 +25,7 @@ import com.drivecare.app.utils.AppStrings
 import com.drivecare.app.utils.LocalAppLanguage
 import com.drivecare.app.utils.PdfReportGenerator
 import com.drivecare.app.utils.VehicleTypeHelper
+import com.drivecare.app.ui.components.AdvancedVehicleDeleteDialog
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -175,25 +176,14 @@ fun VehicleListScreen(
 
     // Delete Confirmation Dialog
     vehicleToDelete?.let { v ->
-        AlertDialog(
-            onDismissRequest = { vehicleToDelete = null },
-            title = { Text(AppStrings.get("confirm_delete_title", lang)) },
-            text = { Text(AppStrings.get("confirm_delete_msg", lang)) },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.deleteVehicle(v)
-                        vehicleToDelete = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text(AppStrings.get("delete", lang))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { vehicleToDelete = null }) {
-                    Text(AppStrings.get("cancel", lang))
-                }
+        AdvancedVehicleDeleteDialog(
+            vehicle = v,
+            viewModel = viewModel,
+            lang = lang,
+            onDismiss = { vehicleToDelete = null },
+            onDeletedSuccessfully = {
+                vehicleToDelete = null
+                Toast.makeText(context, "Vehicle ${v.vehicleName} removed completely", Toast.LENGTH_SHORT).show()
             }
         )
     }
