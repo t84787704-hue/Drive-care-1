@@ -62,10 +62,18 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         // Schedule WorkManager system notification worker
-        DriveCareNotificationScheduler.schedulePeriodicCheck(this)
+        try {
+            DriveCareNotificationScheduler.schedulePeriodicCheck(this)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
 
         // Process notification intent if launched from a notification
-        processIntent(intent)
+        try {
+            processIntent(intent)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
 
         // Request POST_NOTIFICATIONS permission on Android 13+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

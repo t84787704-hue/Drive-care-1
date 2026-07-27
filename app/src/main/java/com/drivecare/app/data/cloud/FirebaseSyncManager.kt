@@ -104,11 +104,16 @@ class FirebaseSyncManager private constructor() {
         prefs = appContext.getSharedPreferences("drivecare_auth_prefs", Context.MODE_PRIVATE)
 
         try {
+            if (com.google.firebase.FirebaseApp.getApps(appContext).isEmpty()) {
+                com.google.firebase.FirebaseApp.initializeApp(appContext)
+            }
             firebaseAuth = FirebaseAuth.getInstance()
             firestore = FirebaseFirestore.getInstance()
             firebaseStorage = FirebaseStorage.getInstance()
+            _isFirebaseAvailable.value = true
             addAuditLog("[INIT] Firebase Auth, Firestore, and Storage initialized successfully.")
         } catch (e: Exception) {
+            _isFirebaseAvailable.value = false
             Log.w("FirebaseSyncManager", "Firebase services initialization info: ${e.message}")
             addAuditLog("[INIT WARN] Firebase services fallback: ${e.message}")
         }

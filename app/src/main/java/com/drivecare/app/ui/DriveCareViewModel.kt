@@ -75,6 +75,18 @@ data class FuelEfficiencyStats(
 
 class DriveCareViewModel(application: Application) : AndroidViewModel(application) {
     val db = AppDatabase.getDatabase(application)
+
+    // --- Firebase Auth & Cloud Sync Integration ---
+    val syncManager = FirebaseSyncManager.getInstance().apply {
+        init(application)
+    }
+
+    val currentUser: StateFlow<CloudUser?> = syncManager.currentUser
+    val userProfile: StateFlow<UserProfile?> = syncManager.userProfile
+    val syncState: StateFlow<SyncState> = syncManager.syncState
+    val lastSyncTime: StateFlow<Long> = syncManager.lastSyncTime
+    val isFirebaseAvailable: StateFlow<Boolean> = syncManager.isFirebaseAvailable
+
     private val vehicleDao = db.vehicleDao()
     private val fuelDao = db.fuelDao()
     private val maintenanceDao = db.maintenanceDao()
@@ -196,17 +208,29 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     init {
         // Synchronize Geofences with Google Play Services GeofencingClient
         viewModelScope.launch {
-            geofenceZones.collect { zones ->
-                GeofenceManager.syncAllGeofences(getApplication(), zones)
+            try {
+                geofenceZones.collect { zones ->
+                    GeofenceManager.syncAllGeofences(getApplication(), zones)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
 
         // Auto-Sync on User Login / Launch
         viewModelScope.launch {
-            syncManager.currentUser.collect { user ->
-                if (user != null) {
-                    syncManager.performFullBidirectionalSync(getApplication(), db)
+            try {
+                syncManager.currentUser.collect { user ->
+                    if (user != null && user.uid.isNotBlank()) {
+                        try {
+                            syncManager.performFullBidirectionalSync(getApplication(), db)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
                 }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
 
@@ -1523,15 +1547,6 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     // --- Firebase Auth & Cloud Sync Integration ---
-    val syncManager = FirebaseSyncManager.getInstance().apply {
-        init(application)
-    }
-
-    val currentUser: StateFlow<CloudUser?> = syncManager.currentUser
-    val userProfile: StateFlow<UserProfile?> = syncManager.userProfile
-    val syncState: StateFlow<SyncState> = syncManager.syncState
-    val lastSyncTime: StateFlow<Long> = syncManager.lastSyncTime
-    val isFirebaseAvailable: StateFlow<Boolean> = syncManager.isFirebaseAvailable
 
     fun signInWithEmail(email: String, pass: String, onResult: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
