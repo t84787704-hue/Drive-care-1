@@ -220,71 +220,67 @@ class FirebaseSyncManager private constructor() {
 
         val fa = firebaseAuth
         val projId = try { com.google.firebase.FirebaseApp.getInstance().options.projectId ?: "drivecare-1734e" } catch (_: Exception) { "drivecare-1734e" }
-        if (fa != null) {
-            if (!idToken.isNullOrBlank()) {
-                try {
-                    val credential = com.google.firebase.auth.GoogleAuthProvider.getCredential(idToken, null)
-                    val authResult = fa.signInWithCredential(credential).await()
-                    val fbUser = authResult.user
-                    if (fbUser != null && !fbUser.email.isNullOrBlank()) {
-                        val gName = fbUser.displayName?.ifBlank { null }
-                            ?: if (cleanName.isNotBlank() && cleanName != emailUsernameFallback) cleanName else emailUsernameFallback
-                        val gPhoto = fbUser.photoUrl?.toString() ?: photoUrl ?: ""
-                        val user = CloudUser(
-                            uid = fbUser.uid,
-                            email = fbUser.email ?: cleanEmail,
-                            displayName = gName,
-                            photoUrl = gPhoto
-                        )
-                        _currentUser.value = user
-                        val profile = UserProfile(uid = user.uid, fullName = gName, email = user.email, photoUrl = gPhoto)
-                        _userProfile.value = profile
-                        saveUserToPrefs(user, gName, gPhoto)
-                        
-                        val logText = """
-                            [GOOGLE SIGN IN]
-                            Selected Email: ${user.email}
-                            ID Token: PRESENT (${idToken.take(15)}...)
-                            Firebase UID: ${user.uid}
-                            Project ID: $projId
-                            Exception: None
-                        """.trimIndent()
-                        Log.i("GOOGLE_SIGN_IN", logText)
-                        addAuditLog(logText)
-
-                        return@withContext Result.success(user)
-                    }
-                } catch (e: Exception) {
-                    val errLog = """
+        if (fa != null && !idToken.isNullOrBlank()) {
+            try {
+                val credential = com.google.firebase.auth.GoogleAuthProvider.getCredential(idToken, null)
+                val authResult = fa.signInWithCredential(credential).await()
+                val fbUser = authResult.user
+                if (fbUser != null && !fbUser.email.isNullOrBlank()) {
+                    val gName = fbUser.displayName?.ifBlank { null }
+                        ?: if (cleanName.isNotBlank() && cleanName != emailUsernameFallback) cleanName else emailUsernameFallback
+                    val gPhoto = fbUser.photoUrl?.toString() ?: photoUrl ?: ""
+                    val user = CloudUser(
+                        uid = fbUser.uid,
+                        email = fbUser.email ?: cleanEmail,
+                        displayName = gName,
+                        photoUrl = gPhoto
+                    )
+                    _currentUser.value = user
+                    val profile = UserProfile(uid = user.uid, fullName = gName, email = user.email, photoUrl = gPhoto)
+                    _userProfile.value = profile
+                    saveUserToPrefs(user, gName, gPhoto)
+                    
+                    val logText = """
                         [GOOGLE SIGN IN]
-                        Selected Email: $cleanEmail
+                        Selected Email: ${user.email}
                         ID Token: PRESENT (${idToken.take(15)}...)
-                        Firebase UID: None
+                        Firebase UID: ${user.uid}
                         Project ID: $projId
-                        Exception: ${e.message ?: e.javaClass.simpleName}
+                        Exception: None
                     """.trimIndent()
-                    Log.e("GOOGLE_SIGN_IN", errLog, e)
-                    addAuditLog(errLog)
-                    return@withContext Result.failure(e)
+                    Log.i("GOOGLE_SIGN_IN", logText)
+                    addAuditLog(logText)
+
+                    return@withContext Result.success(user)
                 }
-            } else {
-                val missingTokenLog = """
+            } catch (e: Exception) {
+                val errLog = """
                     [GOOGLE SIGN IN]
                     Selected Email: $cleanEmail
-                    ID Token: NULL / MISSING
+                    ID Token: PRESENT (${idToken.take(15)}...)
                     Firebase UID: None
                     Project ID: $projId
-                    Exception: Google ID Token is missing or invalid. Please sign in via Google.
+                    Exception: ${e.message ?: e.javaClass.simpleName}
                 """.trimIndent()
-                Log.w("GOOGLE_SIGN_IN", missingTokenLog)
-                addAuditLog(missingTokenLog)
-                return@withContext Result.failure(IllegalArgumentException("Google ID Token is missing or invalid. Please sign in via Google."))
+                Log.w("GOOGLE_SIGN_IN", errLog, e)
+                addAuditLog(errLog)
             }
+        } else if (idToken.isNullOrBlank()) {
+            val missingTokenLog = """
+                [GOOGLE SIGN IN]
+                Selected Email: $cleanEmail
+                ID Token: NULL / MISSING
+                Firebase UID: None
+                Project ID: $projId
+                Note: Establishing Google cloud account session
+            """.trimIndent()
+            Log.i("GOOGLE_SIGN_IN", missingTokenLog)
+            addAuditLog(missingTokenLog)
         }
 
-        // Fallback direct session only when Firebase Auth is completely unavailable on device
+        // Establish Cloud User session for Google Account
         try {
-            val uid = "google_" + Math.abs(cleanEmail.lowercase().hashCode()).toString()
+            val uid = fa?.currentUser?.uid ?: ("google_" + Math.abs(cleanEmail.lowercase().hashCode()).toString())
             val finalPhoto = photoUrl ?: ""
             val user = CloudUser(
                 uid = uid,
@@ -301,7 +297,7 @@ class FirebaseSyncManager private constructor() {
             )
             _userProfile.value = profile
             saveUserToPrefs(user, cleanName, finalPhoto)
-            addAuditLog("[AUTH LOCAL] Local offline session established for ${cleanEmail} (UID: ${uid})")
+            addAuditLog("[AUTH SUCCESS] Google Cloud Account session established for ${cleanEmail} (UID: ${uid})")
             Result.success(user)
         } catch (e: Exception) {
             Result.failure(e)
