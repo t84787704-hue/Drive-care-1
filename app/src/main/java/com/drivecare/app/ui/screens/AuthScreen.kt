@@ -144,6 +144,10 @@ fun AuthScreen(
         Log.i("GOOGLE_SIGN_IN", logOutput)
 
         if (!selectedEmail.isNullOrBlank()) {
+            Log.i("GOOGLE_SIGN_IN", "[GOOGLE ACCOUNT SELECTED]\nEmail: $selectedEmail")
+            if (!idToken.isNullOrBlank()) {
+                Log.i("GOOGLE_SIGN_IN", "[ID TOKEN RECEIVED]\nToken: ${idToken.take(15)}...")
+            }
             val finalEmail = selectedEmail
             val emailUsernameFallback = finalEmail.substringBefore("@")
                 .replace(".", " ")
@@ -382,6 +386,7 @@ fun AuthScreen(
         OutlinedButton(
             onClick = {
                 try {
+                    Log.i("GOOGLE_SIGN_IN", "[GOOGLE SIGN IN START]\nLaunching Google Sign-In Intent with Web Client ID: $defaultWebClientId")
                     googleSignInClient.signOut().addOnCompleteListener {
                         googleLauncher.launch(googleSignInClient.signInIntent)
                     }

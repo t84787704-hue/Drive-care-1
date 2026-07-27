@@ -249,7 +249,10 @@ class FirebaseSyncManager private constructor() {
                         Exception: None
                     """.trimIndent()
                     Log.i("GOOGLE_SIGN_IN", logText)
+                    val authSuccessLog = "[AUTH SUCCESS]\nUID=${user.uid}\nEMAIL=${user.email}"
+                    Log.i("FIREBASE_AUTH", authSuccessLog)
                     addAuditLog(logText)
+                    addAuditLog(authSuccessLog)
 
                     return@withContext Result.success(user)
                 }
@@ -563,6 +566,8 @@ class FirebaseSyncManager private constructor() {
                     vehiclesRestored++
                 }
             }
+            Log.i("FIRESTORE_SYNC", "[FIRESTORE VEHICLES FOUND]\ncount=$vehiclesRestored")
+            Log.i("ROOM_RESTORE", "[ROOM RESTORE SUCCESS]\nvehiclesRestored=$vehiclesRestored")
 
             // 2. Restore Fuel Entries
             val fuelDocs = userRef.collection("fuelEntries").get().await()
