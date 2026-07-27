@@ -30,6 +30,59 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Restore Config Files (google-services.json & debug.keystore)
+        run: |
+          mkdir -p app/src
+          if [ -f "google-services.json.base64" ]; then
+            echo "Decoding google-services.json.base64..."
+            base64 -d google-services.json.base64 > app/google-services.json
+            base64 -d google-services.json.base64 > app/src/google-services.json
+          elif [ -f "google-services.json" ]; then
+            cp google-services.json app/google-services.json
+            cp google-services.json app/src/google-services.json
+          fi
+
+          if [ -f "debug.keystore.base64" ]; then
+            echo "Decoding debug.keystore.base64..."
+            base64 -d debug.keystore.base64 > app/debug.keystore
+          fi
+
+          if [ ! -f "app/google-services.json" ] && [ ! -f "app/src/google-services.json" ]; then
+            echo "Generating fallback google-services.json for build..."
+            cat << 'EOF' > app/src/google-services.json
+          {
+            "project_info": {
+              "project_number": "000000000000",
+              "project_id": "drivecare-app",
+              "storage_bucket": "drivecare-app.appspot.com"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
+                  "android_client_info": {
+                    "package_name": "com.drivecare.app"
+                  }
+                },
+                "oauth_client": [],
+                "api_key": [
+                  {
+                    "current_key": "AIzaSyDummyKeyForBuildOnly1234567890"
+                  }
+                ],
+                "services": {
+                  "appinvite_service": {
+                    "other_platform_oauth_client": []
+                  }
+                }
+              }
+            ],
+            "configuration_version": "1"
+          }
+          EOF
+            cp app/src/google-services.json app/google-services.json
+          fi
+
       - name: Build Release APK
         run: ./gradlew assembleRelease --stacktrace
 
