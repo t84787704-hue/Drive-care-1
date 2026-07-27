@@ -382,22 +382,12 @@ fun AuthScreen(
         OutlinedButton(
             onClick = {
                 try {
-                    val chooserIntent = AccountManager.newChooseAccountIntent(
-                        null,
-                        null,
-                        arrayOf("com.google"),
-                        true,
-                        null,
-                        null,
-                        null,
-                        null
-                    )
-                    googleLauncher.launch(chooserIntent)
+                    googleSignInClient.signOut().addOnCompleteListener {
+                        googleLauncher.launch(googleSignInClient.signInIntent)
+                    }
                 } catch (e: Exception) {
                     try {
-                        googleSignInClient.signOut().addOnCompleteListener {
-                            googleLauncher.launch(googleSignInClient.signInIntent)
-                        }
+                        googleLauncher.launch(googleSignInClient.signInIntent)
                     } catch (_: Exception) {
                         val defaultEmail = if (deviceAccounts.isNotEmpty()) deviceAccounts[0].name else (if (email.contains("@")) email else "")
                         googleEmailInput = defaultEmail
@@ -462,25 +452,34 @@ fun AuthScreen(
                                     val gEmail = acc.name
                                     val lastAcc = try { GoogleSignIn.getLastSignedInAccount(context) } catch (_: Exception) { null }
                                     val matchingAcc = if (lastAcc?.email.equals(gEmail, ignoreCase = true)) lastAcc else null
+                                    val idToken = matchingAcc?.idToken
 
-                                    val realDisplayName = matchingAcc?.displayName?.ifBlank { null }
-                                    val realPhotoUrl = matchingAcc?.photoUrl?.toString()
-
-                                    val emailUsernameFallback = gEmail.substringBefore("@")
-                                        .replace(".", " ")
-                                        .replace("-", " ")
-                                        .replace("_", " ")
-                                        .split(" ")
-                                        .joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
-
-                                    val gName = realDisplayName ?: emailUsernameFallback
                                     showGoogleDialog = false
-                                    viewModel.signInWithGoogleAccount(gEmail, gName, realPhotoUrl) { success, msg ->
-                                        if (success) {
-                                            Toast.makeText(context, "Signed in as $gEmail!", Toast.LENGTH_LONG).show()
-                                            onAuthSuccess()
-                                        } else {
-                                            Toast.makeText(context, msg ?: "Sign in failed", Toast.LENGTH_SHORT).show()
+                                    if (!idToken.isNullOrBlank()) {
+                                        val realDisplayName = matchingAcc?.displayName?.ifBlank { null }
+                                        val realPhotoUrl = matchingAcc?.photoUrl?.toString()
+                                        val emailUsernameFallback = gEmail.substringBefore("@")
+                                            .replace(".", " ")
+                                            .replace("-", " ")
+                                            .replace("_", " ")
+                                            .split(" ")
+                                            .joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+                                        val gName = realDisplayName ?: emailUsernameFallback
+                                        viewModel.signInWithGoogleAccount(idToken, gEmail, gName, realPhotoUrl) { success, msg ->
+                                            if (success) {
+                                                Toast.makeText(context, "Signed in as $gEmail!", Toast.LENGTH_LONG).show()
+                                                onAuthSuccess()
+                                            } else {
+                                                Toast.makeText(context, msg ?: "Sign in failed", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    } else {
+                                        try {
+                                            googleSignInClient.signOut().addOnCompleteListener {
+                                                googleLauncher.launch(googleSignInClient.signInIntent)
+                                            }
+                                        } catch (_: Exception) {
+                                            googleLauncher.launch(googleSignInClient.signInIntent)
                                         }
                                     }
                                 },
