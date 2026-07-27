@@ -280,7 +280,14 @@ fun DocumentsScreen(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
                         modifier = Modifier.weight(1f),
-                        placeholder = { Text("Search documents, vehicles, notes...") },
+                        placeholder = {
+                            Text(
+                                "Search documents, vehicles, notes...",
+                                style = MaterialTheme.typography.bodyMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        },
                         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                         trailingIcon = {
                             if (searchQuery.isNotEmpty()) {
@@ -289,7 +296,8 @@ fun DocumentsScreen(
                                 }
                             }
                         },
-                        singleLine = true
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp)
                     )
 
                     Box {
