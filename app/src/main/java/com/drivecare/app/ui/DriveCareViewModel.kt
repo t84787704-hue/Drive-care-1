@@ -74,7 +74,7 @@ data class FuelEfficiencyStats(
 )
 
 class DriveCareViewModel(application: Application) : AndroidViewModel(application) {
-    private val db = AppDatabase.getDatabase(application)
+    val db = AppDatabase.getDatabase(application)
     private val vehicleDao = db.vehicleDao()
     private val fuelDao = db.fuelDao()
     private val maintenanceDao = db.maintenanceDao()
@@ -201,6 +201,15 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
 
+        // Auto-Sync on User Login / Launch
+        viewModelScope.launch {
+            syncManager.currentUser.collect { user ->
+                if (user != null) {
+                    syncManager.performFullBidirectionalSync(getApplication(), db)
+                }
+            }
+        }
+
         // Seed default emergency contacts if none exist
         viewModelScope.launch {
             try {
@@ -227,7 +236,11 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun addVehicle(vehicle: Vehicle) {
-        viewModelScope.launch { vehicleDao.insertVehicle(vehicle) }
+        viewModelScope.launch {
+            val newId = vehicleDao.insertVehicle(vehicle)
+            val v = if (vehicle.id == 0L) vehicle.copy(id = newId) else vehicle
+            syncManager.uploadSingleVehicle(v)
+        }
     }
 
     fun updateVehicle(vehicle: Vehicle) {
@@ -236,6 +249,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
             if (_selectedFuelVehicle.value?.id == vehicle.id) {
                 _selectedFuelVehicle.value = vehicle
             }
+            syncManager.uploadSingleVehicle(vehicle)
         }
     }
 
@@ -246,6 +260,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                 val vehicleDocs = documentDao.getAllDocumentsSync().filter { it.vehicleId == vehicle.id }
                 vehicleDocs.forEach { doc ->
                     com.drivecare.app.utils.DocumentFileHelper.deleteFileFromInternalStorage(doc.fileUri)
+                    syncManager.deleteSingleDocument(doc.id)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -265,71 +280,98 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
             if (_selectedDocumentVehicleId.value == vehicle.id) {
                 _selectedDocumentVehicleId.value = null
             }
+            syncManager.deleteSingleVehicle(vehicle.id)
         }
     }
 
     fun addFuelEntry(entry: FuelEntry) {
-        viewModelScope.launch { fuelDao.insertFuelEntry(entry) }
+        viewModelScope.launch {
+            val id = fuelDao.insertFuelEntry(entry)
+            val f = if (entry.id == 0L) entry.copy(id = id) else entry
+            syncManager.uploadSingleFuelEntry(f)
+        }
     }
 
     fun deleteFuelEntry(entry: FuelEntry) {
-        viewModelScope.launch { fuelDao.deleteFuelEntry(entry) }
+        viewModelScope.launch {
+            fuelDao.deleteFuelEntry(entry)
+            syncManager.deleteSingleFuelEntry(entry.id)
+        }
     }
 
     fun addMaintenance(maintenance: Maintenance) {
         viewModelScope.launch {
-            maintenanceDao.insertMaintenance(maintenance)
+            val id = maintenanceDao.insertMaintenance(maintenance)
+            val m = if (maintenance.id == 0L) maintenance.copy(id = id) else maintenance
+            syncManager.uploadSingleMaintenance(m)
+
             // Auto-create reminder if next due date or reminder date is provided
-            val due = if (maintenance.reminderDate.isNotBlank()) maintenance.reminderDate else maintenance.nextDueServiceDate
+            val due = if (m.reminderDate.isNotBlank()) m.reminderDate else m.nextDueServiceDate
             if (due.isNotBlank()) {
-                reminderDao.insertReminder(
-                    Reminder(
-                        vehicleId = maintenance.vehicleId,
-                        vehicleName = maintenance.vehicleName,
-                        reminderTitle = "Next Service: ${maintenance.serviceTitle}",
-                        reminderType = "Service",
-                        dueDate = due
-                    )
+                val rem = Reminder(
+                    vehicleId = m.vehicleId,
+                    vehicleName = m.vehicleName,
+                    reminderTitle = "Next Service: ${m.serviceTitle}",
+                    reminderType = "Service",
+                    dueDate = due
                 )
+                val remId = reminderDao.insertReminder(rem)
+                syncManager.uploadSingleReminder(rem.copy(id = remId))
             }
         }
     }
 
     fun updateMaintenance(maintenance: Maintenance) {
-        viewModelScope.launch { maintenanceDao.updateMaintenance(maintenance) }
+        viewModelScope.launch {
+            maintenanceDao.updateMaintenance(maintenance)
+            syncManager.uploadSingleMaintenance(maintenance)
+        }
     }
 
     fun deleteMaintenance(maintenance: Maintenance) {
-        viewModelScope.launch { maintenanceDao.deleteMaintenance(maintenance) }
+        viewModelScope.launch {
+            maintenanceDao.deleteMaintenance(maintenance)
+            syncManager.deleteSingleMaintenance(maintenance.id)
+        }
     }
 
     fun addReminder(reminder: Reminder) {
-        viewModelScope.launch { reminderDao.insertReminder(reminder) }
+        viewModelScope.launch {
+            val id = reminderDao.insertReminder(reminder)
+            val r = if (reminder.id == 0L) reminder.copy(id = id) else reminder
+            syncManager.uploadSingleReminder(r)
+        }
     }
 
     fun toggleReminder(reminder: Reminder) {
         viewModelScope.launch {
-            reminderDao.updateReminder(reminder.copy(isCompleted = !reminder.isCompleted))
+            val updated = reminder.copy(isCompleted = !reminder.isCompleted)
+            reminderDao.updateReminder(updated)
+            syncManager.uploadSingleReminder(updated)
         }
     }
 
     fun deleteReminder(reminder: Reminder) {
-        viewModelScope.launch { reminderDao.deleteReminder(reminder) }
+        viewModelScope.launch {
+            reminderDao.deleteReminder(reminder)
+            syncManager.deleteSingleReminder(reminder.id)
+        }
     }
 
     fun addDocument(document: Document) {
         viewModelScope.launch {
             documentDao.insertDocument(document)
+            syncManager.uploadSingleDocument(getApplication(), document)
             if (document.expiryDate.isNotBlank()) {
-                reminderDao.insertReminder(
-                    Reminder(
-                        vehicleId = document.vehicleId,
-                        vehicleName = document.vehicleName,
-                        reminderTitle = "Document Renewal: ${document.docTitle}",
-                        reminderType = "Document",
-                        dueDate = document.expiryDate
-                    )
+                val rem = Reminder(
+                    vehicleId = document.vehicleId,
+                    vehicleName = document.vehicleName,
+                    reminderTitle = "Document Renewal: ${document.docTitle}",
+                    reminderType = "Document",
+                    dueDate = document.expiryDate
                 )
+                val remId = reminderDao.insertReminder(rem)
+                syncManager.uploadSingleReminder(rem.copy(id = remId))
             }
         }
     }
@@ -337,6 +379,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     fun updateDocument(document: Document) {
         viewModelScope.launch {
             documentDao.updateDocument(document)
+            syncManager.uploadSingleDocument(getApplication(), document)
         }
     }
 
@@ -344,6 +387,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             com.drivecare.app.utils.DocumentFileHelper.deleteFileFromInternalStorage(document.fileUri)
             documentDao.deleteDocument(document)
+            syncManager.deleteSingleDocument(document.id)
         }
     }
 
@@ -356,11 +400,18 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun addExpense(expense: Expense) {
-        viewModelScope.launch { expenseDao.insertExpense(expense) }
+        viewModelScope.launch {
+            val id = expenseDao.insertExpense(expense)
+            val e = if (expense.id == 0L) expense.copy(id = id) else expense
+            syncManager.uploadSingleExpense(e)
+        }
     }
 
     fun deleteExpense(expense: Expense) {
-        viewModelScope.launch { expenseDao.deleteExpense(expense) }
+        viewModelScope.launch {
+            expenseDao.deleteExpense(expense)
+            syncManager.deleteSingleExpense(expense.id)
+        }
     }
 
     // Driver Profiles
@@ -1341,7 +1392,9 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     // Insurance Methods
     fun addInsurancePolicy(policy: InsurancePolicy) {
         viewModelScope.launch {
-            insurancePolicyDao.insertPolicy(policy)
+            val id = insurancePolicyDao.insertPolicy(policy)
+            val p = if (policy.id == 0L) policy.copy(id = id) else policy
+            syncManager.uploadSingleInsurance(p)
             DriveCareNotificationScheduler.triggerImmediateCheck(getApplication())
         }
     }
@@ -1390,12 +1443,14 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     fun updateInsurancePolicy(policy: InsurancePolicy) {
         viewModelScope.launch {
             insurancePolicyDao.updatePolicy(policy)
+            syncManager.uploadSingleInsurance(policy)
         }
     }
 
     fun deleteInsurancePolicy(policy: InsurancePolicy) {
         viewModelScope.launch {
             insurancePolicyDao.deletePolicy(policy)
+            syncManager.deleteSingleInsurance(policy.id)
         }
     }
 
@@ -1568,16 +1623,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun triggerManualSync() {
         viewModelScope.launch {
-            val currentInsurance = insurancePolicies.value
-            syncManager.syncAllData(
-                vehicles = vehicles.value,
-                fuelEntries = fuelEntries.value,
-                maintenanceRecords = maintenanceLogs.value,
-                expenses = expenses.value,
-                documents = documents.value,
-                insurancePolicies = currentInsurance,
-                reminders = reminders.value
-            )
+            syncManager.performFullBidirectionalSync(getApplication(), db)
         }
     }
 }

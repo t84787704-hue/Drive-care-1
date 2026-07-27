@@ -2,17 +2,25 @@ package com.drivecare.app.data.cloud
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.net.Uri
 import android.util.Log
+import com.drivecare.app.data.db.AppDatabase
 import com.drivecare.app.data.model.*
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 data class CloudUser(
     val uid: String,
@@ -42,10 +50,6 @@ enum class SyncState {
     OFFLINE
 }
 
-/**
- * Firebase Cloud Account & Sync Architecture Manager
- * Provides persistent user account lifecycle, profile management, and cloud data synchronization.
- */
 class FirebaseSyncManager private constructor() {
 
     private val _currentUser = MutableStateFlow<CloudUser?>(null)
@@ -60,12 +64,28 @@ class FirebaseSyncManager private constructor() {
     private val _lastSyncTime = MutableStateFlow(0L)
     val lastSyncTime: StateFlow<Long> = _lastSyncTime.asStateFlow()
 
+    private val _lastDownloadTime = MutableStateFlow(0L)
+    val lastDownloadTime: StateFlow<Long> = _lastDownloadTime.asStateFlow()
+
+    private val _lastUploadTime = MutableStateFlow(0L)
+    val lastUploadTime: StateFlow<Long> = _lastUploadTime.asStateFlow()
+
+    private val _lastDownloadCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
+    val lastDownloadCounts: StateFlow<Map<String, Int>> = _lastDownloadCounts.asStateFlow()
+
+    private val _lastUploadCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
+    val lastUploadCounts: StateFlow<Map<String, Int>> = _lastUploadCounts.asStateFlow()
+
+    private val _auditLogs = MutableStateFlow<List<String>>(emptyList())
+    val auditLogs: StateFlow<List<String>> = _auditLogs.asStateFlow()
+
     private val _isFirebaseAvailable = MutableStateFlow(true)
     val isFirebaseAvailable: StateFlow<Boolean> = _isFirebaseAvailable.asStateFlow()
 
     private var prefs: SharedPreferences? = null
     private var firebaseAuth: FirebaseAuth? = null
     private var firestore: FirebaseFirestore? = null
+    private var firebaseStorage: FirebaseStorage? = null
 
     companion object {
         @Volatile
@@ -86,11 +106,27 @@ class FirebaseSyncManager private constructor() {
         try {
             firebaseAuth = FirebaseAuth.getInstance()
             firestore = FirebaseFirestore.getInstance()
+            firebaseStorage = FirebaseStorage.getInstance()
+            addAuditLog("[INIT] Firebase Auth, Firestore, and Storage initialized successfully.")
         } catch (e: Exception) {
             Log.w("FirebaseSyncManager", "Firebase services initialization info: ${e.message}")
+            addAuditLog("[INIT WARN] Firebase services fallback: ${e.message}")
         }
 
         restoreSavedUserSession()
+    }
+
+    fun addAuditLog(msg: String) {
+        val sdf = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+        val timeStr = sdf.format(Date())
+        val formattedLog = "[$timeStr] $msg"
+        Log.d("FirebaseSyncManager", formattedLog)
+        val currentList = _auditLogs.value.toMutableList()
+        currentList.add(0, formattedLog)
+        if (currentList.size > 80) {
+            currentList.removeAt(currentList.lastIndex)
+        }
+        _auditLogs.value = currentList
     }
 
     private fun restoreSavedUserSession() {
@@ -114,6 +150,7 @@ class FirebaseSyncManager private constructor() {
                 photoUrl = photoUrl
             )
             saveUserToPrefs(user, gName, photoUrl)
+            addAuditLog("[SESSION RESTORE] Active Firebase user session: ${user.email} (UID: ${user.uid})")
             return
         }
 
@@ -138,6 +175,7 @@ class FirebaseSyncManager private constructor() {
                 email = email,
                 photoUrl = photoUrl
             )
+            addAuditLog("[SESSION RESTORE] Restored cached session: ${email} (UID: ${uid})")
         }
     }
 
@@ -172,7 +210,7 @@ class FirebaseSyncManager private constructor() {
         }
 
         if (cleanEmail.isBlank()) {
-            return@withContext Result.failure(IllegalArgumentException("Email cannot be empty / Email khali nahi ho sakta"))
+            return@withContext Result.failure(IllegalArgumentException("Email cannot be empty"))
         }
 
         val fa = firebaseAuth
@@ -195,14 +233,12 @@ class FirebaseSyncManager private constructor() {
                     val profile = UserProfile(uid = user.uid, fullName = gName, email = user.email, photoUrl = gPhoto)
                     _userProfile.value = profile
                     saveUserToPrefs(user, gName, gPhoto)
-                    try {
-                        sendPasswordReset(user.email)
-                        sendEmailVerification()
-                    } catch (_: Exception) {}
+                    addAuditLog("[AUTH SUCCESS] Signed in via Google Auth: ${user.email} (UID: ${user.uid})")
                     return@withContext Result.success(user)
                 }
             } catch (e: Exception) {
                 Log.w("FirebaseSyncManager", "Firebase Auth Google credential sign in warning: ${e.message}")
+                addAuditLog("[AUTH WARN] Google Credential sign in failed: ${e.message}")
             }
         }
 
@@ -225,10 +261,7 @@ class FirebaseSyncManager private constructor() {
             )
             _userProfile.value = profile
             saveUserToPrefs(user, cleanName, finalPhoto)
-            try {
-                sendPasswordReset(cleanEmail)
-                sendEmailVerification()
-            } catch (_: Exception) {}
+            addAuditLog("[AUTH LOCAL] Session established for ${cleanEmail} (UID: ${uid})")
             Result.success(user)
         } catch (e: Exception) {
             Result.failure(e)
@@ -240,10 +273,9 @@ class FirebaseSyncManager private constructor() {
         val cleanPass = pass.trim()
 
         if (cleanEmail.isBlank() || cleanPass.isBlank()) {
-            return@withContext Result.failure(IllegalArgumentException("Email and password cannot be empty / Email aur password khali nahi ho saktay"))
+            return@withContext Result.failure(IllegalArgumentException("Email and password cannot be empty"))
         }
 
-        // Try Firebase Auth first if initialized
         val fa = firebaseAuth
         if (fa != null) {
             try {
@@ -260,39 +292,23 @@ class FirebaseSyncManager private constructor() {
                     val profile = UserProfile(uid = user.uid, fullName = name, email = cleanEmail)
                     _userProfile.value = profile
                     saveUserToPrefs(user, name)
-                    try {
-                        sendPasswordReset(cleanEmail)
-                        sendEmailVerification()
-                    } catch (_: Exception) {}
+                    addAuditLog("[AUTH SUCCESS] Email login successful: ${user.email}")
                     return@withContext Result.success(user)
                 }
             } catch (e: Exception) {
-                Log.w("FirebaseSyncManager", "Firebase Auth sign in failed, trying fallback: ${e.message}")
+                Log.w("FirebaseSyncManager", "Firebase Auth sign in failed: ${e.message}")
             }
         }
 
-        // Persistent Fallback Auth
         try {
-            val savedEmail = prefs?.getString("email", null)
-            val savedUid = prefs?.getString("uid", null)
-            val savedName = prefs?.getString("fullName", "") ?: cleanEmail.substringBefore("@")
-
-            val name = if (!savedName.isBlank()) savedName else cleanEmail.substringBefore("@").replace(".", " ").replaceFirstChar { it.uppercase() }
-            val uid = if (savedEmail.equals(cleanEmail, ignoreCase = true) && !savedUid.isNullOrBlank()) savedUid else "usr_" + Math.abs(cleanEmail.lowercase().hashCode()).toString()
-
-            val user = CloudUser(
-                uid = uid,
-                email = cleanEmail,
-                displayName = name
-            )
+            val uid = "usr_" + Math.abs(cleanEmail.lowercase().hashCode()).toString()
+            val name = cleanEmail.substringBefore("@").replace(".", " ").replaceFirstChar { it.uppercase() }
+            val user = CloudUser(uid = uid, email = cleanEmail, displayName = name)
             _currentUser.value = user
-            val profile = UserProfile(
-                uid = user.uid,
-                fullName = name,
-                email = cleanEmail
-            )
+            val profile = UserProfile(uid = uid, fullName = name, email = cleanEmail)
             _userProfile.value = profile
             saveUserToPrefs(user, name)
+            addAuditLog("[AUTH LOCAL] Email local login: ${cleanEmail}")
             Result.success(user)
         } catch (e: Exception) {
             Result.failure(e)
@@ -305,13 +321,12 @@ class FirebaseSyncManager private constructor() {
         val cleanName = fullName.trim().ifBlank { cleanEmail.substringBefore("@") }
 
         if (cleanEmail.isBlank()) {
-            return@withContext Result.failure(IllegalArgumentException("Please enter a valid email address / Sahi email address daraj karain"))
+            return@withContext Result.failure(IllegalArgumentException("Please enter a valid email address"))
         }
         if (cleanPass.length < 6) {
-            return@withContext Result.failure(IllegalArgumentException("Password must be at least 6 characters / Password kam az kam 6 huroof ka hona chahiye"))
+            return@withContext Result.failure(IllegalArgumentException("Password must be at least 6 characters"))
         }
 
-        // Try Firebase Auth first
         val fa = firebaseAuth
         if (fa != null) {
             try {
@@ -327,10 +342,7 @@ class FirebaseSyncManager private constructor() {
                     val profile = UserProfile(uid = user.uid, fullName = cleanName, email = cleanEmail)
                     _userProfile.value = profile
                     saveUserToPrefs(user, cleanName)
-                    try {
-                        sendPasswordReset(cleanEmail)
-                        sendEmailVerification()
-                    } catch (_: Exception) {}
+                    addAuditLog("[AUTH SUCCESS] Account created: ${user.email}")
                     return@withContext Result.success(user)
                 }
             } catch (e: Exception) {
@@ -338,22 +350,14 @@ class FirebaseSyncManager private constructor() {
             }
         }
 
-        // Local Persistent Account Creation
         try {
             val uid = "usr_" + Math.abs(cleanEmail.lowercase().hashCode()).toString()
-            val user = CloudUser(
-                uid = uid,
-                email = cleanEmail,
-                displayName = cleanName
-            )
+            val user = CloudUser(uid = uid, email = cleanEmail, displayName = cleanName)
             _currentUser.value = user
-            val profile = UserProfile(
-                uid = user.uid,
-                fullName = cleanName,
-                email = cleanEmail
-            )
+            val profile = UserProfile(uid = uid, fullName = cleanName, email = cleanEmail)
             _userProfile.value = profile
             saveUserToPrefs(user, cleanName)
+            addAuditLog("[AUTH LOCAL] Local account created for ${cleanEmail}")
             Result.success(user)
         } catch (e: Exception) {
             Result.failure(e)
@@ -363,10 +367,11 @@ class FirebaseSyncManager private constructor() {
     suspend fun sendPasswordReset(email: String): Result<Unit> = withContext(Dispatchers.IO) {
         val cleanEmail = email.trim()
         if (cleanEmail.isBlank()) {
-            return@withContext Result.failure(IllegalArgumentException("Email is required / Email required hai"))
+            return@withContext Result.failure(IllegalArgumentException("Email is required"))
         }
         try {
             firebaseAuth?.sendPasswordResetEmail(cleanEmail)?.await()
+            addAuditLog("[AUTH RESET] Password reset email sent to $cleanEmail")
         } catch (e: Exception) {
             Log.w("FirebaseSyncManager", "Firebase reset email warning: ${e.message}")
         }
@@ -376,11 +381,13 @@ class FirebaseSyncManager private constructor() {
     suspend fun sendEmailVerification(): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             firebaseAuth?.currentUser?.sendEmailVerification()?.await()
+            addAuditLog("[AUTH VERIFY] Email verification sent")
         } catch (_: Exception) {}
         Result.success(Unit)
     }
 
     fun signOut() {
+        val email = _currentUser.value?.email ?: ""
         try {
             firebaseAuth?.signOut()
         } catch (_: Exception) {}
@@ -388,6 +395,7 @@ class FirebaseSyncManager private constructor() {
         _userProfile.value = null
         _syncState.value = SyncState.IDLE
         clearPrefs()
+        addAuditLog("[AUTH SIGNOUT] Signed out account $email")
     }
 
     // --- Profile Management ---
@@ -395,8 +403,8 @@ class FirebaseSyncManager private constructor() {
     fun formattedLastSync(): String {
         val time = _lastSyncTime.value
         return if (time == 0L) "Never" else {
-            val sdf = java.text.SimpleDateFormat("MMM dd, HH:mm", java.util.Locale.getDefault())
-            sdf.format(java.util.Date(time))
+            val sdf = SimpleDateFormat("MMM dd, HH:mm:ss", Locale.getDefault())
+            sdf.format(Date(time))
         }
     }
 
@@ -406,6 +414,20 @@ class FirebaseSyncManager private constructor() {
             val curUser = _currentUser.value
             if (curUser != null) {
                 saveUserToPrefs(curUser, profile.fullName, profile.photoUrl)
+                firestore?.collection("users")?.document(curUser.uid)?.set(
+                    mapOf(
+                        "uid" to profile.uid,
+                        "fullName" to profile.fullName,
+                        "email" to profile.email,
+                        "photoUrl" to profile.photoUrl,
+                        "country" to profile.country,
+                        "preferredLanguage" to profile.preferredLanguage,
+                        "preferredCurrency" to profile.preferredCurrency,
+                        "lastSyncTime" to System.currentTimeMillis()
+                    ),
+                    SetOptions.merge()
+                )?.await()
+                addAuditLog("[PROFILE UPDATED] Saved profile for ${profile.email}")
             }
             Result.success(Unit)
         } catch (e: Exception) {
@@ -413,9 +435,189 @@ class FirebaseSyncManager private constructor() {
         }
     }
 
-    // --- Cloud Sync ---
+    // --- Cloud Storage Upload Helper ---
 
-    suspend fun syncAllData(
+    suspend fun uploadFileToStorage(context: Context, fileUriString: String, docId: Long): String = withContext(Dispatchers.IO) {
+        val user = _currentUser.value ?: return@withContext fileUriString
+        if (fileUriString.isBlank() || fileUriString.startsWith("http://") || fileUriString.startsWith("https://")) {
+            return@withContext fileUriString
+        }
+        val st = firebaseStorage ?: return@withContext fileUriString
+        try {
+            val uri = Uri.parse(fileUriString)
+            val ref = st.reference.child("users/${user.uid}/documents/doc_${docId}_${System.currentTimeMillis()}")
+            val stream = context.contentResolver.openInputStream(uri)
+            if (stream != null) {
+                ref.putStream(stream).await()
+                val downloadUrl = ref.downloadUrl.await().toString()
+                addAuditLog("[STORAGE SUCCESS] Document $docId uploaded to Firebase Storage: $downloadUrl")
+                return@withContext downloadUrl
+            }
+        } catch (e: Exception) {
+            Log.w("FirebaseSyncManager", "Firebase Storage upload error: ${e.message}")
+            addAuditLog("[STORAGE WARN] Upload to Storage failed for doc $docId: ${e.message}")
+        }
+        return@withContext fileUriString
+    }
+
+    // --- Download and Restore Cloud Data (Firestore -> Room DB) ---
+
+    suspend fun downloadAndRestoreData(context: Context, database: AppDatabase): Result<Int> = withContext(Dispatchers.IO) {
+        val user = _currentUser.value
+        if (user == null) {
+            _syncState.value = SyncState.OFFLINE
+            addAuditLog("[RESTORE FAIL] Cannot restore: User is not signed in.")
+            return@withContext Result.failure(Exception("Sign in required for cloud download"))
+        }
+
+        try {
+            _syncState.value = SyncState.SYNCING
+            addAuditLog("[RESTORE START] Pulling cloud records from Firestore for UID: ${user.uid}")
+
+            val fs = firestore
+            if (fs == null) {
+                addAuditLog("[RESTORE WARN] Firestore service is null, skipping download.")
+                _syncState.value = SyncState.OFFLINE
+                return@withContext Result.success(0)
+            }
+
+            val userRef = fs.collection("users").document(user.uid)
+
+            // Restore Profile
+            try {
+                val profDoc = userRef.get().await()
+                if (profDoc.exists()) {
+                    val pName = profDoc.getString("fullName") ?: profDoc.getString("displayName") ?: user.displayName ?: ""
+                    val pPhoto = profDoc.getString("photoUrl") ?: user.photoUrl ?: ""
+                    val pCountry = profDoc.getString("country") ?: "Pakistan"
+                    val pLang = profDoc.getString("preferredLanguage") ?: "en"
+                    val pCurr = profDoc.getString("preferredCurrency") ?: "PKR"
+
+                    val p = UserProfile(
+                        uid = user.uid,
+                        fullName = pName,
+                        email = user.email,
+                        photoUrl = pPhoto,
+                        country = pCountry,
+                        preferredLanguage = pLang,
+                        preferredCurrency = pCurr
+                    )
+                    _userProfile.value = p
+                    saveUserToPrefs(user, pName, pPhoto)
+                }
+            } catch (e: Exception) {
+                Log.w("FirebaseSyncManager", "Profile fetch warning: ${e.message}")
+            }
+
+            // 1. Restore Vehicles
+            val vehicleDocs = userRef.collection("vehicles").get().await()
+            var vehiclesRestored = 0
+            for (doc in vehicleDocs.documents) {
+                val v = doc.toVehicle()
+                if (v != null) {
+                    database.vehicleDao().insertVehicle(v)
+                    vehiclesRestored++
+                }
+            }
+
+            // 2. Restore Fuel Entries
+            val fuelDocs = userRef.collection("fuelEntries").get().await()
+            var fuelRestored = 0
+            for (doc in fuelDocs.documents) {
+                val f = doc.toFuelEntry()
+                if (f != null) {
+                    database.fuelDao().insertFuelEntry(f)
+                    fuelRestored++
+                }
+            }
+
+            // 3. Restore Maintenance Records
+            val maintDocs = userRef.collection("maintenance").get().await()
+            var maintRestored = 0
+            for (doc in maintDocs.documents) {
+                val m = doc.toMaintenance()
+                if (m != null) {
+                    database.maintenanceDao().insertMaintenance(m)
+                    maintRestored++
+                }
+            }
+
+            // 4. Restore Expenses
+            val expDocs = userRef.collection("expenses").get().await()
+            var expRestored = 0
+            for (doc in expDocs.documents) {
+                val e = doc.toExpense()
+                if (e != null) {
+                    database.expenseDao().insertExpense(e)
+                    expRestored++
+                }
+            }
+
+            // 5. Restore Documents
+            val docDocs = userRef.collection("documents").get().await()
+            var docRestored = 0
+            for (doc in docDocs.documents) {
+                val d = doc.toDocument()
+                if (d != null) {
+                    database.documentDao().insertDocument(d)
+                    docRestored++
+                }
+            }
+
+            // 6. Restore Insurance Policies
+            val insDocs = userRef.collection("insurancePolicies").get().await()
+            var insRestored = 0
+            for (doc in insDocs.documents) {
+                val i = doc.toInsurancePolicy()
+                if (i != null) {
+                    database.insurancePolicyDao().insertPolicy(i)
+                    insRestored++
+                }
+            }
+
+            // 7. Restore Reminders
+            val remDocs = userRef.collection("reminders").get().await()
+            var remRestored = 0
+            for (doc in remDocs.documents) {
+                val r = doc.toReminder()
+                if (r != null) {
+                    database.reminderDao().insertReminder(r)
+                    remRestored++
+                }
+            }
+
+            val totalRestored = vehiclesRestored + fuelRestored + maintRestored + expRestored + docRestored + insRestored + remRestored
+            val counts = mapOf(
+                "Vehicles" to vehiclesRestored,
+                "Fuel Entries" to fuelRestored,
+                "Maintenance" to maintRestored,
+                "Expenses" to expRestored,
+                "Documents" to docRestored,
+                "Insurance" to insRestored,
+                "Reminders" to remRestored
+            )
+
+            val now = System.currentTimeMillis()
+            _lastDownloadTime.value = now
+            _lastSyncTime.value = now
+            _lastDownloadCounts.value = counts
+            _syncState.value = SyncState.SUCCESS
+
+            addAuditLog("[RESTORE SUCCESS] Restored $totalRestored records into Room DB ($vehiclesRestored Vehicles, $fuelRestored Fuel, $maintRestored Maint, $docRestored Docs, $expRestored Expenses, $insRestored Insurance, $remRestored Reminders)")
+
+            Result.success(totalRestored)
+        } catch (e: Exception) {
+            Log.e("FirebaseSyncManager", "Download and restore error", e)
+            _syncState.value = SyncState.ERROR
+            addAuditLog("[RESTORE ERROR] Cloud restore failed: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    // --- Upload Local Room Data to Cloud (Firestore + Storage) ---
+
+    suspend fun uploadAllData(
+        context: Context,
         vehicles: List<Vehicle>,
         fuelEntries: List<FuelEntry>,
         maintenanceRecords: List<Maintenance>,
@@ -427,11 +629,14 @@ class FirebaseSyncManager private constructor() {
         val user = _currentUser.value
         if (user == null) {
             _syncState.value = SyncState.OFFLINE
+            addAuditLog("[UPLOAD FAIL] Cannot upload: User not signed in.")
             return@withContext Result.failure(Exception("Sign in required for cloud sync"))
         }
 
         try {
             _syncState.value = SyncState.SYNCING
+            addAuditLog("[UPLOAD START] Uploading local records to Firestore for UID: ${user.uid}")
+
             val fs = firestore
             if (fs != null) {
                 val userRef = fs.collection("users").document(user.uid)
@@ -443,6 +648,9 @@ class FirebaseSyncManager private constructor() {
                     "email" to user.email,
                     "displayName" to (p?.fullName?.ifBlank { null } ?: user.displayName ?: ""),
                     "photoUrl" to (p?.photoUrl?.ifBlank { null } ?: user.photoUrl ?: ""),
+                    "country" to (p?.country ?: "Pakistan"),
+                    "preferredLanguage" to (p?.preferredLanguage ?: "en"),
+                    "preferredCurrency" to (p?.preferredCurrency ?: "PKR"),
                     "lastSyncTime" to System.currentTimeMillis()
                 )
                 batch.set(userRef, profileMap, SetOptions.merge())
@@ -460,7 +668,9 @@ class FirebaseSyncManager private constructor() {
                     batch.set(userRef.collection("expenses").document(e.id.toString()), e, SetOptions.merge())
                 }
                 for (d in documents) {
-                    batch.set(userRef.collection("documents").document(d.id.toString()), d, SetOptions.merge())
+                    val cloudUri = uploadFileToStorage(context, d.fileUri, d.id)
+                    val updatedDoc = if (cloudUri != d.fileUri) d.copy(fileUri = cloudUri) else d
+                    batch.set(userRef.collection("documents").document(updatedDoc.id.toString()), updatedDoc, SetOptions.merge())
                 }
                 for (i in insurancePolicies) {
                     batch.set(userRef.collection("insurancePolicies").document(i.id.toString()), i, SetOptions.merge())
@@ -469,25 +679,387 @@ class FirebaseSyncManager private constructor() {
                     batch.set(userRef.collection("reminders").document(r.id.toString()), r, SetOptions.merge())
                 }
 
-                try {
-                    batch.commit().await()
-                } catch (e: Exception) {
-                    Log.w("FirebaseSyncManager", "Firestore commit warning: ${e.message}")
-                }
-            } else {
-                kotlinx.coroutines.delay(500)
+                batch.commit().await()
+                addAuditLog("[UPLOAD SUCCESS] Committed Firestore batch (${vehicles.size} vehicles, ${fuelEntries.size} fuel, ${maintenanceRecords.size} maint, ${documents.size} docs, ${expenses.size} expenses)")
             }
 
             val now = System.currentTimeMillis()
+            _lastUploadTime.value = now
             _lastSyncTime.value = now
-            _userProfile.value = _userProfile.value?.copy(lastSyncTime = now)
+            _lastUploadCounts.value = mapOf(
+                "Vehicles" to vehicles.size,
+                "Fuel Entries" to fuelEntries.size,
+                "Maintenance" to maintenanceRecords.size,
+                "Expenses" to expenses.size,
+                "Documents" to documents.size,
+                "Insurance" to insurancePolicies.size,
+                "Reminders" to reminders.size
+            )
             _syncState.value = SyncState.SUCCESS
             Result.success(Unit)
         } catch (e: Exception) {
-            Log.e("FirebaseSyncManager", "Sync error", e)
+            Log.e("FirebaseSyncManager", "Upload error", e)
             _syncState.value = SyncState.ERROR
+            addAuditLog("[UPLOAD ERROR] Upload to Firestore failed: ${e.message}")
             Result.failure(e)
         }
     }
-}
 
+    suspend fun syncAllData(
+        context: Context,
+        vehicles: List<Vehicle>,
+        fuelEntries: List<FuelEntry>,
+        maintenanceRecords: List<Maintenance>,
+        expenses: List<Expense>,
+        documents: List<Document>,
+        insurancePolicies: List<InsurancePolicy>,
+        reminders: List<Reminder>
+    ): Result<Unit> = uploadAllData(
+        context = context,
+        vehicles = vehicles,
+        fuelEntries = fuelEntries,
+        maintenanceRecords = maintenanceRecords,
+        expenses = expenses,
+        documents = documents,
+        insurancePolicies = insurancePolicies,
+        reminders = reminders
+    )
+
+    // --- Full Bidirectional Sync ---
+
+    suspend fun performFullBidirectionalSync(context: Context, database: AppDatabase): Result<Unit> = withContext(Dispatchers.IO) {
+        val user = _currentUser.value
+        if (user == null) {
+            addAuditLog("[FULL SYNC CANCEL] User not signed in.")
+            return@withContext Result.failure(Exception("Not signed in"))
+        }
+
+        addAuditLog("[FULL SYNC START] Initiating 2-Way Sync for ${user.email}...")
+
+        // Step 1: Download & Restore from Cloud first
+        downloadAndRestoreData(context, database)
+
+        // Step 2: Fetch current local DB items to upload back to Cloud
+        val localVehicles = database.vehicleDao().getAllVehicles().first()
+        val localFuel = database.fuelDao().getAllFuelEntries().first()
+        val localMaint = database.maintenanceDao().getAllMaintenance().first()
+        val localExp = database.expenseDao().getAllExpenses().first()
+        val localDocs = database.documentDao().getAllDocumentsSync()
+        val localIns = database.insurancePolicyDao().getAllInsurancePolicies().first()
+        val localRem = database.reminderDao().getAllReminders().first()
+
+        // Step 3: Upload all local data
+        uploadAllData(
+            context = context,
+            vehicles = localVehicles,
+            fuelEntries = localFuel,
+            maintenanceRecords = localMaint,
+            expenses = localExp,
+            documents = localDocs,
+            insurancePolicies = localIns,
+            reminders = localRem
+        )
+    }
+
+    // --- Single Item Immediate Operations ---
+
+    suspend fun uploadSingleVehicle(vehicle: Vehicle) = withContext(Dispatchers.IO) {
+        val user = _currentUser.value ?: return@withContext
+        try {
+            firestore?.collection("users")?.document(user.uid)?.collection("vehicles")
+                ?.document(vehicle.id.toString())
+                ?.set(vehicle, SetOptions.merge())?.await()
+            addAuditLog("[REALTIME PUSH] Saved vehicle '${vehicle.vehicleName}' (ID: ${vehicle.id}) to Firestore")
+        } catch (e: Exception) {
+            addAuditLog("[REALTIME ERROR] Vehicle upload failed: ${e.message}")
+        }
+    }
+
+    suspend fun deleteSingleVehicle(vehicleId: Long) = withContext(Dispatchers.IO) {
+        val user = _currentUser.value ?: return@withContext
+        try {
+            firestore?.collection("users")?.document(user.uid)?.collection("vehicles")
+                ?.document(vehicleId.toString())
+                ?.delete()?.await()
+            addAuditLog("[REALTIME DELETE] Removed vehicle ID $vehicleId from Firestore")
+        } catch (e: Exception) {
+            addAuditLog("[REALTIME ERROR] Vehicle delete failed: ${e.message}")
+        }
+    }
+
+    suspend fun uploadSingleFuelEntry(fuelEntry: FuelEntry) = withContext(Dispatchers.IO) {
+        val user = _currentUser.value ?: return@withContext
+        try {
+            firestore?.collection("users")?.document(user.uid)?.collection("fuelEntries")
+                ?.document(fuelEntry.id.toString())
+                ?.set(fuelEntry, SetOptions.merge())?.await()
+            addAuditLog("[REALTIME PUSH] Saved fuel entry ${fuelEntry.id} to Firestore")
+        } catch (e: Exception) {
+            addAuditLog("[REALTIME ERROR] Fuel entry upload failed: ${e.message}")
+        }
+    }
+
+    suspend fun deleteSingleFuelEntry(entryId: Long) = withContext(Dispatchers.IO) {
+        val user = _currentUser.value ?: return@withContext
+        try {
+            firestore?.collection("users")?.document(user.uid)?.collection("fuelEntries")
+                ?.document(entryId.toString())
+                ?.delete()?.await()
+            addAuditLog("[REALTIME DELETE] Removed fuel entry ID $entryId from Firestore")
+        } catch (e: Exception) {
+            addAuditLog("[REALTIME ERROR] Fuel entry delete failed: ${e.message}")
+        }
+    }
+
+    suspend fun uploadSingleMaintenance(maintenance: Maintenance) = withContext(Dispatchers.IO) {
+        val user = _currentUser.value ?: return@withContext
+        try {
+            firestore?.collection("users")?.document(user.uid)?.collection("maintenance")
+                ?.document(maintenance.id.toString())
+                ?.set(maintenance, SetOptions.merge())?.await()
+            addAuditLog("[REALTIME PUSH] Saved maintenance '${maintenance.serviceTitle}' to Firestore")
+        } catch (e: Exception) {
+            addAuditLog("[REALTIME ERROR] Maintenance upload failed: ${e.message}")
+        }
+    }
+
+    suspend fun deleteSingleMaintenance(maintId: Long) = withContext(Dispatchers.IO) {
+        val user = _currentUser.value ?: return@withContext
+        try {
+            firestore?.collection("users")?.document(user.uid)?.collection("maintenance")
+                ?.document(maintId.toString())
+                ?.delete()?.await()
+            addAuditLog("[REALTIME DELETE] Removed maintenance ID $maintId from Firestore")
+        } catch (e: Exception) {
+            addAuditLog("[REALTIME ERROR] Maintenance delete failed: ${e.message}")
+        }
+    }
+
+    suspend fun uploadSingleExpense(expense: Expense) = withContext(Dispatchers.IO) {
+        val user = _currentUser.value ?: return@withContext
+        try {
+            firestore?.collection("users")?.document(user.uid)?.collection("expenses")
+                ?.document(expense.id.toString())
+                ?.set(expense, SetOptions.merge())?.await()
+            addAuditLog("[REALTIME PUSH] Saved expense '${expense.title}' to Firestore")
+        } catch (e: Exception) {
+            addAuditLog("[REALTIME ERROR] Expense upload failed: ${e.message}")
+        }
+    }
+
+    suspend fun deleteSingleExpense(expenseId: Long) = withContext(Dispatchers.IO) {
+        val user = _currentUser.value ?: return@withContext
+        try {
+            firestore?.collection("users")?.document(user.uid)?.collection("expenses")
+                ?.document(expenseId.toString())
+                ?.delete()?.await()
+            addAuditLog("[REALTIME DELETE] Removed expense ID $expenseId from Firestore")
+        } catch (e: Exception) {
+            addAuditLog("[REALTIME ERROR] Expense delete failed: ${e.message}")
+        }
+    }
+
+    suspend fun uploadSingleDocument(context: Context, document: Document) = withContext(Dispatchers.IO) {
+        val user = _currentUser.value ?: return@withContext
+        try {
+            val cloudUri = uploadFileToStorage(context, document.fileUri, document.id)
+            val docToSave = if (cloudUri != document.fileUri) document.copy(fileUri = cloudUri) else document
+            firestore?.collection("users")?.document(user.uid)?.collection("documents")
+                ?.document(docToSave.id.toString())
+                ?.set(docToSave, SetOptions.merge())?.await()
+            addAuditLog("[REALTIME PUSH] Saved document '${document.docTitle}' to Firestore")
+        } catch (e: Exception) {
+            addAuditLog("[REALTIME ERROR] Document upload failed: ${e.message}")
+        }
+    }
+
+    suspend fun deleteSingleDocument(documentId: Long) = withContext(Dispatchers.IO) {
+        val user = _currentUser.value ?: return@withContext
+        try {
+            firestore?.collection("users")?.document(user.uid)?.collection("documents")
+                ?.document(documentId.toString())
+                ?.delete()?.await()
+            addAuditLog("[REALTIME DELETE] Removed document ID $documentId from Firestore")
+        } catch (e: Exception) {
+            addAuditLog("[REALTIME ERROR] Document delete failed: ${e.message}")
+        }
+    }
+
+    suspend fun uploadSingleInsurance(policy: InsurancePolicy) = withContext(Dispatchers.IO) {
+        val user = _currentUser.value ?: return@withContext
+        try {
+            firestore?.collection("users")?.document(user.uid)?.collection("insurancePolicies")
+                ?.document(policy.id.toString())
+                ?.set(policy, SetOptions.merge())?.await()
+            addAuditLog("[REALTIME PUSH] Saved insurance policy '${policy.policyNumber}' to Firestore")
+        } catch (e: Exception) {
+            addAuditLog("[REALTIME ERROR] Insurance upload failed: ${e.message}")
+        }
+    }
+
+    suspend fun deleteSingleInsurance(policyId: Long) = withContext(Dispatchers.IO) {
+        val user = _currentUser.value ?: return@withContext
+        try {
+            firestore?.collection("users")?.document(user.uid)?.collection("insurancePolicies")
+                ?.document(policyId.toString())
+                ?.delete()?.await()
+            addAuditLog("[REALTIME DELETE] Removed insurance policy ID $policyId from Firestore")
+        } catch (e: Exception) {
+            addAuditLog("[REALTIME ERROR] Insurance delete failed: ${e.message}")
+        }
+    }
+
+    suspend fun uploadSingleReminder(reminder: Reminder) = withContext(Dispatchers.IO) {
+        val user = _currentUser.value ?: return@withContext
+        try {
+            firestore?.collection("users")?.document(user.uid)?.collection("reminders")
+                ?.document(reminder.id.toString())
+                ?.set(reminder, SetOptions.merge())?.await()
+            addAuditLog("[REALTIME PUSH] Saved reminder '${reminder.reminderTitle}' to Firestore")
+        } catch (e: Exception) {
+            addAuditLog("[REALTIME ERROR] Reminder upload failed: ${e.message}")
+        }
+    }
+
+    suspend fun deleteSingleReminder(reminderId: Long) = withContext(Dispatchers.IO) {
+        val user = _currentUser.value ?: return@withContext
+        try {
+            firestore?.collection("users")?.document(user.uid)?.collection("reminders")
+                ?.document(reminderId.toString())
+                ?.delete()?.await()
+            addAuditLog("[REALTIME DELETE] Removed reminder ID $reminderId from Firestore")
+        } catch (e: Exception) {
+            addAuditLog("[REALTIME ERROR] Reminder delete failed: ${e.message}")
+        }
+    }
+
+    // --- Document Mapping Extensions ---
+
+    private fun DocumentSnapshot.toVehicle(): Vehicle? {
+        if (!exists()) return null
+        val idVal = getLong("id") ?: id.toLongOrNull() ?: return null
+        return Vehicle(
+            id = idVal,
+            vehicleName = getString("vehicleName") ?: "",
+            vehicleType = getString("vehicleType") ?: "Car",
+            brand = getString("brand") ?: "",
+            model = getString("model") ?: "",
+            manufacturingYear = getString("manufacturingYear") ?: "",
+            registrationNumber = getString("registrationNumber") ?: "",
+            fuelType = getString("fuelType") ?: "Petrol",
+            odometerReading = getString("odometerReading") ?: "0",
+            notes = getString("notes") ?: "",
+            createdAt = getLong("createdAt") ?: System.currentTimeMillis()
+        )
+    }
+
+    private fun DocumentSnapshot.toFuelEntry(): FuelEntry? {
+        if (!exists()) return null
+        val idVal = getLong("id") ?: id.toLongOrNull() ?: return null
+        return FuelEntry(
+            id = idVal,
+            vehicleId = getLong("vehicleId") ?: 0L,
+            vehicleName = getString("vehicleName") ?: "",
+            fuelDate = getString("fuelDate") ?: "",
+            fuelType = getString("fuelType") ?: "Petrol",
+            fuelQuantity = getString("fuelQuantity") ?: "0",
+            amountPaid = getString("amountPaid") ?: "0",
+            currentOdometer = getString("currentOdometer") ?: "0",
+            fuelStationName = getString("fuelStationName") ?: "",
+            notes = getString("notes") ?: "",
+            createdAt = getLong("createdAt") ?: System.currentTimeMillis()
+        )
+    }
+
+    private fun DocumentSnapshot.toMaintenance(): Maintenance? {
+        if (!exists()) return null
+        val idVal = getLong("id") ?: id.toLongOrNull() ?: return null
+        return Maintenance(
+            id = idVal,
+            vehicleId = getLong("vehicleId") ?: 0L,
+            vehicleName = getString("vehicleName") ?: "",
+            serviceTitle = getString("serviceTitle") ?: getString("title") ?: "Service",
+            serviceType = getString("serviceType") ?: "Routine Service",
+            serviceDate = getString("serviceDate") ?: "",
+            currentOdometer = getString("currentOdometer") ?: "0",
+            serviceCost = getString("serviceCost") ?: "0",
+            workshopName = getString("workshopName") ?: "",
+            notes = getString("notes") ?: "",
+            invoicePhotoUri = getString("invoicePhotoUri") ?: "",
+            nextDueServiceDate = getString("nextDueServiceDate") ?: "",
+            reminderDate = getString("reminderDate") ?: "",
+            createdAt = getLong("createdAt") ?: System.currentTimeMillis()
+        )
+    }
+
+    private fun DocumentSnapshot.toExpense(): Expense? {
+        if (!exists()) return null
+        val idVal = getLong("id") ?: id.toLongOrNull() ?: return null
+        return Expense(
+            id = idVal,
+            vehicleId = getLong("vehicleId") ?: 0L,
+            vehicleName = getString("vehicleName") ?: "",
+            title = getString("title") ?: "",
+            category = getString("category") ?: "Other",
+            amount = getDouble("amount") ?: 0.0,
+            date = getString("date") ?: "",
+            notes = getString("notes") ?: "",
+            createdAt = getLong("createdAt") ?: System.currentTimeMillis()
+        )
+    }
+
+    private fun DocumentSnapshot.toDocument(): Document? {
+        if (!exists()) return null
+        val idVal = getLong("id") ?: id.toLongOrNull() ?: return null
+        return Document(
+            id = idVal,
+            vehicleId = getLong("vehicleId") ?: 0L,
+            vehicleName = getString("vehicleName") ?: "",
+            docTitle = getString("docTitle") ?: getString("title") ?: "",
+            docType = getString("docType") ?: getString("category") ?: "Registration",
+            issueDate = getString("issueDate") ?: "",
+            expiryDate = getString("expiryDate") ?: "",
+            notes = getString("notes") ?: "",
+            fileUri = getString("fileUri") ?: getString("docPath") ?: "",
+            mimeType = getString("mimeType") ?: "",
+            fileSize = getLong("fileSize") ?: 0L,
+            reminderDaysBefore = getLong("reminderDaysBefore")?.toInt() ?: 7,
+            createdAt = getLong("createdAt") ?: System.currentTimeMillis()
+        )
+    }
+
+    private fun DocumentSnapshot.toInsurancePolicy(): InsurancePolicy? {
+        if (!exists()) return null
+        val idVal = getLong("id") ?: id.toLongOrNull() ?: return null
+        return InsurancePolicy(
+            id = idVal,
+            vehicleId = getLong("vehicleId") ?: 0L,
+            vehicleName = getString("vehicleName") ?: "",
+            providerName = getString("providerName") ?: "",
+            policyNumber = getString("policyNumber") ?: "",
+            coverageType = getString("coverageType") ?: "Comprehensive",
+            premiumAmount = getDouble("premiumAmount") ?: 0.0,
+            startDate = getString("startDate") ?: "",
+            expiryDate = getString("expiryDate") ?: "",
+            agentContact = getString("agentContact") ?: "",
+            notes = getString("notes") ?: "",
+            isAutoRenewEnabled = getBoolean("isAutoRenewEnabled") ?: false,
+            createdAt = getLong("createdAt") ?: System.currentTimeMillis()
+        )
+    }
+
+    private fun DocumentSnapshot.toReminder(): Reminder? {
+        if (!exists()) return null
+        val idVal = getLong("id") ?: id.toLongOrNull() ?: return null
+        return Reminder(
+            id = idVal,
+            vehicleId = getLong("vehicleId") ?: 0L,
+            vehicleName = getString("vehicleName") ?: "",
+            reminderTitle = getString("reminderTitle") ?: getString("title") ?: "",
+            reminderType = getString("reminderType") ?: getString("category") ?: "Oil Change",
+            dueDate = getString("dueDate") ?: "",
+            isCompleted = getBoolean("isCompleted") ?: false,
+            createdAt = getLong("createdAt") ?: System.currentTimeMillis()
+        )
+    }
+}

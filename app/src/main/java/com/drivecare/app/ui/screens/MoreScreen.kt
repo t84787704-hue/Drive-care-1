@@ -41,7 +41,8 @@ enum class MoreSubSection {
     ACHIEVEMENTS,
     SETTINGS,
     PROFILE,
-    AUTH
+    AUTH,
+    CLOUD_VERIFICATION
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -90,6 +91,10 @@ fun MoreScreen(
                 MoreSubSection.AUTH -> AuthScreen(
                     viewModel = viewModel,
                     onAuthSuccess = { onSubSectionSelect(MoreSubSection.PROFILE) }
+                )
+                MoreSubSection.CLOUD_VERIFICATION -> CloudVerificationScreen(
+                    viewModel = viewModel,
+                    onNavigateBack = { onSubSectionSelect(MoreSubSection.MENU) }
                 )
                 else -> {}
             }
@@ -294,6 +299,16 @@ fun MoreScreen(
                         title = AppStrings.get("language", lang),
                         subtitle = "${AppStrings.get("current_language", lang)}: ${lang.displayName}",
                         onClick = { onSubSectionSelect(MoreSubSection.SETTINGS) }
+                    )
+
+                    Divider()
+
+                    MoreMenuItem(
+                        icon = Icons.Default.CloudSync,
+                        title = "Cloud Verification & Terminal",
+                        subtitle = "Inspect UID, Firestore status & developer audit logs",
+                        iconTint = MaterialTheme.colorScheme.tertiary,
+                        onClick = { onSubSectionSelect(MoreSubSection.CLOUD_VERIFICATION) }
                     )
 
                     Divider()
