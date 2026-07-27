@@ -261,8 +261,9 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun addVehicle(vehicle: Vehicle) {
         viewModelScope.launch {
-            val newId = vehicleDao.insertVehicle(vehicle)
-            val v = if (vehicle.id == 0L) vehicle.copy(id = newId) else vehicle
+            val vWithTimestamp = vehicle.copy(lastUpdated = System.currentTimeMillis())
+            val newId = vehicleDao.insertVehicle(vWithTimestamp)
+            val v = if (vWithTimestamp.id == 0L) vWithTimestamp.copy(id = newId) else vWithTimestamp
             syncManager.uploadSingleVehicle(v)
             triggerManualSync()
         }
@@ -270,11 +271,12 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun updateVehicle(vehicle: Vehicle) {
         viewModelScope.launch {
-            vehicleDao.updateVehicle(vehicle)
-            if (_selectedFuelVehicle.value?.id == vehicle.id) {
-                _selectedFuelVehicle.value = vehicle
+            val updated = vehicle.copy(lastUpdated = System.currentTimeMillis())
+            vehicleDao.updateVehicle(updated)
+            if (_selectedFuelVehicle.value?.id == updated.id) {
+                _selectedFuelVehicle.value = updated
             }
-            syncManager.uploadSingleVehicle(vehicle)
+            syncManager.uploadSingleVehicle(updated)
             triggerManualSync()
         }
     }

@@ -794,10 +794,21 @@ class FirebaseSyncManager private constructor() {
     suspend fun deleteSingleVehicle(vehicleId: Long) = withContext(Dispatchers.IO) {
         val user = _currentUser.value ?: return@withContext
         try {
-            firestore?.collection("users")?.document(user.uid)?.collection("vehicles")
-                ?.document(vehicleId.toString())
-                ?.delete()?.await()
-            addAuditLog("[REALTIME DELETE] Removed vehicle ID $vehicleId from Firestore")
+            val userRef = firestore?.collection("users")?.document(user.uid) ?: return@withContext
+            userRef.collection("vehicles").document(vehicleId.toString()).delete().await()
+
+            val childCollections = listOf("fuelEntries", "maintenance", "documents", "expenses", "insurancePolicies", "reminders")
+            childCollections.forEach { col ->
+                try {
+                    val querySnap = userRef.collection(col).whereEqualTo("vehicleId", vehicleId).get().await()
+                    for (doc in querySnap.documents) {
+                        doc.reference.delete().await()
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+            addAuditLog("[REALTIME DELETE] Removed vehicle ID $vehicleId and linked records from Firestore")
         } catch (e: Exception) {
             addAuditLog("[REALTIME ERROR] Vehicle delete failed: ${e.message}")
         }
@@ -962,6 +973,10 @@ class FirebaseSyncManager private constructor() {
         "fuelType" to fuelType,
         "odometerReading" to odometerReading,
         "notes" to notes,
+        "vin" to vin,
+        "purchaseDate" to purchaseDate,
+        "imageUri" to imageUri,
+        "lastUpdated" to lastUpdated,
         "createdAt" to createdAt
     )
 
@@ -1072,6 +1087,10 @@ class FirebaseSyncManager private constructor() {
             fuelType = getString("fuelType") ?: "Petrol",
             odometerReading = getString("odometerReading") ?: getString("odometer") ?: "0",
             notes = getString("notes") ?: "",
+            vin = getString("vin") ?: "",
+            purchaseDate = getString("purchaseDate") ?: "",
+            imageUri = getString("imageUri") ?: "",
+            lastUpdated = getLong("lastUpdated") ?: getLong("createdAt") ?: System.currentTimeMillis(),
             createdAt = getLong("createdAt") ?: System.currentTimeMillis()
         )
     }

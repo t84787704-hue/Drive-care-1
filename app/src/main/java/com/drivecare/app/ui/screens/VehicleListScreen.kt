@@ -58,98 +58,92 @@ fun VehicleListScreen(
         vehicles.filter { it.vehicleType.equals(selectedFilterType, ignoreCase = true) }
     }
 
-    Scaffold(
-        modifier = modifier,
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { showAddDialog = true },
-                icon = { Icon(Icons.Default.Add, contentDescription = AppStrings.get("add_vehicle", lang)) },
-                text = { Text(AppStrings.get("add_vehicle", lang)) }
-            )
-        }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Type Filter Bar
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(vehicleTypes) { type ->
-                    val labelText = if (type == "All") AppStrings.get("all_vehicles", lang) else VehicleTypeHelper.getDisplayName(type, lang)
-                    FilterChip(
-                        selected = selectedFilterType == type,
-                        onClick = { selectedFilterType = type },
-                        label = { Text(labelText) },
-                        leadingIcon = if (type != "All") {
-                            {
-                                Icon(
-                                    imageVector = VehicleTypeHelper.getVehicleIcon(type),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        } else null
-                    )
-                }
+    if (selectedVehicleForProfile != null) {
+        val currentV = vehicles.find { it.id == selectedVehicleForProfile!!.id } ?: selectedVehicleForProfile!!
+        VehicleDetailScreen(
+            vehicle = currentV,
+            viewModel = viewModel,
+            modifier = modifier,
+            onBackClick = { selectedVehicleForProfile = null },
+            onNavigateToSection = { tab, subSection, vId ->
+                selectedVehicleForProfile = null
+                onNavigateToSection?.invoke(tab, subSection, vId)
             }
-
-            if (filteredVehicles.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.DirectionsCar, contentDescription = null, modifier = Modifier.size(64.dp))
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(AppStrings.get("no_vehicles_title", lang), style = MaterialTheme.typography.titleMedium)
-                        Text(AppStrings.get("no_vehicles_desc", lang), style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(bottom = 88.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    items(filteredVehicles, key = { it.id }) { v ->
-                        val health = viewModel.calculateHealthScore(v, reminders, fuelEntries, maintenanceLogs, documents)
-                        val vehicleDocsCount = documents.count { it.vehicleId == v.id }
-                        VehicleCard(
-                            vehicle = v,
-                            healthScore = health,
-                            docCount = vehicleDocsCount,
-                            onProfileClick = { selectedVehicleForProfile = v },
-                            onEditClick = { vehicleToEdit = v },
-                            onDeleteClick = { vehicleToDelete = v },
-                            lang = lang
+        )
+    } else {
+        Scaffold(
+            modifier = modifier,
+            floatingActionButton = {
+                ExtendedFloatingActionButton(
+                    onClick = { showAddDialog = true },
+                    icon = { Icon(Icons.Default.Add, contentDescription = AppStrings.get("add_vehicle", lang)) },
+                    text = { Text(AppStrings.get("add_vehicle", lang)) }
+                )
+            }
+        ) { paddingValues ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Type Filter Bar
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(vehicleTypes) { type ->
+                        val labelText = if (type == "All") AppStrings.get("all_vehicles", lang) else VehicleTypeHelper.getDisplayName(type, lang)
+                        FilterChip(
+                            selected = selectedFilterType == type,
+                            onClick = { selectedFilterType = type },
+                            label = { Text(labelText) },
+                            leadingIcon = if (type != "All") {
+                                {
+                                    Icon(
+                                        imageVector = VehicleTypeHelper.getVehicleIcon(type),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            } else null
                         )
                     }
                 }
+
+                if (filteredVehicles.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.DirectionsCar, contentDescription = null, modifier = Modifier.size(64.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(AppStrings.get("no_vehicles_title", lang), style = MaterialTheme.typography.titleMedium)
+                            Text(AppStrings.get("no_vehicles_desc", lang), style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = PaddingValues(bottom = 88.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(filteredVehicles, key = { it.id }) { v ->
+                            val health = viewModel.calculateHealthScore(v, reminders, fuelEntries, maintenanceLogs, documents)
+                            val vehicleDocsCount = documents.count { it.vehicleId == v.id }
+                            VehicleCard(
+                                vehicle = v,
+                                healthScore = health,
+                                docCount = vehicleDocsCount,
+                                onProfileClick = { selectedVehicleForProfile = v },
+                                onEditClick = { vehicleToEdit = v },
+                                onDeleteClick = { vehicleToDelete = v },
+                                lang = lang
+                            )
+                        }
+                    }
+                }
             }
         }
-    }
-
-    // Vehicle Detail / Profile Modal
-    selectedVehicleForProfile?.let { v ->
-        VehicleDetailDialog(
-            vehicle = v,
-            viewModel = viewModel,
-            fuelEntries = fuelEntries,
-            maintenanceLogs = maintenanceLogs,
-            reminders = reminders,
-            documents = documents,
-            insurancePolicies = insurancePolicies,
-            expenses = expenses,
-            lang = lang,
-            onDismiss = { selectedVehicleForProfile = null },
-            onNavigateToSection = { tab, subSection, vehicleId ->
-                selectedVehicleForProfile = null
-                onNavigateToSection?.invoke(tab, subSection, vehicleId)
-            }
-        )
     }
 
     // Add Vehicle Dialog

@@ -16,5 +16,10 @@ data class Vehicle(
     val fuelType: String = "Petrol",
     val odometerReading: String = "0",
     val notes: String = "",
+    val vin: String = "",
+    val purchaseDate: String = "",
+    val imageUri: String = "",
+    val lastUpdated: Long = System.currentTimeMillis(),
     val createdAt: Long = System.currentTimeMillis()
 )
+
