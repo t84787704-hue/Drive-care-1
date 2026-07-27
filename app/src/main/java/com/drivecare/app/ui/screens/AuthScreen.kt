@@ -62,8 +62,18 @@ fun AuthScreen(
         }
     }
 
-    val gso = remember {
+    val defaultWebClientId = remember(context) {
+        try {
+            val resId = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
+            if (resId != 0) context.getString(resId) else "258091011057-rb04ltip87cb9ntivshb45hjtgbjsheb.apps.googleusercontent.com"
+        } catch (_: Exception) {
+            "258091011057-rb04ltip87cb9ntivshb45hjtgbjsheb.apps.googleusercontent.com"
+        }
+    }
+
+    val gso = remember(defaultWebClientId) {
         GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestIdToken(defaultWebClientId)
             .requestEmail()
             .requestProfile()
             .build()

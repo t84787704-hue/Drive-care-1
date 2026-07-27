@@ -219,35 +219,41 @@ class FirebaseSyncManager private constructor() {
         }
 
         val fa = firebaseAuth
-        if (fa != null && !idToken.isNullOrBlank()) {
-            try {
-                val credential = com.google.firebase.auth.GoogleAuthProvider.getCredential(idToken, null)
-                val authResult = fa.signInWithCredential(credential).await()
-                val fbUser = authResult.user
-                if (fbUser != null && !fbUser.email.isNullOrBlank()) {
-                    val gName = fbUser.displayName?.ifBlank { null }
-                        ?: if (cleanName.isNotBlank() && cleanName != emailUsernameFallback) cleanName else emailUsernameFallback
-                    val gPhoto = fbUser.photoUrl?.toString() ?: photoUrl ?: ""
-                    val user = CloudUser(
-                        uid = fbUser.uid,
-                        email = fbUser.email ?: cleanEmail,
-                        displayName = gName,
-                        photoUrl = gPhoto
-                    )
-                    _currentUser.value = user
-                    val profile = UserProfile(uid = user.uid, fullName = gName, email = user.email, photoUrl = gPhoto)
-                    _userProfile.value = profile
-                    saveUserToPrefs(user, gName, gPhoto)
-                    addAuditLog("[AUTH SUCCESS] Signed in via Google Auth: ${user.email} (UID: ${user.uid})")
-                    return@withContext Result.success(user)
+        if (fa != null) {
+            if (!idToken.isNullOrBlank()) {
+                try {
+                    val credential = com.google.firebase.auth.GoogleAuthProvider.getCredential(idToken, null)
+                    val authResult = fa.signInWithCredential(credential).await()
+                    val fbUser = authResult.user
+                    if (fbUser != null && !fbUser.email.isNullOrBlank()) {
+                        val gName = fbUser.displayName?.ifBlank { null }
+                            ?: if (cleanName.isNotBlank() && cleanName != emailUsernameFallback) cleanName else emailUsernameFallback
+                        val gPhoto = fbUser.photoUrl?.toString() ?: photoUrl ?: ""
+                        val user = CloudUser(
+                            uid = fbUser.uid,
+                            email = fbUser.email ?: cleanEmail,
+                            displayName = gName,
+                            photoUrl = gPhoto
+                        )
+                        _currentUser.value = user
+                        val profile = UserProfile(uid = user.uid, fullName = gName, email = user.email, photoUrl = gPhoto)
+                        _userProfile.value = profile
+                        saveUserToPrefs(user, gName, gPhoto)
+                        addAuditLog("[AUTH SUCCESS] Signed in via Google Auth: ${user.email} (UID: ${user.uid})")
+                        return@withContext Result.success(user)
+                    }
+                } catch (e: Exception) {
+                    Log.e("FirebaseSyncManager", "Firebase Auth Google credential sign in error", e)
+                    addAuditLog("[AUTH ERROR] Google credential sign in failed: ${e.message}")
+                    return@withContext Result.failure(e)
                 }
-            } catch (e: Exception) {
-                Log.w("FirebaseSyncManager", "Firebase Auth Google credential sign in warning: ${e.message}")
-                addAuditLog("[AUTH WARN] Google Credential sign in failed: ${e.message}")
+            } else {
+                addAuditLog("[AUTH WARN] Missing Google ID Token for Firebase Auth credential")
+                return@withContext Result.failure(IllegalArgumentException("Google ID Token is missing or invalid. Please sign in via Google."))
             }
         }
 
-        // Fallback direct session with user's selected device Google Account
+        // Fallback direct session only when Firebase Auth is completely unavailable on device
         try {
             val uid = "google_" + Math.abs(cleanEmail.lowercase().hashCode()).toString()
             val finalPhoto = photoUrl ?: ""
@@ -266,7 +272,7 @@ class FirebaseSyncManager private constructor() {
             )
             _userProfile.value = profile
             saveUserToPrefs(user, cleanName, finalPhoto)
-            addAuditLog("[AUTH LOCAL] Session established for ${cleanEmail} (UID: ${uid})")
+            addAuditLog("[AUTH LOCAL] Local offline session established for ${cleanEmail} (UID: ${uid})")
             Result.success(user)
         } catch (e: Exception) {
             Result.failure(e)
@@ -297,11 +303,15 @@ class FirebaseSyncManager private constructor() {
                     val profile = UserProfile(uid = user.uid, fullName = name, email = cleanEmail)
                     _userProfile.value = profile
                     saveUserToPrefs(user, name)
-                    addAuditLog("[AUTH SUCCESS] Email login successful: ${user.email}")
+                    addAuditLog("[AUTH SUCCESS] Email login successful: ${user.email} (UID: ${user.uid})")
                     return@withContext Result.success(user)
+                } else {
+                    return@withContext Result.failure(Exception("Failed to retrieve user profile from Firebase"))
                 }
             } catch (e: Exception) {
-                Log.w("FirebaseSyncManager", "Firebase Auth sign in failed: ${e.message}")
+                Log.e("FirebaseSyncManager", "Firebase Auth sign in failed", e)
+                addAuditLog("[AUTH ERROR] Email sign in failed: ${e.message}")
+                return@withContext Result.failure(e)
             }
         }
 
@@ -313,7 +323,7 @@ class FirebaseSyncManager private constructor() {
             val profile = UserProfile(uid = uid, fullName = name, email = cleanEmail)
             _userProfile.value = profile
             saveUserToPrefs(user, name)
-            addAuditLog("[AUTH LOCAL] Email local login: ${cleanEmail}")
+            addAuditLog("[AUTH LOCAL] Local offline session: ${cleanEmail}")
             Result.success(user)
         } catch (e: Exception) {
             Result.failure(e)
@@ -347,11 +357,15 @@ class FirebaseSyncManager private constructor() {
                     val profile = UserProfile(uid = user.uid, fullName = cleanName, email = cleanEmail)
                     _userProfile.value = profile
                     saveUserToPrefs(user, cleanName)
-                    addAuditLog("[AUTH SUCCESS] Account created: ${user.email}")
+                    addAuditLog("[AUTH SUCCESS] Account created: ${user.email} (UID: ${user.uid})")
                     return@withContext Result.success(user)
+                } else {
+                    return@withContext Result.failure(Exception("Failed to create Firebase user account"))
                 }
             } catch (e: Exception) {
-                Log.w("FirebaseSyncManager", "Firebase Auth sign up fallback: ${e.message}")
+                Log.e("FirebaseSyncManager", "Firebase Auth sign up error", e)
+                addAuditLog("[AUTH ERROR] Email sign up failed: ${e.message}")
+                return@withContext Result.failure(e)
             }
         }
 
