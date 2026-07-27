@@ -7,10 +7,10 @@ import androidx.room.PrimaryKey
 data class InsurancePolicy(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
-    val vehicleId: Long,
-    val vehicleName: String,
-    val providerName: String,
-    val policyNumber: String,
+    val vehicleId: Long = 0L,
+    val vehicleName: String = "",
+    val providerName: String = "",
+    val policyNumber: String = "",
     val coverageType: String = "Comprehensive", // Comprehensive, Third-Party, Liability, Collision, Theft
     val premiumAmount: Double = 0.0,
     val startDate: String = "", // YYYY-MM-DD

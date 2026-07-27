@@ -666,27 +666,27 @@ class FirebaseSyncManager private constructor() {
                 batch.set(userRef, profileMap, SetOptions.merge())
 
                 for (v in vehicles) {
-                    batch.set(userRef.collection("vehicles").document(v.id.toString()), v, SetOptions.merge())
+                    batch.set(userRef.collection("vehicles").document(v.id.toString()), v.toMap(), SetOptions.merge())
                 }
                 for (f in fuelEntries) {
-                    batch.set(userRef.collection("fuelEntries").document(f.id.toString()), f, SetOptions.merge())
+                    batch.set(userRef.collection("fuelEntries").document(f.id.toString()), f.toMap(), SetOptions.merge())
                 }
                 for (m in maintenanceRecords) {
-                    batch.set(userRef.collection("maintenance").document(m.id.toString()), m, SetOptions.merge())
+                    batch.set(userRef.collection("maintenance").document(m.id.toString()), m.toMap(), SetOptions.merge())
                 }
                 for (e in expenses) {
-                    batch.set(userRef.collection("expenses").document(e.id.toString()), e, SetOptions.merge())
+                    batch.set(userRef.collection("expenses").document(e.id.toString()), e.toMap(), SetOptions.merge())
                 }
                 for (d in documents) {
                     val cloudUri = uploadFileToStorage(context, d.fileUri, d.id)
                     val updatedDoc = if (cloudUri != d.fileUri) d.copy(fileUri = cloudUri) else d
-                    batch.set(userRef.collection("documents").document(updatedDoc.id.toString()), updatedDoc, SetOptions.merge())
+                    batch.set(userRef.collection("documents").document(updatedDoc.id.toString()), updatedDoc.toMap(), SetOptions.merge())
                 }
                 for (i in insurancePolicies) {
-                    batch.set(userRef.collection("insurancePolicies").document(i.id.toString()), i, SetOptions.merge())
+                    batch.set(userRef.collection("insurancePolicies").document(i.id.toString()), i.toMap(), SetOptions.merge())
                 }
                 for (r in reminders) {
-                    batch.set(userRef.collection("reminders").document(r.id.toString()), r, SetOptions.merge())
+                    batch.set(userRef.collection("reminders").document(r.id.toString()), r.toMap(), SetOptions.merge())
                 }
 
                 batch.commit().await()
@@ -778,7 +778,7 @@ class FirebaseSyncManager private constructor() {
         try {
             firestore?.collection("users")?.document(user.uid)?.collection("vehicles")
                 ?.document(vehicle.id.toString())
-                ?.set(vehicle, SetOptions.merge())?.await()
+                ?.set(vehicle.toMap(), SetOptions.merge())?.await()
             addAuditLog("[REALTIME PUSH] Saved vehicle '${vehicle.vehicleName}' (ID: ${vehicle.id}) to Firestore")
         } catch (e: Exception) {
             addAuditLog("[REALTIME ERROR] Vehicle upload failed: ${e.message}")
@@ -802,7 +802,7 @@ class FirebaseSyncManager private constructor() {
         try {
             firestore?.collection("users")?.document(user.uid)?.collection("fuelEntries")
                 ?.document(fuelEntry.id.toString())
-                ?.set(fuelEntry, SetOptions.merge())?.await()
+                ?.set(fuelEntry.toMap(), SetOptions.merge())?.await()
             addAuditLog("[REALTIME PUSH] Saved fuel entry ${fuelEntry.id} to Firestore")
         } catch (e: Exception) {
             addAuditLog("[REALTIME ERROR] Fuel entry upload failed: ${e.message}")
@@ -826,7 +826,7 @@ class FirebaseSyncManager private constructor() {
         try {
             firestore?.collection("users")?.document(user.uid)?.collection("maintenance")
                 ?.document(maintenance.id.toString())
-                ?.set(maintenance, SetOptions.merge())?.await()
+                ?.set(maintenance.toMap(), SetOptions.merge())?.await()
             addAuditLog("[REALTIME PUSH] Saved maintenance '${maintenance.serviceTitle}' to Firestore")
         } catch (e: Exception) {
             addAuditLog("[REALTIME ERROR] Maintenance upload failed: ${e.message}")
@@ -850,7 +850,7 @@ class FirebaseSyncManager private constructor() {
         try {
             firestore?.collection("users")?.document(user.uid)?.collection("expenses")
                 ?.document(expense.id.toString())
-                ?.set(expense, SetOptions.merge())?.await()
+                ?.set(expense.toMap(), SetOptions.merge())?.await()
             addAuditLog("[REALTIME PUSH] Saved expense '${expense.title}' to Firestore")
         } catch (e: Exception) {
             addAuditLog("[REALTIME ERROR] Expense upload failed: ${e.message}")
@@ -876,7 +876,7 @@ class FirebaseSyncManager private constructor() {
             val docToSave = if (cloudUri != document.fileUri) document.copy(fileUri = cloudUri) else document
             firestore?.collection("users")?.document(user.uid)?.collection("documents")
                 ?.document(docToSave.id.toString())
-                ?.set(docToSave, SetOptions.merge())?.await()
+                ?.set(docToSave.toMap(), SetOptions.merge())?.await()
             addAuditLog("[REALTIME PUSH] Saved document '${document.docTitle}' to Firestore")
         } catch (e: Exception) {
             addAuditLog("[REALTIME ERROR] Document upload failed: ${e.message}")
@@ -900,7 +900,7 @@ class FirebaseSyncManager private constructor() {
         try {
             firestore?.collection("users")?.document(user.uid)?.collection("insurancePolicies")
                 ?.document(policy.id.toString())
-                ?.set(policy, SetOptions.merge())?.await()
+                ?.set(policy.toMap(), SetOptions.merge())?.await()
             addAuditLog("[REALTIME PUSH] Saved insurance policy '${policy.policyNumber}' to Firestore")
         } catch (e: Exception) {
             addAuditLog("[REALTIME ERROR] Insurance upload failed: ${e.message}")
@@ -924,7 +924,7 @@ class FirebaseSyncManager private constructor() {
         try {
             firestore?.collection("users")?.document(user.uid)?.collection("reminders")
                 ?.document(reminder.id.toString())
-                ?.set(reminder, SetOptions.merge())?.await()
+                ?.set(reminder.toMap(), SetOptions.merge())?.await()
             addAuditLog("[REALTIME PUSH] Saved reminder '${reminder.reminderTitle}' to Firestore")
         } catch (e: Exception) {
             addAuditLog("[REALTIME ERROR] Reminder upload failed: ${e.message}")
@@ -943,11 +943,113 @@ class FirebaseSyncManager private constructor() {
         }
     }
 
+    // --- Model Map Converters for Clean Firestore Serialization ---
+
+    private fun Vehicle.toMap(): Map<String, Any?> = mapOf(
+        "id" to id,
+        "vehicleName" to vehicleName,
+        "vehicleType" to vehicleType,
+        "brand" to brand,
+        "model" to model,
+        "manufacturingYear" to manufacturingYear,
+        "registrationNumber" to registrationNumber,
+        "fuelType" to fuelType,
+        "odometerReading" to odometerReading,
+        "notes" to notes,
+        "createdAt" to createdAt
+    )
+
+    private fun FuelEntry.toMap(): Map<String, Any?> = mapOf(
+        "id" to id,
+        "vehicleId" to vehicleId,
+        "vehicleName" to vehicleName,
+        "fuelDate" to fuelDate,
+        "fuelType" to fuelType,
+        "fuelQuantity" to fuelQuantity,
+        "amountPaid" to amountPaid,
+        "currentOdometer" to currentOdometer,
+        "fuelStationName" to fuelStationName,
+        "notes" to notes,
+        "createdAt" to createdAt
+    )
+
+    private fun Maintenance.toMap(): Map<String, Any?> = mapOf(
+        "id" to id,
+        "vehicleId" to vehicleId,
+        "vehicleName" to vehicleName,
+        "serviceTitle" to serviceTitle,
+        "serviceType" to serviceType,
+        "serviceDate" to serviceDate,
+        "currentOdometer" to currentOdometer,
+        "serviceCost" to serviceCost,
+        "workshopName" to workshopName,
+        "notes" to notes,
+        "invoicePhotoUri" to invoicePhotoUri,
+        "nextDueServiceDate" to nextDueServiceDate,
+        "reminderDate" to reminderDate,
+        "createdAt" to createdAt
+    )
+
+    private fun Expense.toMap(): Map<String, Any?> = mapOf(
+        "id" to id,
+        "vehicleId" to vehicleId,
+        "vehicleName" to vehicleName,
+        "title" to title,
+        "category" to category,
+        "amount" to amount,
+        "date" to date,
+        "notes" to notes,
+        "createdAt" to createdAt
+    )
+
+    private fun Document.toMap(): Map<String, Any?> = mapOf(
+        "id" to id,
+        "vehicleId" to vehicleId,
+        "vehicleName" to vehicleName,
+        "docTitle" to docTitle,
+        "docType" to docType,
+        "issueDate" to issueDate,
+        "expiryDate" to expiryDate,
+        "notes" to notes,
+        "fileUri" to fileUri,
+        "mimeType" to mimeType,
+        "fileSize" to fileSize,
+        "reminderDaysBefore" to reminderDaysBefore,
+        "createdAt" to createdAt
+    )
+
+    private fun InsurancePolicy.toMap(): Map<String, Any?> = mapOf(
+        "id" to id,
+        "vehicleId" to vehicleId,
+        "vehicleName" to vehicleName,
+        "providerName" to providerName,
+        "policyNumber" to policyNumber,
+        "coverageType" to coverageType,
+        "premiumAmount" to premiumAmount,
+        "startDate" to startDate,
+        "expiryDate" to expiryDate,
+        "agentContact" to agentContact,
+        "notes" to notes,
+        "isAutoRenewEnabled" to isAutoRenewEnabled,
+        "createdAt" to createdAt
+    )
+
+    private fun Reminder.toMap(): Map<String, Any?> = mapOf(
+        "id" to id,
+        "vehicleId" to vehicleId,
+        "vehicleName" to vehicleName,
+        "reminderTitle" to reminderTitle,
+        "reminderType" to reminderType,
+        "dueDate" to dueDate,
+        "isCompleted" to isCompleted,
+        "createdAt" to createdAt
+    )
+
     // --- Document Mapping Extensions ---
 
     private fun DocumentSnapshot.toVehicle(): Vehicle? {
         if (!exists()) return null
-        val idVal = getLong("id") ?: id.toLongOrNull() ?: return null
+        val idVal = getLong("id") ?: get("id")?.toString()?.toLongOrNull() ?: id.toLongOrNull() ?: 0L
         return Vehicle(
             id = idVal,
             vehicleName = getString("vehicleName") ?: "",
@@ -965,10 +1067,10 @@ class FirebaseSyncManager private constructor() {
 
     private fun DocumentSnapshot.toFuelEntry(): FuelEntry? {
         if (!exists()) return null
-        val idVal = getLong("id") ?: id.toLongOrNull() ?: return null
+        val idVal = getLong("id") ?: get("id")?.toString()?.toLongOrNull() ?: id.toLongOrNull() ?: 0L
         return FuelEntry(
             id = idVal,
-            vehicleId = getLong("vehicleId") ?: 0L,
+            vehicleId = getLong("vehicleId") ?: get("vehicleId")?.toString()?.toLongOrNull() ?: 0L,
             vehicleName = getString("vehicleName") ?: "",
             fuelDate = getString("fuelDate") ?: "",
             fuelType = getString("fuelType") ?: "Petrol",
@@ -983,10 +1085,10 @@ class FirebaseSyncManager private constructor() {
 
     private fun DocumentSnapshot.toMaintenance(): Maintenance? {
         if (!exists()) return null
-        val idVal = getLong("id") ?: id.toLongOrNull() ?: return null
+        val idVal = getLong("id") ?: get("id")?.toString()?.toLongOrNull() ?: id.toLongOrNull() ?: 0L
         return Maintenance(
             id = idVal,
-            vehicleId = getLong("vehicleId") ?: 0L,
+            vehicleId = getLong("vehicleId") ?: get("vehicleId")?.toString()?.toLongOrNull() ?: 0L,
             vehicleName = getString("vehicleName") ?: "",
             serviceTitle = getString("serviceTitle") ?: getString("title") ?: "Service",
             serviceType = getString("serviceType") ?: "Routine Service",
@@ -1004,10 +1106,10 @@ class FirebaseSyncManager private constructor() {
 
     private fun DocumentSnapshot.toExpense(): Expense? {
         if (!exists()) return null
-        val idVal = getLong("id") ?: id.toLongOrNull() ?: return null
+        val idVal = getLong("id") ?: get("id")?.toString()?.toLongOrNull() ?: id.toLongOrNull() ?: 0L
         return Expense(
             id = idVal,
-            vehicleId = getLong("vehicleId") ?: 0L,
+            vehicleId = getLong("vehicleId") ?: get("vehicleId")?.toString()?.toLongOrNull() ?: 0L,
             vehicleName = getString("vehicleName") ?: "",
             title = getString("title") ?: "",
             category = getString("category") ?: "Other",
@@ -1020,10 +1122,10 @@ class FirebaseSyncManager private constructor() {
 
     private fun DocumentSnapshot.toDocument(): Document? {
         if (!exists()) return null
-        val idVal = getLong("id") ?: id.toLongOrNull() ?: return null
+        val idVal = getLong("id") ?: get("id")?.toString()?.toLongOrNull() ?: id.toLongOrNull() ?: 0L
         return Document(
             id = idVal,
-            vehicleId = getLong("vehicleId") ?: 0L,
+            vehicleId = getLong("vehicleId") ?: get("vehicleId")?.toString()?.toLongOrNull() ?: 0L,
             vehicleName = getString("vehicleName") ?: "",
             docTitle = getString("docTitle") ?: getString("title") ?: "",
             docType = getString("docType") ?: getString("category") ?: "Registration",
@@ -1040,10 +1142,10 @@ class FirebaseSyncManager private constructor() {
 
     private fun DocumentSnapshot.toInsurancePolicy(): InsurancePolicy? {
         if (!exists()) return null
-        val idVal = getLong("id") ?: id.toLongOrNull() ?: return null
+        val idVal = getLong("id") ?: get("id")?.toString()?.toLongOrNull() ?: id.toLongOrNull() ?: 0L
         return InsurancePolicy(
             id = idVal,
-            vehicleId = getLong("vehicleId") ?: 0L,
+            vehicleId = getLong("vehicleId") ?: get("vehicleId")?.toString()?.toLongOrNull() ?: 0L,
             vehicleName = getString("vehicleName") ?: "",
             providerName = getString("providerName") ?: "",
             policyNumber = getString("policyNumber") ?: "",
@@ -1060,10 +1162,10 @@ class FirebaseSyncManager private constructor() {
 
     private fun DocumentSnapshot.toReminder(): Reminder? {
         if (!exists()) return null
-        val idVal = getLong("id") ?: id.toLongOrNull() ?: return null
+        val idVal = getLong("id") ?: get("id")?.toString()?.toLongOrNull() ?: id.toLongOrNull() ?: 0L
         return Reminder(
             id = idVal,
-            vehicleId = getLong("vehicleId") ?: 0L,
+            vehicleId = getLong("vehicleId") ?: get("vehicleId")?.toString()?.toLongOrNull() ?: 0L,
             vehicleName = getString("vehicleName") ?: "",
             reminderTitle = getString("reminderTitle") ?: getString("title") ?: "",
             reminderType = getString("reminderType") ?: getString("category") ?: "Oil Change",

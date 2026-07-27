@@ -7,9 +7,9 @@ import androidx.room.PrimaryKey
 data class FuelEntry(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
-    val vehicleId: Long,
-    val vehicleName: String,
-    val fuelDate: String,
+    val vehicleId: Long = 0L,
+    val vehicleName: String = "",
+    val fuelDate: String = "",
     val fuelType: String = "Petrol",
     val fuelQuantity: String = "0",
     val amountPaid: String = "0",

@@ -7,7 +7,7 @@ import androidx.room.PrimaryKey
 data class Vehicle(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
-    val vehicleName: String,
+    val vehicleName: String = "",
     val vehicleType: String = "Car",
     val brand: String = "",
     val model: String = "",

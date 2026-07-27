@@ -7,11 +7,11 @@ import androidx.room.PrimaryKey
 data class Maintenance(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
-    val vehicleId: Long,
-    val vehicleName: String,
-    val serviceTitle: String,
+    val vehicleId: Long = 0L,
+    val vehicleName: String = "",
+    val serviceTitle: String = "",
     val serviceType: String = "Routine Service",
-    val serviceDate: String,
+    val serviceDate: String = "",
     val currentOdometer: String = "0",
     val serviceCost: String = "0",
     val workshopName: String = "",
