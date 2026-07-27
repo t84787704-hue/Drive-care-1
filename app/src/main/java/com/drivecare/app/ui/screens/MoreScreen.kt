@@ -248,8 +248,8 @@ fun MoreScreen(
 
                     MoreMenuItem(
                         icon = Icons.Default.Router,
-                        title = "GPS Tracker Devices",
-                        subtitle = "Manage Teltonika, Concox, SinoTrack, Coban hardware & IMEI",
+                        title = AppStrings.get("gps_hardware_menu", lang),
+                        subtitle = AppStrings.get("gps_hardware_sub", lang),
                         onClick = { onSubSectionSelect(MoreSubSection.GPS_HARDWARE_TRACKERS) }
                     )
 
@@ -257,8 +257,8 @@ fun MoreScreen(
 
                     MoreMenuItem(
                         icon = Icons.Default.MyLocation,
-                        title = "Live Worldwide Tracking",
-                        subtitle = "Real-time hardware positioning, speed & coordinates",
+                        title = AppStrings.get("gps_live_tracking_menu", lang),
+                        subtitle = AppStrings.get("gps_live_tracking_sub", lang),
                         onClick = { onSubSectionSelect(MoreSubSection.GPS_LIVE_TRACKING) }
                     )
 
@@ -266,8 +266,8 @@ fun MoreScreen(
 
                     MoreMenuItem(
                         icon = Icons.Default.History,
-                        title = "Location History",
-                        subtitle = "Historical route points & position logs",
+                        title = AppStrings.get("gps_location_history_menu", lang),
+                        subtitle = AppStrings.get("gps_location_history_sub", lang),
                         onClick = { onSubSectionSelect(MoreSubSection.GPS_LOCATION_HISTORY) }
                     )
 
@@ -353,7 +353,7 @@ fun MoreScreen(
                     MoreMenuItem(
                         icon = Icons.Default.Backup,
                         title = AppStrings.get("backup_restore", lang),
-                        subtitle = "Export JSON Backup or Restore Records",
+                        subtitle = AppStrings.get("backup_restore_sub", lang),
                         onClick = {
                             coroutineScope.launch {
                                 backupJsonText = viewModel.exportBackupJson()
@@ -367,7 +367,7 @@ fun MoreScreen(
                     MoreMenuItem(
                         icon = Icons.Default.Info,
                         title = AppStrings.get("about_drivecare", lang),
-                        subtitle = "Version 2.0.0 Global Edition",
+                        subtitle = AppStrings.get("about_drivecare_sub", lang),
                         onClick = { showAboutDialog = true }
                     )
 
@@ -375,8 +375,8 @@ fun MoreScreen(
 
                     MoreMenuItem(
                         icon = Icons.Default.Palette,
-                        title = "Brand & Logo Showcase",
-                        subtitle = "Official DriveCare logo, color palette & Play Store assets",
+                        title = AppStrings.get("brand_showcase_title", lang),
+                        subtitle = AppStrings.get("brand_showcase_sub", lang),
                         iconTint = MaterialTheme.colorScheme.primary,
                         onClick = { showBrandShowcaseDialog = true }
                     )
