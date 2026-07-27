@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
@@ -75,6 +77,8 @@ class FirebaseSyncManager private constructor() {
 
     private val _lastUploadCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
     val lastUploadCounts: StateFlow<Map<String, Int>> = _lastUploadCounts.asStateFlow()
+
+    private val syncMutex = Mutex()
 
     private val _auditLogs = MutableStateFlow<List<String>>(emptyList())
     val auditLogs: StateFlow<List<String>> = _auditLogs.asStateFlow()
@@ -737,38 +741,40 @@ class FirebaseSyncManager private constructor() {
 
     // --- Full Bidirectional Sync ---
 
-    suspend fun performFullBidirectionalSync(context: Context, database: AppDatabase): Result<Unit> = withContext(Dispatchers.IO) {
-        val user = _currentUser.value
-        if (user == null) {
-            addAuditLog("[FULL SYNC CANCEL] User not signed in.")
-            return@withContext Result.failure(Exception("Not signed in"))
+    suspend fun performFullBidirectionalSync(context: Context, database: AppDatabase): Result<Unit> = syncMutex.withLock {
+        withContext(Dispatchers.IO) {
+            val user = _currentUser.value
+            if (user == null) {
+                addAuditLog("[FULL SYNC CANCEL] User not signed in.")
+                return@withContext Result.failure(Exception("Not signed in"))
+            }
+
+            addAuditLog("[FULL SYNC START] Initiating 2-Way Sync for ${user.email}...")
+
+            // Step 1: Download & Restore from Cloud first
+            downloadAndRestoreData(context, database)
+
+            // Step 2: Fetch current local DB items to upload back to Cloud
+            val localVehicles = database.vehicleDao().getAllVehicles().first()
+            val localFuel = database.fuelDao().getAllFuelEntries().first()
+            val localMaint = database.maintenanceDao().getAllMaintenance().first()
+            val localExp = database.expenseDao().getAllExpenses().first()
+            val localDocs = database.documentDao().getAllDocumentsSync()
+            val localIns = database.insurancePolicyDao().getAllInsurancePolicies().first()
+            val localRem = database.reminderDao().getAllReminders().first()
+
+            // Step 3: Upload all local data
+            uploadAllData(
+                context = context,
+                vehicles = localVehicles,
+                fuelEntries = localFuel,
+                maintenanceRecords = localMaint,
+                expenses = localExp,
+                documents = localDocs,
+                insurancePolicies = localIns,
+                reminders = localRem
+            )
         }
-
-        addAuditLog("[FULL SYNC START] Initiating 2-Way Sync for ${user.email}...")
-
-        // Step 1: Download & Restore from Cloud first
-        downloadAndRestoreData(context, database)
-
-        // Step 2: Fetch current local DB items to upload back to Cloud
-        val localVehicles = database.vehicleDao().getAllVehicles().first()
-        val localFuel = database.fuelDao().getAllFuelEntries().first()
-        val localMaint = database.maintenanceDao().getAllMaintenance().first()
-        val localExp = database.expenseDao().getAllExpenses().first()
-        val localDocs = database.documentDao().getAllDocumentsSync()
-        val localIns = database.insurancePolicyDao().getAllInsurancePolicies().first()
-        val localRem = database.reminderDao().getAllReminders().first()
-
-        // Step 3: Upload all local data
-        uploadAllData(
-            context = context,
-            vehicles = localVehicles,
-            fuelEntries = localFuel,
-            maintenanceRecords = localMaint,
-            expenses = localExp,
-            documents = localDocs,
-            insurancePolicies = localIns,
-            reminders = localRem
-        )
     }
 
     // --- Single Item Immediate Operations ---
@@ -1049,17 +1055,22 @@ class FirebaseSyncManager private constructor() {
 
     private fun DocumentSnapshot.toVehicle(): Vehicle? {
         if (!exists()) return null
-        val idVal = getLong("id") ?: get("id")?.toString()?.toLongOrNull() ?: id.toLongOrNull() ?: 0L
+        var idVal = getLong("id") ?: get("id")?.toString()?.toLongOrNull() ?: id.toLongOrNull() ?: 0L
+        if (idVal == 0L && id.isNotBlank()) {
+            idVal = id.hashCode().toLong().let { if (it < 0) -it else it }
+        }
+        val name = getString("vehicleName") ?: getString("name") ?: getString("title") ?: getString("vehicle_name") ?: ""
+        if (name.isBlank() && idVal == 0L) return null
         return Vehicle(
             id = idVal,
-            vehicleName = getString("vehicleName") ?: "",
-            vehicleType = getString("vehicleType") ?: "Car",
-            brand = getString("brand") ?: "",
+            vehicleName = if (name.isNotBlank()) name else "Vehicle",
+            vehicleType = getString("vehicleType") ?: getString("type") ?: "Car",
+            brand = getString("brand") ?: getString("make") ?: "",
             model = getString("model") ?: "",
-            manufacturingYear = getString("manufacturingYear") ?: "",
-            registrationNumber = getString("registrationNumber") ?: "",
+            manufacturingYear = getString("manufacturingYear") ?: getString("year") ?: "",
+            registrationNumber = getString("registrationNumber") ?: getString("plate") ?: getString("plateNumber") ?: getString("registration") ?: "",
             fuelType = getString("fuelType") ?: "Petrol",
-            odometerReading = getString("odometerReading") ?: "0",
+            odometerReading = getString("odometerReading") ?: getString("odometer") ?: "0",
             notes = getString("notes") ?: "",
             createdAt = getLong("createdAt") ?: System.currentTimeMillis()
         )
@@ -1067,17 +1078,21 @@ class FirebaseSyncManager private constructor() {
 
     private fun DocumentSnapshot.toFuelEntry(): FuelEntry? {
         if (!exists()) return null
-        val idVal = getLong("id") ?: get("id")?.toString()?.toLongOrNull() ?: id.toLongOrNull() ?: 0L
+        var idVal = getLong("id") ?: get("id")?.toString()?.toLongOrNull() ?: id.toLongOrNull() ?: 0L
+        if (idVal == 0L && id.isNotBlank()) {
+            idVal = id.hashCode().toLong().let { if (it < 0) -it else it }
+        }
+        val vId = getLong("vehicleId") ?: get("vehicleId")?.toString()?.toLongOrNull() ?: 0L
         return FuelEntry(
             id = idVal,
-            vehicleId = getLong("vehicleId") ?: get("vehicleId")?.toString()?.toLongOrNull() ?: 0L,
+            vehicleId = vId,
             vehicleName = getString("vehicleName") ?: "",
-            fuelDate = getString("fuelDate") ?: "",
+            fuelDate = getString("fuelDate") ?: getString("date") ?: "",
             fuelType = getString("fuelType") ?: "Petrol",
-            fuelQuantity = getString("fuelQuantity") ?: "0",
-            amountPaid = getString("amountPaid") ?: "0",
-            currentOdometer = getString("currentOdometer") ?: "0",
-            fuelStationName = getString("fuelStationName") ?: "",
+            fuelQuantity = getString("fuelQuantity") ?: get("fuelQuantity")?.toString() ?: "0",
+            amountPaid = getString("amountPaid") ?: get("amountPaid")?.toString() ?: "0",
+            currentOdometer = getString("currentOdometer") ?: getString("odometer") ?: "0",
+            fuelStationName = getString("fuelStationName") ?: getString("station") ?: "",
             notes = getString("notes") ?: "",
             createdAt = getLong("createdAt") ?: System.currentTimeMillis()
         )
@@ -1085,17 +1100,21 @@ class FirebaseSyncManager private constructor() {
 
     private fun DocumentSnapshot.toMaintenance(): Maintenance? {
         if (!exists()) return null
-        val idVal = getLong("id") ?: get("id")?.toString()?.toLongOrNull() ?: id.toLongOrNull() ?: 0L
+        var idVal = getLong("id") ?: get("id")?.toString()?.toLongOrNull() ?: id.toLongOrNull() ?: 0L
+        if (idVal == 0L && id.isNotBlank()) {
+            idVal = id.hashCode().toLong().let { if (it < 0) -it else it }
+        }
+        val vId = getLong("vehicleId") ?: get("vehicleId")?.toString()?.toLongOrNull() ?: 0L
         return Maintenance(
             id = idVal,
-            vehicleId = getLong("vehicleId") ?: get("vehicleId")?.toString()?.toLongOrNull() ?: 0L,
+            vehicleId = vId,
             vehicleName = getString("vehicleName") ?: "",
             serviceTitle = getString("serviceTitle") ?: getString("title") ?: "Service",
             serviceType = getString("serviceType") ?: "Routine Service",
-            serviceDate = getString("serviceDate") ?: "",
-            currentOdometer = getString("currentOdometer") ?: "0",
-            serviceCost = getString("serviceCost") ?: "0",
-            workshopName = getString("workshopName") ?: "",
+            serviceDate = getString("serviceDate") ?: getString("date") ?: "",
+            currentOdometer = getString("currentOdometer") ?: getString("odometer") ?: "0",
+            serviceCost = getString("serviceCost") ?: get("serviceCost")?.toString() ?: getString("cost") ?: "0",
+            workshopName = getString("workshopName") ?: getString("workshop") ?: "",
             notes = getString("notes") ?: "",
             invoicePhotoUri = getString("invoicePhotoUri") ?: "",
             nextDueServiceDate = getString("nextDueServiceDate") ?: "",
@@ -1106,14 +1125,19 @@ class FirebaseSyncManager private constructor() {
 
     private fun DocumentSnapshot.toExpense(): Expense? {
         if (!exists()) return null
-        val idVal = getLong("id") ?: get("id")?.toString()?.toLongOrNull() ?: id.toLongOrNull() ?: 0L
+        var idVal = getLong("id") ?: get("id")?.toString()?.toLongOrNull() ?: id.toLongOrNull() ?: 0L
+        if (idVal == 0L && id.isNotBlank()) {
+            idVal = id.hashCode().toLong().let { if (it < 0) -it else it }
+        }
+        val vId = getLong("vehicleId") ?: get("vehicleId")?.toString()?.toLongOrNull() ?: 0L
+        val amt = getDouble("amount") ?: get("amount")?.toString()?.toDoubleOrNull() ?: 0.0
         return Expense(
             id = idVal,
-            vehicleId = getLong("vehicleId") ?: get("vehicleId")?.toString()?.toLongOrNull() ?: 0L,
+            vehicleId = vId,
             vehicleName = getString("vehicleName") ?: "",
-            title = getString("title") ?: "",
+            title = getString("title") ?: "Expense",
             category = getString("category") ?: "Other",
-            amount = getDouble("amount") ?: 0.0,
+            amount = amt,
             date = getString("date") ?: "",
             notes = getString("notes") ?: "",
             createdAt = getLong("createdAt") ?: System.currentTimeMillis()
@@ -1122,10 +1146,14 @@ class FirebaseSyncManager private constructor() {
 
     private fun DocumentSnapshot.toDocument(): Document? {
         if (!exists()) return null
-        val idVal = getLong("id") ?: get("id")?.toString()?.toLongOrNull() ?: id.toLongOrNull() ?: 0L
+        var idVal = getLong("id") ?: get("id")?.toString()?.toLongOrNull() ?: id.toLongOrNull() ?: 0L
+        if (idVal == 0L && id.isNotBlank()) {
+            idVal = id.hashCode().toLong().let { if (it < 0) -it else it }
+        }
+        val vId = getLong("vehicleId") ?: get("vehicleId")?.toString()?.toLongOrNull() ?: 0L
         return Document(
             id = idVal,
-            vehicleId = getLong("vehicleId") ?: get("vehicleId")?.toString()?.toLongOrNull() ?: 0L,
+            vehicleId = vId,
             vehicleName = getString("vehicleName") ?: "",
             docTitle = getString("docTitle") ?: getString("title") ?: "",
             docType = getString("docType") ?: getString("category") ?: "Registration",
@@ -1142,15 +1170,20 @@ class FirebaseSyncManager private constructor() {
 
     private fun DocumentSnapshot.toInsurancePolicy(): InsurancePolicy? {
         if (!exists()) return null
-        val idVal = getLong("id") ?: get("id")?.toString()?.toLongOrNull() ?: id.toLongOrNull() ?: 0L
+        var idVal = getLong("id") ?: get("id")?.toString()?.toLongOrNull() ?: id.toLongOrNull() ?: 0L
+        if (idVal == 0L && id.isNotBlank()) {
+            idVal = id.hashCode().toLong().let { if (it < 0) -it else it }
+        }
+        val vId = getLong("vehicleId") ?: get("vehicleId")?.toString()?.toLongOrNull() ?: 0L
+        val prem = getDouble("premiumAmount") ?: get("premiumAmount")?.toString()?.toDoubleOrNull() ?: 0.0
         return InsurancePolicy(
             id = idVal,
-            vehicleId = getLong("vehicleId") ?: get("vehicleId")?.toString()?.toLongOrNull() ?: 0L,
+            vehicleId = vId,
             vehicleName = getString("vehicleName") ?: "",
             providerName = getString("providerName") ?: "",
             policyNumber = getString("policyNumber") ?: "",
             coverageType = getString("coverageType") ?: "Comprehensive",
-            premiumAmount = getDouble("premiumAmount") ?: 0.0,
+            premiumAmount = prem,
             startDate = getString("startDate") ?: "",
             expiryDate = getString("expiryDate") ?: "",
             agentContact = getString("agentContact") ?: "",
@@ -1162,10 +1195,14 @@ class FirebaseSyncManager private constructor() {
 
     private fun DocumentSnapshot.toReminder(): Reminder? {
         if (!exists()) return null
-        val idVal = getLong("id") ?: get("id")?.toString()?.toLongOrNull() ?: id.toLongOrNull() ?: 0L
+        var idVal = getLong("id") ?: get("id")?.toString()?.toLongOrNull() ?: id.toLongOrNull() ?: 0L
+        if (idVal == 0L && id.isNotBlank()) {
+            idVal = id.hashCode().toLong().let { if (it < 0) -it else it }
+        }
+        val vId = getLong("vehicleId") ?: get("vehicleId")?.toString()?.toLongOrNull() ?: 0L
         return Reminder(
             id = idVal,
-            vehicleId = getLong("vehicleId") ?: get("vehicleId")?.toString()?.toLongOrNull() ?: 0L,
+            vehicleId = vId,
             vehicleName = getString("vehicleName") ?: "",
             reminderTitle = getString("reminderTitle") ?: getString("title") ?: "",
             reminderType = getString("reminderType") ?: getString("category") ?: "Oil Change",

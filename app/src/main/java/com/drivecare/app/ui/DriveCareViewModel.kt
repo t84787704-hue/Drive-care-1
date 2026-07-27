@@ -264,6 +264,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
             val newId = vehicleDao.insertVehicle(vehicle)
             val v = if (vehicle.id == 0L) vehicle.copy(id = newId) else vehicle
             syncManager.uploadSingleVehicle(v)
+            triggerManualSync()
         }
     }
 
@@ -274,6 +275,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                 _selectedFuelVehicle.value = vehicle
             }
             syncManager.uploadSingleVehicle(vehicle)
+            triggerManualSync()
         }
     }
 
@@ -305,6 +307,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                 _selectedDocumentVehicleId.value = null
             }
             syncManager.deleteSingleVehicle(vehicle.id)
+            triggerManualSync()
         }
     }
 
@@ -313,6 +316,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
             val id = fuelDao.insertFuelEntry(entry)
             val f = if (entry.id == 0L) entry.copy(id = id) else entry
             syncManager.uploadSingleFuelEntry(f)
+            triggerManualSync()
         }
     }
 
@@ -320,6 +324,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             fuelDao.deleteFuelEntry(entry)
             syncManager.deleteSingleFuelEntry(entry.id)
+            triggerManualSync()
         }
     }
 
@@ -342,6 +347,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                 val remId = reminderDao.insertReminder(rem)
                 syncManager.uploadSingleReminder(rem.copy(id = remId))
             }
+            triggerManualSync()
         }
     }
 
@@ -349,6 +355,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             maintenanceDao.updateMaintenance(maintenance)
             syncManager.uploadSingleMaintenance(maintenance)
+            triggerManualSync()
         }
     }
 
@@ -356,6 +363,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             maintenanceDao.deleteMaintenance(maintenance)
             syncManager.deleteSingleMaintenance(maintenance.id)
+            triggerManualSync()
         }
     }
 
