@@ -20,6 +20,12 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import com.drivecare.app.data.cloud.SyncState
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.launch
 import com.drivecare.app.ui.DriveCareViewModel
 import com.drivecare.app.ui.components.DriveCareBrandShowcaseDialog
@@ -42,8 +48,7 @@ enum class MoreSubSection {
     ACHIEVEMENTS,
     SETTINGS,
     PROFILE,
-    AUTH,
-    CLOUD_VERIFICATION
+    AUTH
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -94,10 +99,6 @@ fun MoreScreen(
                     viewModel = viewModel,
                     onAuthSuccess = { onSubSectionSelect(MoreSubSection.PROFILE) }
                 )
-                MoreSubSection.CLOUD_VERIFICATION -> CloudVerificationScreen(
-                    viewModel = viewModel,
-                    onNavigateBack = { onSubSectionSelect(MoreSubSection.MENU) }
-                )
                 else -> {}
             }
         }
@@ -119,12 +120,23 @@ fun MoreScreen(
             val currentUser by viewModel.currentUser.collectAsState()
             val userProfile by viewModel.userProfile.collectAsState()
             val syncState by viewModel.syncState.collectAsState()
+            val lastSyncTime by viewModel.lastSyncTime.collectAsState()
+
+            val formattedLastSync = remember(lastSyncTime) {
+                if (lastSyncTime <= 0L) {
+                    "Just now"
+                } else {
+                    val sdf = SimpleDateFormat("dd MMM yyyy, h:mm a", Locale.getDefault())
+                    sdf.format(Date(lastSyncTime))
+                }
+            }
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (currentUser != null) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
-                    else MaterialTheme.colorScheme.surfaceVariant
+                    containerColor = if (currentUser != null) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                 )
             ) {
                 Row(
@@ -134,17 +146,49 @@ fun MoreScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = if (currentUser != null) (userProfile?.fullName?.ifBlank { null } ?: currentUser?.email ?: "Cloud Account") else "Local Account (Offline)",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = if (currentUser != null) "Cloud Sync Active • ${viewModel.syncManager.formattedLastSync()}" else "Sign in to backup & sync data across devices",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = if (currentUser != null) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                            modifier = Modifier.size(44.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = if (currentUser != null) {
+                                        if (syncState == SyncState.SYNCING) Icons.Default.Sync else Icons.Default.CloudDone
+                                    } else Icons.Default.CloudOff,
+                                    contentDescription = null,
+                                    tint = if (currentUser != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = if (currentUser != null) {
+                                    if (syncState == SyncState.SYNCING) "Cloud Sync: Syncing..."
+                                    else "Cloud Sync: Active"
+                                } else "Cloud Sync: Inactive",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = if (currentUser != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = if (currentUser != null) {
+                                    "Last Synced: $formattedLastSync"
+                                } else {
+                                    "Sign in to backup & sync data automatically"
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
 
                     Button(
@@ -154,7 +198,8 @@ fun MoreScreen(
                             } else {
                                 onSubSectionSelect(MoreSubSection.AUTH)
                             }
-                        }
+                        },
+                        shape = RoundedCornerShape(12.dp)
                     ) {
                         Text(if (currentUser != null) "Profile" else "Sign In")
                     }
@@ -301,16 +346,6 @@ fun MoreScreen(
                         title = AppStrings.get("language", lang),
                         subtitle = "${AppStrings.get("current_language", lang)}: ${lang.displayName}",
                         onClick = { onSubSectionSelect(MoreSubSection.SETTINGS) }
-                    )
-
-                    Divider()
-
-                    MoreMenuItem(
-                        icon = Icons.Default.CloudSync,
-                        title = "Cloud Verification & Terminal",
-                        subtitle = "Inspect UID, Firestore status & developer audit logs",
-                        iconTint = MaterialTheme.colorScheme.tertiary,
-                        onClick = { onSubSectionSelect(MoreSubSection.CLOUD_VERIFICATION) }
                     )
 
                     Divider()
