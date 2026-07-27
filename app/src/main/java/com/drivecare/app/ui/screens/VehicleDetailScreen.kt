@@ -1,6 +1,7 @@
 package com.drivecare.app.ui.screens
 
 import android.content.Context
+import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -9,6 +10,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -22,17 +26,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.drivecare.app.NavTab
 import com.drivecare.app.data.model.*
 import com.drivecare.app.ui.DriveCareViewModel
 import com.drivecare.app.ui.FuelEfficiencyStats
 import com.drivecare.app.utils.AppLanguage
 import com.drivecare.app.utils.AppStrings
+import com.drivecare.app.utils.DocumentFileHelper
 import com.drivecare.app.utils.PdfReportGenerator
 import com.drivecare.app.utils.VehicleTypeHelper
 import java.text.SimpleDateFormat
@@ -85,7 +92,9 @@ fun VehicleDetailScreen(
         AppStrings.get("tab_documents", lang).ifBlank { "Documents" },
         AppStrings.get("expense_manager_title", lang).ifBlank { "Expenses" },
         AppStrings.get("insurance_policies_title", lang).ifBlank { "Insurance" },
-        AppStrings.get("tab_reminders", lang).ifBlank { "Reminders" }
+        AppStrings.get("tab_reminders", lang).ifBlank { "Reminders" },
+        "Geofencing",
+        "Gallery"
     )
 
     // Dialog state handlers
@@ -97,6 +106,8 @@ fun VehicleDetailScreen(
     var showAddExpenseDialog by remember { mutableStateOf(false) }
     var showAddInsuranceDialog by remember { mutableStateOf(false) }
     var showAddReminderDialog by remember { mutableStateOf(false) }
+    var showAddGeofenceDialog by remember { mutableStateOf(false) }
+    var showAddGalleryPhotoDialog by remember { mutableStateOf(false) }
 
     val formattedLastUpdated = remember(vehicle.lastUpdated) {
         if (vehicle.lastUpdated > 0) {
@@ -151,13 +162,16 @@ fun VehicleDetailScreen(
         },
         floatingActionButton = {
             val (fabLabel, fabIcon) = when (selectedTabIndex) {
+                0 -> "Edit Vehicle" to Icons.Default.Edit
                 1 -> "Add Fuel" to Icons.Default.LocalGasStation
                 2 -> "Add Service" to Icons.Default.Build
                 3 -> "Add Document" to Icons.Default.FolderOpen
                 4 -> "Add Expense" to Icons.Default.AttachMoney
                 5 -> "Add Insurance" to Icons.Default.Security
                 6 -> "Add Reminder" to Icons.Default.NotificationsActive
-                else -> "Quick Add" to Icons.Default.Add
+                7 -> "Add Geofence" to Icons.Default.LocationOn
+                8 -> "Add Photo" to Icons.Default.AddAPhoto
+                else -> "Add Record" to Icons.Default.Add
             }
 
             ExtendedFloatingActionButton(
@@ -165,13 +179,16 @@ fun VehicleDetailScreen(
                 icon = { Icon(fabIcon, contentDescription = fabLabel) },
                 onClick = {
                     when (selectedTabIndex) {
+                        0 -> showEditDialog = true
                         1 -> showAddFuelDialog = true
                         2 -> showAddServiceDialog = true
                         3 -> showAddDocDialog = true
                         4 -> showAddExpenseDialog = true
                         5 -> showAddInsuranceDialog = true
                         6 -> showAddReminderDialog = true
-                        else -> showAddFuelDialog = true
+                        7 -> showAddGeofenceDialog = true
+                        8 -> showAddGalleryPhotoDialog = true
+                        else -> showEditDialog = true
                     }
                 },
                 containerColor = MaterialTheme.colorScheme.primary,
@@ -199,15 +216,26 @@ fun VehicleDetailScreen(
                     Surface(
                         shape = RoundedCornerShape(16.dp),
                         color = MaterialTheme.colorScheme.primaryContainer,
-                        modifier = Modifier.size(64.dp)
+                        modifier = Modifier.size(72.dp)
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = VehicleTypeHelper.getVehicleIcon(vehicle.vehicleType),
-                                contentDescription = null,
-                                modifier = Modifier.size(36.dp),
-                                tint = MaterialTheme.colorScheme.primary
+                        if (vehicle.imageUri.isNotBlank()) {
+                            AsyncImage(
+                                model = vehicle.imageUri,
+                                contentDescription = vehicle.vehicleName,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(RoundedCornerShape(16.dp)),
+                                contentScale = ContentScale.Crop
                             )
+                        } else {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = VehicleTypeHelper.getVehicleIcon(vehicle.vehicleType),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(36.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
                     }
 
@@ -338,6 +366,21 @@ fun VehicleDetailScreen(
                         onToggleReminder = { viewModel.toggleReminder(it) },
                         onDeleteReminder = { viewModel.deleteReminder(it) }
                     )
+                    7 -> GeofencingTabContent(
+                        vGeofences = vGeofences,
+                        lang = lang,
+                        onToggleActive = { zone ->
+                            viewModel.updateGeofenceZone(zone.copy(isActive = !zone.isActive))
+                        },
+                        onDeleteGeofence = { viewModel.deleteGeofenceZone(it) }
+                    )
+                    8 -> GalleryTabContent(
+                        vehicle = vehicle,
+                        vDocs = vDocs,
+                        viewModel = viewModel,
+                        lang = lang,
+                        onAddPhotoClick = { showAddGalleryPhotoDialog = true }
+                    )
                 }
             }
         }
@@ -362,7 +405,7 @@ fun VehicleDetailScreen(
             onDismissRequest = { showDeleteConfirmDialog = false },
             title = { Text(AppStrings.get("delete_vehicle", lang).ifBlank { "Delete Vehicle" }) },
             text = {
-                Text("Are you sure you want to delete ${vehicle.vehicleName}? This will permanently remove the vehicle and ALL associated fuel logs, maintenance records, documents, expenses, insurance policies, and reminders from both local storage and cloud sync.")
+                Text("Are you sure you want to delete ${vehicle.vehicleName}? This will permanently remove the vehicle and ALL associated fuel logs, maintenance records, documents, expenses, insurance policies, reminders, and geofences from both local storage and cloud sync.")
             },
             confirmButton = {
                 Button(
@@ -431,6 +474,22 @@ fun VehicleDetailScreen(
             onDismiss = { showAddReminderDialog = false }
         )
     }
+
+    if (showAddGeofenceDialog) {
+        AddVehicleGeofenceDialog(
+            vehicle = vehicle,
+            viewModel = viewModel,
+            onDismiss = { showAddGeofenceDialog = false }
+        )
+    }
+
+    if (showAddGalleryPhotoDialog) {
+        AddVehicleGalleryPhotoDialog(
+            vehicle = vehicle,
+            viewModel = viewModel,
+            onDismiss = { showAddGalleryPhotoDialog = false }
+        )
+    }
 }
 
 // --- OVERVIEW TAB CONTENT ---
@@ -469,7 +528,7 @@ private fun OverviewTabContent(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text("Full Vehicle Specifications", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Divider()
+                HorizontalDivider()
 
                 SpecItemRow(label = "Vehicle Name", value = vehicle.vehicleName)
                 SpecItemRow(label = "Make / Brand", value = vehicle.brand.ifBlank { "N/A" })
@@ -545,6 +604,25 @@ private fun OverviewTabContent(
                 icon = Icons.Default.Security,
                 modifier = Modifier.weight(1f),
                 onClick = { onSwitchTab(5) }
+            )
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            SummaryModuleCard(
+                title = "Geofences",
+                value = "${vGeofences.count { it.isActive }} Active",
+                subValue = "${vGeofences.size} Total Zones",
+                icon = Icons.Default.LocationOn,
+                modifier = Modifier.weight(1f),
+                onClick = { onSwitchTab(7) }
+            )
+            SummaryModuleCard(
+                title = "Photo Gallery",
+                value = "${vDocs.count { it.docType == "Gallery" || it.docType == "Photo" } + if (vehicle.imageUri.isNotBlank()) 1 else 0} Photos",
+                subValue = "View Gallery",
+                icon = Icons.Default.Collections,
+                modifier = Modifier.weight(1f),
+                onClick = { onSwitchTab(8) }
             )
         }
 
@@ -786,6 +864,9 @@ private fun InsuranceTabContent(
                         }
                         Text("Policy #: ${pol.policyNumber} • Coverage: ${pol.coverageType}", style = MaterialTheme.typography.bodyMedium)
                         Text("Premium: $currencySymbol${pol.premiumAmount} • Expires: ${pol.expiryDate}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (pol.agentContact.isNotBlank()) {
+                            Text("Agent Contact: ${pol.agentContact}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                        }
                     }
                 }
             }
@@ -838,6 +919,234 @@ private fun RemindersTabContent(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun GeofencingTabContent(
+    vGeofences: List<GeofenceZone>,
+    lang: AppLanguage,
+    onToggleActive: (GeofenceZone) -> Unit,
+    onDeleteGeofence: (GeofenceZone) -> Unit
+) {
+    if (vGeofences.isEmpty()) {
+        EmptyTabPlaceholder(title = "No Geofence Zones", subtitle = "Tap the + FAB button to create virtual perimeter alerts for this vehicle.")
+    } else {
+        LazyColumn(
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            items(vGeofences, key = { it.id }) { geo ->
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(geo.zoneName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = if (geo.isActive) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+                                ) {
+                                    Text(
+                                        text = if (geo.isActive) "ACTIVE" else "DISABLED",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text("Center: ${String.format(Locale.US, "%.4f", geo.centerLatitude)}, ${String.format(Locale.US, "%.4f", geo.centerLongitude)} • Radius: ${geo.radiusMeters.toInt()}m", style = MaterialTheme.typography.bodyMedium)
+                            Text("Alerts: ${if (geo.notifyOnEnter) "Enter" else ""} ${if (geo.notifyOnExit) "Exit" else ""}".trim(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Switch(
+                                checked = geo.isActive,
+                                onCheckedChange = { onToggleActive(geo) }
+                            )
+                            IconButton(onClick = { onDeleteGeofence(geo) }) {
+                                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GalleryTabContent(
+    vehicle: Vehicle,
+    vDocs: List<Document>,
+    viewModel: DriveCareViewModel,
+    lang: AppLanguage,
+    onAddPhotoClick: () -> Unit
+) {
+    val context = LocalContext.current
+    val photoDocs = remember(vDocs) { vDocs.filter { it.docType == "Gallery" || it.docType == "Photo" } }
+    var fullScreenImageUri by remember { mutableStateOf<String?>(null) }
+
+    val mainPhotoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        if (uri != null) {
+            val savedInfo = DocumentFileHelper.saveFileToInternalStorage(context, uri)
+            if (savedInfo != null) {
+                viewModel.updateVehicle(vehicle.copy(imageUri = savedInfo.fileUriString))
+                Toast.makeText(context, "Main vehicle photo updated!", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Main Vehicle Photo Card
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Main Vehicle Cover Photo", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    TextButton(onClick = { mainPhotoLauncher.launch("image/*") }) {
+                        Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(if (vehicle.imageUri.isBlank()) "Set Photo" else "Change")
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                if (vehicle.imageUri.isNotBlank()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { fullScreenImageUri = vehicle.imageUri }
+                    ) {
+                        AsyncImage(
+                            model = vehicle.imageUri,
+                            contentDescription = "Main Vehicle Photo",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                } else {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(120.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text("No main photo set. Tap 'Set Photo' to select one.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+        }
+
+        Text("Photo Gallery (${photoDocs.size})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+
+        if (photoDocs.isEmpty()) {
+            EmptyTabPlaceholder(title = "No Gallery Photos", subtitle = "Tap the + FAB or 'Add Photo' to upload photos of your vehicle.")
+        } else {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                items(photoDocs, key = { it.id }) { photo ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(160.dp)
+                            .clickable { fullScreenImageUri = photo.fileUri }
+                    ) {
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            if (photo.fileUri.isNotBlank()) {
+                                AsyncImage(
+                                    model = photo.fileUri,
+                                    contentDescription = photo.docTitle,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
+                            Surface(
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .fillMaxWidth(),
+                                color = Color.Black.copy(alpha = 0.6f)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = photo.docTitle.ifBlank { "Photo" },
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = Color.White,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    IconButton(
+                                        onClick = { viewModel.deleteDocument(photo) },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Red, modifier = Modifier.size(16.dp))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Full Screen Image Dialog
+    if (fullScreenImageUri != null) {
+        AlertDialog(
+            onDismissRequest = { fullScreenImageUri = null },
+            text = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(300.dp)
+                ) {
+                    AsyncImage(
+                        model = fullScreenImageUri,
+                        contentDescription = "Full Image",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { fullScreenImageUri = null }) {
+                    Text("Close")
+                }
+            }
+        )
     }
 }
 
@@ -1066,8 +1375,11 @@ private fun AddVehicleInsuranceDialog(
 ) {
     var provider by remember { mutableStateOf("") }
     var policyNum by remember { mutableStateOf("") }
+    var coverageType by remember { mutableStateOf("Comprehensive") }
     var premiumStr by remember { mutableStateOf("") }
+    var startDate by remember { mutableStateOf(SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())) }
     var expiry by remember { mutableStateOf("") }
+    var agentContact by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1076,8 +1388,11 @@ private fun AddVehicleInsuranceDialog(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(value = provider, onValueChange = { provider = it }, label = { Text("Insurance Provider *") }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = policyNum, onValueChange = { policyNum = it }, label = { Text("Policy Number") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = coverageType, onValueChange = { coverageType = it }, label = { Text("Coverage Type") }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = premiumStr, onValueChange = { premiumStr = it }, label = { Text("Premium Amount") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = startDate, onValueChange = { startDate = it }, label = { Text("Start Date (YYYY-MM-DD)") }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = expiry, onValueChange = { expiry = it }, label = { Text("Expiry Date (YYYY-MM-DD)") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = agentContact, onValueChange = { agentContact = it }, label = { Text("Agent Contact") }, modifier = Modifier.fillMaxWidth())
             }
         },
         confirmButton = {
@@ -1090,8 +1405,11 @@ private fun AddVehicleInsuranceDialog(
                                 vehicleName = vehicle.vehicleName,
                                 providerName = provider,
                                 policyNumber = policyNum,
+                                coverageType = coverageType,
                                 premiumAmount = premiumStr.toDoubleOrNull() ?: 0.0,
-                                expiryDate = expiry
+                                startDate = startDate,
+                                expiryDate = expiry,
+                                agentContact = agentContact
                             )
                         )
                         onDismiss()
@@ -1140,6 +1458,163 @@ private fun AddVehicleReminderDialog(
                     }
                 }
             ) { Text("Save Reminder") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+@Composable
+private fun AddVehicleGeofenceDialog(
+    vehicle: Vehicle,
+    viewModel: DriveCareViewModel,
+    onDismiss: () -> Unit
+) {
+    var zoneName by remember { mutableStateOf("") }
+    var latStr by remember { mutableStateOf("28.6139") }
+    var lngStr by remember { mutableStateOf("77.2090") }
+    var radiusStr by remember { mutableStateOf("500") }
+    var notifyOnEnter by remember { mutableStateOf(true) }
+    var notifyOnExit by remember { mutableStateOf(true) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add Geofence for ${vehicle.vehicleName}") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(value = zoneName, onValueChange = { zoneName = it }, label = { Text("Zone Name *") }, modifier = Modifier.fillMaxWidth())
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(value = latStr, onValueChange = { latStr = it }, label = { Text("Latitude") }, modifier = Modifier.weight(1f))
+                    OutlinedTextField(value = lngStr, onValueChange = { lngStr = it }, label = { Text("Longitude") }, modifier = Modifier.weight(1f))
+                }
+                OutlinedTextField(value = radiusStr, onValueChange = { radiusStr = it }, label = { Text("Radius (Meters)") }, modifier = Modifier.fillMaxWidth())
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Notify on Entry")
+                    Checkbox(checked = notifyOnEnter, onCheckedChange = { notifyOnEnter = it })
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Notify on Exit")
+                    Checkbox(checked = notifyOnExit, onCheckedChange = { notifyOnExit = it })
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (zoneName.isNotBlank()) {
+                        val lat = latStr.toDoubleOrNull() ?: 0.0
+                        val lng = lngStr.toDoubleOrNull() ?: 0.0
+                        val rad = radiusStr.toDoubleOrNull() ?: 500.0
+                        viewModel.addGeofenceZone(
+                            GeofenceZone(
+                                vehicleId = vehicle.id,
+                                zoneName = zoneName,
+                                centerLatitude = lat,
+                                centerLongitude = lng,
+                                radiusMeters = rad,
+                                notifyOnEnter = notifyOnEnter,
+                                notifyOnExit = notifyOnExit,
+                                isActive = true
+                            )
+                        )
+                        onDismiss()
+                    }
+                }
+            ) { Text("Save Geofence") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+@Composable
+private fun AddVehicleGalleryPhotoDialog(
+    vehicle: Vehicle,
+    viewModel: DriveCareViewModel,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    var caption by remember { mutableStateOf("") }
+    var selectedUri by remember { mutableStateOf<Uri?>(null) }
+
+    val pickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        selectedUri = uri
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add Photo to Gallery") },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                OutlinedTextField(
+                    value = caption,
+                    onValueChange = { caption = it },
+                    label = { Text("Photo Title / Caption") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                if (selectedUri != null) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(140.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                    ) {
+                        AsyncImage(
+                            model = selectedUri,
+                            contentDescription = "Preview",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                }
+
+                Button(
+                    onClick = { pickerLauncher.launch("image/*") },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.PhotoLibrary, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(if (selectedUri == null) "Select Photo from Device" else "Change Photo")
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                enabled = selectedUri != null,
+                onClick = {
+                    val uri = selectedUri
+                    if (uri != null) {
+                        val savedInfo = DocumentFileHelper.saveFileToInternalStorage(context, uri)
+                        if (savedInfo != null) {
+                            viewModel.addDocument(
+                                Document(
+                                    vehicleId = vehicle.id,
+                                    vehicleName = vehicle.vehicleName,
+                                    docTitle = caption.ifBlank { savedInfo.fileName },
+                                    docType = "Gallery",
+                                    fileUri = savedInfo.fileUriString,
+                                    mimeType = savedInfo.mimeType,
+                                    fileSize = savedInfo.fileSize
+                                )
+                            )
+                            Toast.makeText(context, "Photo added to gallery!", Toast.LENGTH_SHORT).show()
+                            onDismiss()
+                        }
+                    }
+                }
+            ) { Text("Save Photo") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )

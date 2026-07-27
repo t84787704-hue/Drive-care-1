@@ -327,6 +327,9 @@ fun VehicleFormDialog(
     var plate by remember { mutableStateOf(vehicle?.registrationNumber ?: "") }
     var fuelType by remember { mutableStateOf(vehicle?.fuelType ?: "Petrol") }
     var odometer by remember { mutableStateOf(vehicle?.odometerReading ?: "0") }
+    var vin by remember { mutableStateOf(vehicle?.vin ?: "") }
+    var purchaseDate by remember { mutableStateOf(vehicle?.purchaseDate ?: "") }
+    var notes by remember { mutableStateOf(vehicle?.notes ?: "") }
 
     var expandedTypeDropdown by remember { mutableStateOf(false) }
     var expandedFuelDropdown by remember { mutableStateOf(false) }
@@ -485,6 +488,30 @@ fun VehicleFormDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                OutlinedTextField(
+                    value = vin,
+                    onValueChange = { vin = it.uppercase() },
+                    label = { Text("VIN / Chassis No.") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = purchaseDate,
+                    onValueChange = { purchaseDate = it },
+                    label = { Text("Purchase Date (YYYY-MM-DD)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = { Text("Notes") },
+                    maxLines = 3,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         },
         confirmButton = {
@@ -525,7 +552,11 @@ fun VehicleFormDialog(
                         manufacturingYear = year.ifBlank { "2024" },
                         registrationNumber = cleanPlate,
                         fuelType = fuelType,
-                        odometerReading = odometer
+                        odometerReading = odometer,
+                        vin = vin,
+                        purchaseDate = purchaseDate,
+                        notes = notes,
+                        lastUpdated = System.currentTimeMillis()
                     )
                     onSave(newV)
                 }

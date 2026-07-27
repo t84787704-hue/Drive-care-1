@@ -797,7 +797,7 @@ class FirebaseSyncManager private constructor() {
             val userRef = firestore?.collection("users")?.document(user.uid) ?: return@withContext
             userRef.collection("vehicles").document(vehicleId.toString()).delete().await()
 
-            val childCollections = listOf("fuelEntries", "maintenance", "documents", "expenses", "insurancePolicies", "reminders")
+            val childCollections = listOf("fuelEntries", "maintenance", "documents", "expenses", "insurancePolicies", "reminders", "geofences")
             childCollections.forEach { col ->
                 try {
                     val querySnap = userRef.collection(col).whereEqualTo("vehicleId", vehicleId).get().await()
@@ -960,6 +960,30 @@ class FirebaseSyncManager private constructor() {
         }
     }
 
+    suspend fun uploadSingleGeofence(geofence: GeofenceZone) = withContext(Dispatchers.IO) {
+        val user = _currentUser.value ?: return@withContext
+        try {
+            firestore?.collection("users")?.document(user.uid)?.collection("geofences")
+                ?.document(geofence.id.toString())
+                ?.set(geofence.toMap(), SetOptions.merge())?.await()
+            addAuditLog("[REALTIME PUSH] Saved geofence '${geofence.zoneName}' to Firestore")
+        } catch (e: Exception) {
+            addAuditLog("[REALTIME ERROR] Geofence upload failed: ${e.message}")
+        }
+    }
+
+    suspend fun deleteSingleGeofence(geofenceId: Long) = withContext(Dispatchers.IO) {
+        val user = _currentUser.value ?: return@withContext
+        try {
+            firestore?.collection("users")?.document(user.uid)?.collection("geofences")
+                ?.document(geofenceId.toString())
+                ?.delete()?.await()
+            addAuditLog("[REALTIME DELETE] Removed geofence ID $geofenceId from Firestore")
+        } catch (e: Exception) {
+            addAuditLog("[REALTIME ERROR] Geofence delete failed: ${e.message}")
+        }
+    }
+
     // --- Model Map Converters for Clean Firestore Serialization ---
 
     private fun Vehicle.toMap(): Map<String, Any?> = mapOf(
@@ -1064,6 +1088,18 @@ class FirebaseSyncManager private constructor() {
         "dueDate" to dueDate,
         "isCompleted" to isCompleted,
         "createdAt" to createdAt
+    )
+
+    private fun GeofenceZone.toMap(): Map<String, Any?> = mapOf(
+        "id" to id,
+        "vehicleId" to vehicleId,
+        "zoneName" to zoneName,
+        "centerLatitude" to centerLatitude,
+        "centerLongitude" to centerLongitude,
+        "radiusMeters" to radiusMeters,
+        "notifyOnEnter" to notifyOnEnter,
+        "notifyOnExit" to notifyOnExit,
+        "isActive" to isActive
     )
 
     // --- Document Mapping Extensions ---
@@ -1228,6 +1264,29 @@ class FirebaseSyncManager private constructor() {
             dueDate = getString("dueDate") ?: "",
             isCompleted = getBoolean("isCompleted") ?: false,
             createdAt = getLong("createdAt") ?: System.currentTimeMillis()
+        )
+    }
+
+    private fun DocumentSnapshot.toGeofenceZone(): GeofenceZone? {
+        if (!exists()) return null
+        var idVal = getLong("id") ?: get("id")?.toString()?.toLongOrNull() ?: id.toLongOrNull() ?: 0L
+        if (idVal == 0L && id.isNotBlank()) {
+            idVal = id.hashCode().toLong().let { if (it < 0) -it else it }
+        }
+        val vId = getLong("vehicleId") ?: get("vehicleId")?.toString()?.toLongOrNull() ?: 0L
+        val lat = getDouble("centerLatitude") ?: get("centerLatitude")?.toString()?.toDoubleOrNull() ?: 0.0
+        val lng = getDouble("centerLongitude") ?: get("centerLongitude")?.toString()?.toDoubleOrNull() ?: 0.0
+        val rad = getDouble("radiusMeters") ?: get("radiusMeters")?.toString()?.toDoubleOrNull() ?: 500.0
+        return GeofenceZone(
+            id = idVal,
+            vehicleId = vId,
+            zoneName = getString("zoneName") ?: "Geofence Zone",
+            centerLatitude = lat,
+            centerLongitude = lng,
+            radiusMeters = rad,
+            notifyOnEnter = getBoolean("notifyOnEnter") ?: true,
+            notifyOnExit = getBoolean("notifyOnExit") ?: true,
+            isActive = getBoolean("isActive") ?: true
         )
     }
 }

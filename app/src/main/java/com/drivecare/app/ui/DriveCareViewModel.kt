@@ -494,6 +494,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
             val generatedId = geofenceZoneDao.insertGeofence(geofence)
             val updatedZone = if (geofence.id == 0L) geofence.copy(id = generatedId) else geofence
             GeofenceManager.registerGeofence(getApplication(), updatedZone)
+            syncManager.uploadSingleGeofence(updatedZone)
         }
     }
 
@@ -501,6 +502,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             geofenceZoneDao.updateGeofence(geofence)
             GeofenceManager.registerGeofence(getApplication(), geofence)
+            syncManager.uploadSingleGeofence(geofence)
         }
     }
 
@@ -508,6 +510,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             geofenceZoneDao.deleteGeofence(geofence)
             GeofenceManager.unregisterGeofence(getApplication(), geofence.id)
+            syncManager.deleteSingleGeofence(geofence.id)
         }
     }
 
