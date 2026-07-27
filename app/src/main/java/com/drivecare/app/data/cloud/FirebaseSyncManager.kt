@@ -912,13 +912,20 @@ class FirebaseSyncManager private constructor() {
         }
     }
 
-    suspend fun uploadSingleInsurance(policy: InsurancePolicy) = withContext(Dispatchers.IO) {
+    suspend fun uploadSingleInsurance(context: Context? = null, policy: InsurancePolicy) = withContext(Dispatchers.IO) {
         val user = _currentUser.value ?: return@withContext
         try {
+            var updatedPolicy = policy
+            if (context != null && policy.documentUri.isNotBlank() && !policy.documentUri.startsWith("http://") && !policy.documentUri.startsWith("https://")) {
+                val cloudUrl = uploadFileToStorage(context, policy.documentUri, policy.id)
+                if (cloudUrl != policy.documentUri) {
+                    updatedPolicy = policy.copy(documentUri = cloudUrl)
+                }
+            }
             firestore?.collection("users")?.document(user.uid)?.collection("insurancePolicies")
-                ?.document(policy.id.toString())
-                ?.set(policy.toMap(), SetOptions.merge())?.await()
-            addAuditLog("[REALTIME PUSH] Saved insurance policy '${policy.policyNumber}' to Firestore")
+                ?.document(updatedPolicy.id.toString())
+                ?.set(updatedPolicy.toMap(), SetOptions.merge())?.await()
+            addAuditLog("[REALTIME PUSH] Saved insurance policy '${updatedPolicy.policyNumber}' to Firestore")
         } catch (e: Exception) {
             addAuditLog("[REALTIME ERROR] Insurance upload failed: ${e.message}")
         }
@@ -1074,9 +1081,13 @@ class FirebaseSyncManager private constructor() {
         "startDate" to startDate,
         "expiryDate" to expiryDate,
         "agentContact" to agentContact,
+        "claimContact" to claimContact,
+        "emergencyContact" to emergencyContact,
         "notes" to notes,
         "isAutoRenewEnabled" to isAutoRenewEnabled,
-        "createdAt" to createdAt
+        "documentUri" to documentUri,
+        "createdAt" to createdAt,
+        "updatedAt" to updatedAt
     )
 
     private fun Reminder.toMap(): Map<String, Any?> = mapOf(
@@ -1242,9 +1253,13 @@ class FirebaseSyncManager private constructor() {
             startDate = getString("startDate") ?: "",
             expiryDate = getString("expiryDate") ?: "",
             agentContact = getString("agentContact") ?: "",
+            claimContact = getString("claimContact") ?: "",
+            emergencyContact = getString("emergencyContact") ?: "",
             notes = getString("notes") ?: "",
             isAutoRenewEnabled = getBoolean("isAutoRenewEnabled") ?: false,
-            createdAt = getLong("createdAt") ?: System.currentTimeMillis()
+            documentUri = getString("documentUri") ?: "",
+            createdAt = getLong("createdAt") ?: System.currentTimeMillis(),
+            updatedAt = getLong("updatedAt") ?: System.currentTimeMillis()
         )
     }
 

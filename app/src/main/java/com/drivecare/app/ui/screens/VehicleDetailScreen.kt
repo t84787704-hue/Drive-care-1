@@ -105,6 +105,8 @@ fun VehicleDetailScreen(
     var showAddDocDialog by remember { mutableStateOf(false) }
     var showAddExpenseDialog by remember { mutableStateOf(false) }
     var showAddInsuranceDialog by remember { mutableStateOf(false) }
+    var editingInsurancePolicy by remember { mutableStateOf<InsurancePolicy?>(null) }
+    var renewingInsurancePolicy by remember { mutableStateOf<InsurancePolicy?>(null) }
     var showAddReminderDialog by remember { mutableStateOf(false) }
     var showAddGeofenceDialog by remember { mutableStateOf(false) }
     var showAddGalleryPhotoDialog by remember { mutableStateOf(false) }
@@ -358,6 +360,8 @@ fun VehicleDetailScreen(
                         vInsurance = vInsurance,
                         currencySymbol = currencySymbol,
                         lang = lang,
+                        onRenewPolicy = { renewingInsurancePolicy = it },
+                        onEditPolicy = { editingInsurancePolicy = it },
                         onDeletePolicy = { viewModel.deleteInsurancePolicy(it) }
                     )
                     6 -> RemindersTabContent(
@@ -459,11 +463,37 @@ fun VehicleDetailScreen(
         )
     }
 
-    if (showAddInsuranceDialog) {
-        AddVehicleInsuranceDialog(
-            vehicle = vehicle,
-            viewModel = viewModel,
-            onDismiss = { showAddInsuranceDialog = false }
+    val vehiclesList by viewModel.vehicles.collectAsState()
+    if (showAddInsuranceDialog || editingInsurancePolicy != null) {
+        AddEditInsuranceDialog(
+            vehicles = vehiclesList,
+            editingPolicy = editingInsurancePolicy,
+            currencySymbol = currencySymbol,
+            onDismiss = {
+                showAddInsuranceDialog = false
+                editingInsurancePolicy = null
+            },
+            onSave = { policy ->
+                if (policy.id == 0L) {
+                    viewModel.addInsurancePolicy(policy)
+                } else {
+                    viewModel.updateInsurancePolicy(policy)
+                }
+                showAddInsuranceDialog = false
+                editingInsurancePolicy = null
+            }
+        )
+    }
+
+    renewingInsurancePolicy?.let { policyToRenew ->
+        RenewPolicyDialog(
+            policy = policyToRenew,
+            currencySymbol = currencySymbol,
+            onDismiss = { renewingInsurancePolicy = null },
+            onConfirmRenew = { newStart, newExpiry, newPremium ->
+                viewModel.renewInsurancePolicy(policyToRenew, newStart, newExpiry, newPremium)
+                renewingInsurancePolicy = null
+            }
         )
     }
 
@@ -839,36 +869,82 @@ private fun InsuranceTabContent(
     vInsurance: List<InsurancePolicy>,
     currencySymbol: String,
     lang: AppLanguage,
+    onRenewPolicy: (InsurancePolicy) -> Unit,
+    onEditPolicy: (InsurancePolicy) -> Unit,
     onDeletePolicy: (InsurancePolicy) -> Unit
 ) {
+    val todayStr = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()) }
+    val warn30DaysStr = remember {
+        val cal = Calendar.getInstance()
+        cal.add(Calendar.DAY_OF_YEAR, 30)
+        SimpleDateFormat("yyyy-MM-dd", Locale.US).format(cal.time)
+    }
+
+    val activeCount = remember(vInsurance, todayStr, warn30DaysStr) {
+        vInsurance.count { it.getPolicyStatus() == "ACTIVE" }
+    }
+    val expiringCount = remember(vInsurance, todayStr, warn30DaysStr) {
+        vInsurance.count { it.getPolicyStatus() == "EXPIRING_SOON" }
+    }
+    val expiredCount = remember(vInsurance, todayStr) {
+        vInsurance.count { it.getPolicyStatus() == "EXPIRED" }
+    }
+    val totalPremium = remember(vInsurance) {
+        vInsurance.sumOf { it.premiumAmount }
+    }
+
     if (vInsurance.isEmpty()) {
         EmptyTabPlaceholder(title = "No Insurance Policies", subtitle = "Tap the + FAB button to record policy details and expiration alerts.")
     } else {
         LazyColumn(
             contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxSize()
         ) {
-            items(vInsurance, key = { it.id }) { pol ->
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(pol.providerName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                            IconButton(onClick = { onDeletePolicy(pol) }) {
-                                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
-                            }
+            item {
+                // Summary Cards Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Card(modifier = Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+                        Column(modifier = Modifier.padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Active", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Text("$activeCount", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
                         }
-                        Text("Policy #: ${pol.policyNumber} • Coverage: ${pol.coverageType}", style = MaterialTheme.typography.bodyMedium)
-                        Text("Premium: $currencySymbol${pol.premiumAmount} • Expires: ${pol.expiryDate}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        if (pol.agentContact.isNotBlank()) {
-                            Text("Agent Contact: ${pol.agentContact}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                    }
+                    Card(modifier = Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF8E1))) {
+                        Column(modifier = Modifier.padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Expiring", style = MaterialTheme.typography.labelSmall, color = Color(0xFFF57F17))
+                            Text("$expiringCount", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFFF57F17))
+                        }
+                    }
+                    Card(modifier = Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE))) {
+                        Column(modifier = Modifier.padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Expired", style = MaterialTheme.typography.labelSmall, color = Color(0xFFC62828))
+                            Text("$expiredCount", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFFC62828))
+                        }
+                    }
+                    Card(modifier = Modifier.weight(1.2f), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+                        Column(modifier = Modifier.padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Total Premium", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                            Text("$currencySymbol$totalPremium", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer, maxLines = 1)
                         }
                     }
                 }
+            }
+
+            items(vInsurance, key = { it.id }) { pol ->
+                InsurancePolicyCard(
+                    policy = pol,
+                    currencySymbol = currencySymbol,
+                    todayStr = todayStr,
+                    warn30DaysStr = warn30DaysStr,
+                    onRenew = { onRenewPolicy(pol) },
+                    onEdit = { onEditPolicy(pol) },
+                    onDelete = { onDeletePolicy(pol) },
+                    onCallAgent = { }
+                )
             }
         }
     }

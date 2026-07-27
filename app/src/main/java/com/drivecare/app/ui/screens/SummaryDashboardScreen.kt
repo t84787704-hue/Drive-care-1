@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.layout.ContentScale
 import coil.compose.AsyncImage
 import com.drivecare.app.data.model.Vehicle
+import com.drivecare.app.data.model.InsurancePolicy
 import com.drivecare.app.ui.DriveCareViewModel
 import com.drivecare.app.ui.TimelineEvent
 import com.drivecare.app.ui.components.QuickActionRow
@@ -43,8 +44,11 @@ fun SummaryDashboardScreen(
     val reminders by viewModel.reminders.collectAsState()
     val expenses by viewModel.expenses.collectAsState()
     val documents by viewModel.documents.collectAsState()
+    val insurancePolicies by viewModel.insurancePolicies.collectAsState()
     val userProfile by viewModel.userProfile.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
+
+    var renewingInsurancePolicy by remember { mutableStateOf<InsurancePolicy?>(null) }
 
     val displayNameToShow = userProfile?.fullName?.ifBlank { null }
         ?: currentUser?.displayName?.ifBlank { null }
@@ -366,6 +370,94 @@ fun SummaryDashboardScreen(
             }
         }
 
+        // Insurance Status & Expiry Summary
+        val activeInsCount = remember(insurancePolicies) { insurancePolicies.count { it.getPolicyStatus() == "ACTIVE" } }
+        val expiringInsCount = remember(insurancePolicies) { insurancePolicies.count { it.getPolicyStatus() == "EXPIRING_SOON" } }
+        val expiredInsCount = remember(insurancePolicies) { insurancePolicies.count { it.getPolicyStatus() == "EXPIRED" } }
+        val urgentInsuranceList = remember(insurancePolicies) {
+            insurancePolicies
+                .filter { it.getPolicyStatus() != "ACTIVE" || (it.calculateDaysUntilExpiry() ?: 999) <= 60 }
+                .sortedBy { it.calculateDaysUntilExpiry() ?: 999 }
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.VerifiedUser, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Text("Insurance Management", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    }
+                    TextButton(onClick = { onNavigateTab?.invoke("MORE") }) {
+                        Text("Manage All")
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Surface(modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.primaryContainer) {
+                        Column(modifier = Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Active", style = MaterialTheme.typography.labelSmall)
+                            Text("$activeInsCount", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    Surface(modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp), color = Color(0xFFFFF8E1)) {
+                        Column(modifier = Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Expiring", style = MaterialTheme.typography.labelSmall, color = Color(0xFFF57F17))
+                            Text("$expiringInsCount", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFFF57F17))
+                        }
+                    }
+                    Surface(modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp), color = Color(0xFFFFEBEE)) {
+                        Column(modifier = Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Expired", style = MaterialTheme.typography.labelSmall, color = Color(0xFFC62828))
+                            Text("$expiredInsCount", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFFC62828))
+                        }
+                    }
+                }
+
+                if (urgentInsuranceList.isNotEmpty()) {
+                    Text("Upcoming Renewals & Expired Alerts", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        urgentInsuranceList.take(3).forEach { pol ->
+                            val status = pol.getPolicyStatus()
+                            val isExp = status == "EXPIRED"
+                            val isWarn = status == "EXPIRING_SOON"
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isExp) Color(0xFFFFEBEE) else if (isWarn) Color(0xFFFFF8E1) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                    .padding(10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("${pol.vehicleName} • ${pol.providerName}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text("Policy: ${pol.policyNumber} • ${pol.getExpiryCountdownText()}", style = MaterialTheme.typography.bodySmall, color = if (isExp) Color(0xFFC62828) else if (isWarn) Color(0xFFF57F17) else MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Button(
+                                    onClick = { renewingInsurancePolicy = pol },
+                                    colors = ButtonDefaults.buttonColors(containerColor = if (isExp || isWarn) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    Text("Renew", style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Analytics & Charts Section
         if (monthlyFuelData.isNotEmpty() || expenseCategories.isNotEmpty()) {
             Text(
@@ -503,6 +595,19 @@ fun SummaryDashboardScreen(
 
         // Trip Calculator Card
         TripCalculatorCard(lang)
+    }
+
+    renewingInsurancePolicy?.let { policy ->
+        val currencySymbol by viewModel.currentCurrencySymbol.collectAsState()
+        RenewPolicyDialog(
+            policy = policy,
+            currencySymbol = currencySymbol,
+            onDismiss = { renewingInsurancePolicy = null },
+            onConfirmRenew = { newStart, newExpiry, newPremium ->
+                viewModel.renewInsurancePolicy(policy, newStart, newExpiry, newPremium)
+                renewingInsurancePolicy = null
+            }
+        )
     }
 }
 

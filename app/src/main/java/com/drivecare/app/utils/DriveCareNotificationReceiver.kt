@@ -114,37 +114,36 @@ class DriveCareNotificationReceiver : BroadcastReceiver() {
                 }
             }
 
-            // 3. Check Insurance Policy Expiration
+            // 3. Check Insurance Policy Expiration (90, 60, 30, 15, 7, 1, 0 days, or expired)
             val insurancePolicies = db.insurancePolicyDao().getAllInsurancePoliciesSync()
-            val insWarnCalendar = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, 30) }
-            val insWarnDateStr = sdf.format(insWarnCalendar.time)
+            val timeFormat = SimpleDateFormat("hh:mm a", Locale.US)
+            val currentTimeStr = timeFormat.format(Calendar.getInstance().time)
 
             insurancePolicies.forEach { policy ->
                 if (policy.expiryDate.isNotBlank()) {
-                    if (policy.expiryDate < todayStr) {
-                        val titleFormat = AppStrings.get("notif_ins_expired_title", lang)
-                        val msgFormat = AppStrings.get("notif_ins_expired_msg", lang)
-                        showNotification(
-                            context = context,
-                            id = (30000 + policy.id).toInt(),
-                            title = String.format(titleFormat, policy.vehicleName),
-                            message = String.format(msgFormat, policy.policyNumber, policy.providerName, policy.expiryDate),
-                            targetTab = "MORE",
-                            targetSection = "INSURANCE",
-                            recordId = policy.id
-                        )
-                    } else if (policy.expiryDate <= insWarnDateStr) {
-                        val title = AppStrings.get("notif_ins_expiring_title", lang)
-                        val msgFormat = AppStrings.get("notif_ins_expiring_msg", lang)
-                        showNotification(
-                            context = context,
-                            id = (30000 + policy.id).toInt(),
-                            title = title,
-                            message = String.format(msgFormat, policy.vehicleName, policy.policyNumber, policy.expiryDate),
-                            targetTab = "MORE",
-                            targetSection = "INSURANCE",
-                            recordId = policy.id
-                        )
+                    val daysRemaining = policy.calculateDaysUntilExpiry()
+                    if (daysRemaining != null) {
+                        val isTriggerDay = daysRemaining in listOf(90L, 60L, 30L, 15L, 7L, 1L, 0L) || daysRemaining < 0L
+                        if (isTriggerDay) {
+                            val notifTitle = when {
+                                daysRemaining < 0 -> "Expired Insurance Alert: ${policy.vehicleName}"
+                                daysRemaining == 0L -> "Insurance Expires TODAY: ${policy.vehicleName}"
+                                daysRemaining == 1L -> "Insurance Expires TOMORROW: ${policy.vehicleName}"
+                                else -> "Insurance Renewal Reminder ($daysRemaining Days Left): ${policy.vehicleName}"
+                            }
+
+                            val notifMsg = "Vehicle: ${policy.vehicleName} | Policy #: ${policy.policyNumber} | Company: ${policy.providerName} | Date: ${policy.expiryDate} | Time: $currentTimeStr"
+
+                            showNotification(
+                                context = context,
+                                id = (30000 + policy.id).toInt(),
+                                title = notifTitle,
+                                message = notifMsg,
+                                targetTab = "MORE",
+                                targetSection = "INSURANCE",
+                                recordId = policy.id
+                            )
+                        }
                     }
                 }
             }

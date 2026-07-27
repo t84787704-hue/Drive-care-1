@@ -1431,7 +1431,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             val id = insurancePolicyDao.insertPolicy(policy)
             val p = if (policy.id == 0L) policy.copy(id = id) else policy
-            syncManager.uploadSingleInsurance(p)
+            syncManager.uploadSingleInsurance(getApplication(), p)
             DriveCareNotificationScheduler.triggerImmediateCheck(getApplication())
         }
     }
@@ -1480,7 +1480,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     fun updateInsurancePolicy(policy: InsurancePolicy) {
         viewModelScope.launch {
             insurancePolicyDao.updatePolicy(policy)
-            syncManager.uploadSingleInsurance(policy)
+            syncManager.uploadSingleInsurance(getApplication(), policy)
         }
     }
 

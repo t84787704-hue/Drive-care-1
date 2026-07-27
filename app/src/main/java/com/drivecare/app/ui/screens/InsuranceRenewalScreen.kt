@@ -3,6 +3,8 @@ package com.drivecare.app.ui.screens
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -438,8 +440,11 @@ fun InsurancePolicyCard(
     onCallAgent: () -> Unit
 ) {
     val lang = LocalAppLanguage.current
-    val isExpired = policy.expiryDate.isNotBlank() && policy.expiryDate < todayStr
-    val isExpiringSoon = !isExpired && policy.expiryDate.isNotBlank() && policy.expiryDate <= warn30DaysStr
+    val context = LocalContext.current
+    val daysRemaining = policy.calculateDaysUntilExpiry()
+    val countdownText = policy.getExpiryCountdownText()
+    val isExpired = daysRemaining != null && daysRemaining < 0
+    val isExpiringSoon = daysRemaining != null && daysRemaining in 0..30
 
     val statusBg = when {
         isExpired -> Color(0xFFFFEBEE)
@@ -499,19 +504,27 @@ fun InsurancePolicyCard(
                     }
                 }
 
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = statusBg
-                ) {
+                Column(horizontalAlignment = Alignment.End) {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = statusBg
+                    ) {
+                        Text(
+                            text = statusText,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = statusFg,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            softWrap = false
+                        )
+                    }
                     Text(
-                        text = statusText,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
+                        text = countdownText,
+                        style = MaterialTheme.typography.labelSmall,
                         color = statusFg,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        softWrap = false
+                        fontWeight = FontWeight.Medium
                     )
                 }
             }
@@ -576,6 +589,58 @@ fun InsurancePolicyCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+
+            // Contacts & Documents Row
+            if (policy.claimContact.isNotBlank() || policy.emergencyContact.isNotBlank() || policy.documentUri.isNotBlank()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (policy.claimContact.isNotBlank()) {
+                        AssistChip(
+                            onClick = {
+                                try {
+                                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${policy.claimContact}"))
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Cannot place call to ${policy.claimContact}", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            label = { Text("Claim: ${policy.claimContact}") },
+                            leadingIcon = { Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                        )
+                    }
+                    if (policy.emergencyContact.isNotBlank()) {
+                        AssistChip(
+                            onClick = {
+                                try {
+                                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${policy.emergencyContact}"))
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Cannot place call to ${policy.emergencyContact}", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            label = { Text("Emergency: ${policy.emergencyContact}") },
+                            leadingIcon = { Icon(Icons.Default.PhoneInTalk, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                        )
+                    }
+                    if (policy.documentUri.isNotBlank()) {
+                        AssistChip(
+                            onClick = {
+                                try {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(policy.documentUri))
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Document: ${policy.documentUri}", Toast.LENGTH_LONG).show()
+                                }
+                            },
+                            label = { Text("Doc Attached") },
+                            leadingIcon = { Icon(Icons.Default.Attachment, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                        )
+                    }
+                }
             }
 
             // Action Buttons
@@ -643,8 +708,19 @@ fun AddEditInsuranceDialog(
         })
     }
     var agentContact by remember { mutableStateOf(editingPolicy?.agentContact ?: "") }
+    var claimContact by remember { mutableStateOf(editingPolicy?.claimContact ?: "") }
+    var emergencyContact by remember { mutableStateOf(editingPolicy?.emergencyContact ?: "") }
     var notes by remember { mutableStateOf(editingPolicy?.notes ?: "") }
     var isAutoRenewEnabled by remember { mutableStateOf(editingPolicy?.isAutoRenewEnabled ?: false) }
+    var documentUri by remember { mutableStateOf(editingPolicy?.documentUri ?: "") }
+
+    val docPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            documentUri = uri.toString()
+        }
+    }
 
     var coverageDropdownExpanded by remember { mutableStateOf(false) }
     val coverageOptions = listOf("Comprehensive", "Third-Party Liability", "Collision & Theft", "Full Coverage", "Zero Depreciation")
@@ -699,7 +775,7 @@ fun AddEditInsuranceDialog(
                     OutlinedTextField(
                         value = providerName,
                         onValueChange = { providerName = it },
-                        label = { Text("Insurance Provider Name") },
+                        label = { Text("Insurance Provider / Company *") },
                         placeholder = { Text("e.g. Geico, Progressive, Allianz, AXA") },
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -781,9 +857,31 @@ fun AddEditInsuranceDialog(
 
                 item {
                     OutlinedTextField(
+                        value = claimContact,
+                        onValueChange = { claimContact = it },
+                        label = { Text("Claim Contact / Helpline") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        placeholder = { Text("e.g. +1-800-CLAIM-NOW") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                item {
+                    OutlinedTextField(
+                        value = emergencyContact,
+                        onValueChange = { emergencyContact = it },
+                        label = { Text("Emergency / Roadside Assistance") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        placeholder = { Text("e.g. +1-800-ROAD-AID") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                item {
+                    OutlinedTextField(
                         value = agentContact,
                         onValueChange = { agentContact = it },
-                        label = { Text("Agent Phone / Hotline") },
+                        label = { Text("Agent Phone / Contact") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                         placeholder = { Text("e.g. +1-800-555-0199") },
                         modifier = Modifier.fillMaxWidth()
@@ -797,6 +895,17 @@ fun AddEditInsuranceDialog(
                         label = { Text("Notes / Deductible Info") },
                         modifier = Modifier.fillMaxWidth()
                     )
+                }
+
+                item {
+                    OutlinedButton(
+                        onClick = { docPickerLauncher.launch("*/*") },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.UploadFile, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(if (documentUri.isBlank()) "Attach Policy Document / PDF / Photo" else "Document Attached (${documentUri.takeLast(20)})")
+                    }
                 }
 
                 item {
@@ -829,8 +938,12 @@ fun AddEditInsuranceDialog(
                         startDate = startDate,
                         expiryDate = expiryDate,
                         agentContact = agentContact,
+                        claimContact = claimContact,
+                        emergencyContact = emergencyContact,
                         notes = notes,
-                        isAutoRenewEnabled = isAutoRenewEnabled
+                        isAutoRenewEnabled = isAutoRenewEnabled,
+                        documentUri = documentUri,
+                        updatedAt = System.currentTimeMillis()
                     )
                     onSave(p)
                 }

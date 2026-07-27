@@ -28,7 +28,7 @@ import com.drivecare.app.data.model.*
         TrackerLocationPoint::class,
         GeofenceEventLog::class
     ],
-    version = 10,
+    version = 11,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -275,6 +275,15 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `insurance_policies` ADD COLUMN `claimContact` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `insurance_policies` ADD COLUMN `emergencyContact` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `insurance_policies` ADD COLUMN `documentUri` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `insurance_policies` ADD COLUMN `updatedAt` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -291,7 +300,8 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_6_7,
                         MIGRATION_7_8,
                         MIGRATION_8_9,
-                        MIGRATION_9_10
+                        MIGRATION_9_10,
+                        MIGRATION_10_11
                     )
                     .fallbackToDestructiveMigrationOnDowngrade()
                     .build()
