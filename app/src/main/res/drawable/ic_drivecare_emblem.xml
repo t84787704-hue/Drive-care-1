@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- Outer Protective Shield (Primary Blue #1565C0) -->
+    <path
+        android:fillColor="#1565C0"
+        android:pathData="M100,20 C120,28 145,30 162,36 C162,80 158,122 100,172 C42,122 38,80 38,36 C55,30 80,28 100,20 Z" />
+
+    <!-- Inner Shield Frame (Electric Tech Accent #00C853) -->
+    <path
+        android:fillColor="#00C853"
+        android:pathData="M100,30 C116,37 137,39 152,44 C152,80 148,115 100,158 C52,115 48,80 48,44 C63,39 84,37 100,30 Z M100,38 C88,44 70,46 58,50 C58,80 62,108 100,144 C138,108 142,80 142,50 C130,46 112,44 100,38 Z" />
+
+    <!-- GPS Location Pin Element (Integrated at Shield Crest) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M100,42 C89.5,42 81,50.5 81,61 C81,74.5 100,95 100,95 C100,95 119,74.5 119,61 C119,50.5 110.5,42 100,42 Z M100,68 C96.1,68 93,64.9 93,61 C93,57.1 96.1,54 100,54 C103.9,54 107,57.1 107,61 C107,64.9 103.9,68 100,68 Z" />
+
+    <!-- Modern Car Silhouette (Sleek aerodynamic profile in White) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M56,112 C60,106 68,97 84,95 C93,94 107,94 116,97 C125,100 134,106 140,112 C142,115 140,118 136,118 L60,118 C56,118 54,115 56,112 Z M76,102 C70,104 66,107 64,111 L132,111 C130,107 126,104 120,102 C110,99 94,98 76,102 Z" />
+
+    <!-- Car Headlight / Smart Tech Beam (Vibrant Green #00C853) -->
+    <path
+        android:fillColor="#00C853"
+        android:pathData="M54,113 L64,111 L64,115 L54,115 Z" />
+
+    <path
+        android:fillColor="#00C853"
+        android:pathData="M142,113 L132,111 L132,115 L142,115 Z" />
+
+    <!-- Wheel Arch / Digital Hub Wheels -->
+    <path
+        android:fillColor="#1565C0"
+        android:pathData="M76,120 C80.4,120 84,116.4 84,112 C84,107.6 80.4,104 76,104 C71.6,104 68,107.6 68,112 C68,116.4 71.6,120 76,120 Z" />
+
+    <path
+        android:fillColor="#1565C0"
+        android:pathData="M120,120 C124.4,120 128,116.4 128,112 C128,107.6 124.4,104 120,104 C115.6,104 112,107.6 112,112 C112,116.4 115.6,120 120,120 Z" />
+
+    <path
+        android:fillColor="#00C853"
+        android:pathData="M76,116 C78.2,116 80,114.2 80,112 C80,109.8 78.2,108 76,108 C73.8,108 72,109.8 72,112 C72,114.2 73.8,116 76,116 Z" />
+
+    <path
+        android:fillColor="#00C853"
+        android:pathData="M120,116 C122.2,116 124,114.2 124,112 C124,109.8 122.2,108 120,108 C117.8,108 116,109.8 116,112 C116,114.2 117.8,116 120,116 Z" />
+
+    <!-- Smart Digital Connectivity Nodes -->
+    <path
+        android:fillColor="#00C853"
+        android:pathData="M100,132 C102.2,132 104,130.2 104,128 C104,125.8 102.2,124 100,124 C97.8,124 96,125.8 96,128 C96,130.2 97.8,132 100,132 Z" />
+
+</vector>

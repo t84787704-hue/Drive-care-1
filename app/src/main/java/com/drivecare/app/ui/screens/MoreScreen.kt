@@ -22,6 +22,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import com.drivecare.app.ui.DriveCareViewModel
+import com.drivecare.app.ui.components.DriveCareBrandShowcaseDialog
 import com.drivecare.app.utils.AppLanguage
 import com.drivecare.app.utils.AppStrings
 import com.drivecare.app.utils.LocalAppLanguage
@@ -62,6 +63,7 @@ fun MoreScreen(
     var showBackupDialog by remember { mutableStateOf(false) }
     var showRestoreDialog by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
+    var showBrandShowcaseDialog by remember { mutableStateOf(false) }
     var backupJsonText by remember { mutableStateOf("") }
     var restoreJsonInput by remember { mutableStateOf("") }
 
@@ -333,6 +335,16 @@ fun MoreScreen(
                         subtitle = "Version 2.0.0 Global Edition",
                         onClick = { showAboutDialog = true }
                     )
+
+                    Divider()
+
+                    MoreMenuItem(
+                        icon = Icons.Default.Palette,
+                        title = "Brand & Logo Showcase",
+                        subtitle = "Official DriveCare logo, color palette & Play Store assets",
+                        iconTint = MaterialTheme.colorScheme.primary,
+                        onClick = { showBrandShowcaseDialog = true }
+                    )
                 }
             }
         }
@@ -485,6 +497,12 @@ fun MoreScreen(
                     Text("Close")
                 }
             }
+        )
+    }
+
+    if (showBrandShowcaseDialog) {
+        DriveCareBrandShowcaseDialog(
+            onDismiss = { showBrandShowcaseDialog = false }
         )
     }
 }
