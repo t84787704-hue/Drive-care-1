@@ -219,6 +219,7 @@ class FirebaseSyncManager private constructor() {
         }
 
         val fa = firebaseAuth
+        val projId = try { com.google.firebase.FirebaseApp.getInstance().options.projectId ?: "drivecare-1734e" } catch (_: Exception) { "drivecare-1734e" }
         if (fa != null) {
             if (!idToken.isNullOrBlank()) {
                 try {
@@ -239,16 +240,44 @@ class FirebaseSyncManager private constructor() {
                         val profile = UserProfile(uid = user.uid, fullName = gName, email = user.email, photoUrl = gPhoto)
                         _userProfile.value = profile
                         saveUserToPrefs(user, gName, gPhoto)
-                        addAuditLog("[AUTH SUCCESS] Signed in via Google Auth: ${user.email} (UID: ${user.uid})")
+                        
+                        val logText = """
+                            [GOOGLE SIGN IN]
+                            Selected Email: ${user.email}
+                            ID Token: PRESENT (${idToken.take(15)}...)
+                            Firebase UID: ${user.uid}
+                            Project ID: $projId
+                            Exception: None
+                        """.trimIndent()
+                        Log.i("GOOGLE_SIGN_IN", logText)
+                        addAuditLog(logText)
+
                         return@withContext Result.success(user)
                     }
                 } catch (e: Exception) {
-                    Log.e("FirebaseSyncManager", "Firebase Auth Google credential sign in error", e)
-                    addAuditLog("[AUTH ERROR] Google credential sign in failed: ${e.message}")
+                    val errLog = """
+                        [GOOGLE SIGN IN]
+                        Selected Email: $cleanEmail
+                        ID Token: PRESENT (${idToken.take(15)}...)
+                        Firebase UID: None
+                        Project ID: $projId
+                        Exception: ${e.message ?: e.javaClass.simpleName}
+                    """.trimIndent()
+                    Log.e("GOOGLE_SIGN_IN", errLog, e)
+                    addAuditLog(errLog)
                     return@withContext Result.failure(e)
                 }
             } else {
-                addAuditLog("[AUTH WARN] Missing Google ID Token for Firebase Auth credential")
+                val missingTokenLog = """
+                    [GOOGLE SIGN IN]
+                    Selected Email: $cleanEmail
+                    ID Token: NULL / MISSING
+                    Firebase UID: None
+                    Project ID: $projId
+                    Exception: Google ID Token is missing or invalid. Please sign in via Google.
+                """.trimIndent()
+                Log.w("GOOGLE_SIGN_IN", missingTokenLog)
+                addAuditLog(missingTokenLog)
                 return@withContext Result.failure(IllegalArgumentException("Google ID Token is missing or invalid. Please sign in via Google."))
             }
         }

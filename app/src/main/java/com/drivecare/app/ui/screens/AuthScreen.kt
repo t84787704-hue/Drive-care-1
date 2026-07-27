@@ -91,47 +91,28 @@ fun AuthScreen(
         var selectedName: String? = null
         var selectedPhotoUrl: String? = null
         var idToken: String? = null
+        var googleApiExceptionMsg: String? = null
 
-        // 1. AccountManager KEY_ACCOUNT_NAME
-        if (intentData != null) {
-            selectedEmail = intentData.getStringExtra(AccountManager.KEY_ACCOUNT_NAME)
-            if (selectedEmail.isNullOrBlank()) {
-                val extras = intentData.extras
-                selectedEmail = extras?.getString(AccountManager.KEY_ACCOUNT_NAME)
+        // 1. Primary: Parse GoogleSignIn Task result from Intent
+        val task = GoogleSignIn.getSignedInAccountFromIntent(intentData)
+        try {
+            val account = task.getResult(ApiException::class.java)
+            if (account != null && !account.email.isNullOrBlank()) {
+                selectedEmail = account.email
+                selectedName = account.displayName
+                selectedPhotoUrl = account.photoUrl?.toString()
+                idToken = account.idToken
+                Log.d("GOOGLE_SIGN_IN", "Successfully retrieved Google account: ${account.email}, idToken present: ${!idToken.isNullOrBlank()}")
             }
+        } catch (e: ApiException) {
+            googleApiExceptionMsg = "ApiException status code ${e.statusCode}: ${e.message}"
+            Log.e("GOOGLE_SIGN_IN", "GoogleSignIn.getSignedInAccountFromIntent failed with $googleApiExceptionMsg", e)
+        } catch (e: Exception) {
+            googleApiExceptionMsg = e.message ?: "Unknown GoogleSignIn error"
+            Log.e("GOOGLE_SIGN_IN", "GoogleSignIn.getSignedInAccountFromIntent exception: $googleApiExceptionMsg", e)
         }
 
-        // 2. GoogleSignIn Task result
-        if (selectedEmail.isNullOrBlank()) {
-            val task = GoogleSignIn.getSignedInAccountFromIntent(intentData)
-            try {
-                val account = task.getResult(ApiException::class.java)
-                if (account != null && !account.email.isNullOrBlank()) {
-                    selectedEmail = account.email
-                    selectedName = account.displayName
-                    selectedPhotoUrl = account.photoUrl?.toString()
-                    idToken = account.idToken
-                }
-            } catch (e: Exception) {
-                Log.w("AuthScreen", "GoogleSignIn exception: ${e.message}")
-            }
-        }
-
-        // 3. Direct task result fallback
-        if (selectedEmail.isNullOrBlank()) {
-            try {
-                val task = GoogleSignIn.getSignedInAccountFromIntent(intentData)
-                val acc = task.result
-                if (acc != null && !acc.email.isNullOrBlank()) {
-                    selectedEmail = acc.email
-                    selectedName = acc.displayName
-                    selectedPhotoUrl = acc.photoUrl?.toString()
-                    idToken = acc.idToken
-                }
-            } catch (_: Exception) {}
-        }
-
-        // 4. Last signed in account
+        // 2. Fallback: Last signed-in account if task result was null
         if (selectedEmail.isNullOrBlank()) {
             try {
                 val lastAcc = GoogleSignIn.getLastSignedInAccount(context)
@@ -141,8 +122,26 @@ fun AuthScreen(
                     selectedPhotoUrl = lastAcc.photoUrl?.toString()
                     idToken = lastAcc.idToken
                 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                Log.w("GOOGLE_SIGN_IN", "getLastSignedInAccount fallback error: ${e.message}")
+            }
         }
+
+        // 3. Fallback: AccountManager KEY_ACCOUNT_NAME
+        if (selectedEmail.isNullOrBlank() && intentData != null) {
+            selectedEmail = intentData.getStringExtra(AccountManager.KEY_ACCOUNT_NAME)
+                ?: intentData.extras?.getString(AccountManager.KEY_ACCOUNT_NAME)
+        }
+
+        val logOutput = """
+            [GOOGLE SIGN IN]
+            Selected Email: ${selectedEmail ?: "None"}
+            ID Token: ${if (idToken.isNullOrBlank()) "NULL / MISSING" else "PRESENT (${idToken.take(15)}...)"}
+            Firebase UID: Pending auth
+            Project ID: 258091011057 (driveare-1734e)
+            Exception: ${googleApiExceptionMsg ?: "None"}
+        """.trimIndent()
+        Log.i("GOOGLE_SIGN_IN", logOutput)
 
         if (!selectedEmail.isNullOrBlank()) {
             val finalEmail = selectedEmail
