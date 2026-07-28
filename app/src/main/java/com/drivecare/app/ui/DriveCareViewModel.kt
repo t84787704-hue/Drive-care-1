@@ -287,6 +287,18 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                 // Ignore seed error
             }
         }
+
+        // Seed initial demo data (vehicles, fuel, maintenance, insurance, documents, geofences) if no vehicles exist
+        viewModelScope.launch {
+            try {
+                val currentVehicles = vehicleDao.getAllVehicles().first()
+                if (currentVehicles.isEmpty()) {
+                    loadDemoData()
+                }
+            } catch (e: Exception) {
+                // Ignore seed error
+            }
+        }
     }
 
     fun setLanguage(language: AppLanguage) {

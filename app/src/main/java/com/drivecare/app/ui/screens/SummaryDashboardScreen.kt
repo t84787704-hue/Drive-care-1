@@ -327,6 +327,50 @@ fun SummaryDashboardScreen(
         // Quick Actions Shortcut Bar
         QuickActionRow(viewModel = viewModel)
 
+        if (vehicles.isEmpty()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.DirectionsCar,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        Text(
+                            text = "No Vehicles in Garage",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
+                    Text(
+                        text = "Load 3 sample demo vehicles (Toyota Corolla, Honda Civic, Tesla Model Y) along with fuel logs, maintenance, insurance, documents, and geofence zones.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.9f)
+                    )
+                    Button(
+                        onClick = { viewModel.loadDemoData() },
+                        modifier = Modifier.align(Alignment.End)
+                    ) {
+                        Icon(Icons.Default.AddTask, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Load Sample Demo Data")
+                    }
+                }
+            }
+        }
+
         // KPI Summary Cards Grid
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(
