@@ -25,8 +25,9 @@ object GeofenceEvaluator {
      */
     suspend fun evaluateAllGeofences(context: Context, location: Location) {
         val db = AppDatabase.getDatabase(context)
-        val allZones = db.geofenceZoneDao().getAllGeofences().firstOrNull() ?: emptyList()
-        val allVehicles = db.vehicleDao().getAllVehicles().firstOrNull() ?: emptyList()
+        val uid = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: ""
+        val allZones = db.geofenceZoneDao().getGeofencesForUserSync(uid)
+        val allVehicles = db.vehicleDao().getVehiclesForUserSync(uid)
 
         for (zone in allZones) {
             if (!zone.isActive) continue

@@ -233,8 +233,11 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     val tripLogs: StateFlow<List<TripLog>> = tripLogDao.getAllTrips()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val geofenceZones: StateFlow<List<GeofenceZone>> = geofenceZoneDao.getAllGeofences()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val geofenceZones: StateFlow<List<GeofenceZone>> = currentUser.flatMapLatest { user ->
+        val uid = user?.uid ?: ""
+        geofenceZoneDao.getGeofencesForUser(uid)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val recentTelemetry: StateFlow<List<VehicleTelemetry>> = vehicleTelemetryDao.getRecentTelemetry()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -313,14 +316,22 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         // Auto-Sync on User Login / Launch
         viewModelScope.launch {
             try {
+                var activeUserUid: String? = null
                 syncManager.currentUser.collect { user ->
                     if (user != null && user.uid.isNotBlank()) {
                         try {
-                            claimUnassignedRecords(user.uid)
+                            if (activeUserUid != null && activeUserUid != user.uid) {
+                                withContext(Dispatchers.IO) {
+                                    db.clearAllTables()
+                                }
+                            }
+                            activeUserUid = user.uid
                             syncManager.performFullBidirectionalSync(getApplication(), db)
                         } catch (e: Exception) {
                             e.printStackTrace()
                         }
+                    } else {
+                        activeUserUid = null
                     }
                 }
             } catch (e: Exception) {
@@ -787,8 +798,10 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     // Geofences
     fun addGeofenceZone(geofence: GeofenceZone) {
         viewModelScope.launch {
-            val generatedId = geofenceZoneDao.insertGeofence(geofence)
-            val updatedZone = if (geofence.id == 0L) geofence.copy(id = generatedId) else geofence
+            val uid = currentUser.value?.uid ?: ""
+            val gWithUser = if (geofence.ownerUserId.isBlank() && uid.isNotBlank()) geofence.copy(ownerUserId = uid) else geofence
+            val generatedId = geofenceZoneDao.insertGeofence(gWithUser)
+            val updatedZone = if (gWithUser.id == 0L) gWithUser.copy(id = generatedId) else gWithUser
             GeofenceManager.registerGeofence(getApplication(), updatedZone)
             syncManager.uploadSingleGeofence(updatedZone)
         }
@@ -796,9 +809,11 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun updateGeofenceZone(geofence: GeofenceZone) {
         viewModelScope.launch {
-            geofenceZoneDao.updateGeofence(geofence)
-            GeofenceManager.registerGeofence(getApplication(), geofence)
-            syncManager.uploadSingleGeofence(geofence)
+            val uid = currentUser.value?.uid ?: ""
+            val gWithUser = if (geofence.ownerUserId.isBlank() && uid.isNotBlank()) geofence.copy(ownerUserId = uid) else geofence
+            geofenceZoneDao.updateGeofence(gWithUser)
+            GeofenceManager.registerGeofence(getApplication(), gWithUser)
+            syncManager.uploadSingleGeofence(gWithUser)
         }
     }
 
@@ -1081,17 +1096,18 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
 
     // Comprehensive Backup JSON Generator
     suspend fun exportBackupJson(): String {
-        val vList = vehicleDao.getAllVehicles().first()
-        val fList = fuelDao.getAllFuelEntries().first()
-        val mList = maintenanceDao.getAllMaintenance().first()
-        val rList = reminderDao.getAllReminders().first()
-        val dList = documentDao.getAllDocuments().first()
+        val uid = currentUser.value?.uid ?: ""
+        val vList = vehicleDao.getVehiclesForUserSync(uid)
+        val fList = fuelDao.getFuelEntriesForUserSync(uid)
+        val mList = maintenanceDao.getMaintenanceForUserSync(uid)
+        val rList = reminderDao.getRemindersForUserSync(uid)
+        val dList = documentDao.getDocumentsForUserSync(uid)
         val cList = emergencyContactDao.getAllContacts().first()
-        val eList = expenseDao.getAllExpenses().first()
+        val eList = expenseDao.getExpensesForUserSync(uid)
         val dpList = driverProfileDao.getAllProfiles().first()
         val vsList = vehicleShareDao.getAllShares().first()
         val tlList = tripLogDao.getAllTrips().first()
-        val insList = insurancePolicyDao.getAllInsurancePolicies().first()
+        val insList = insurancePolicyDao.getPoliciesForUserSync(uid)
 
         val root = JSONObject()
         root.put("version", 2)
@@ -1699,7 +1715,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                     return@launch
                 }
 
-                val restoredVehicles = vehicleDao.getAllVehicles().first()
+                val restoredVehicles = vehicleDao.getVehiclesForUserSync(currentUser.value?.uid ?: "")
                 if (restoredVehicles.isNotEmpty()) {
                     _selectedFuelVehicle.value = restoredVehicles.first()
                 }

@@ -9,10 +9,10 @@ interface InsurancePolicyDao {
     @Query("SELECT * FROM insurance_policies ORDER BY expiryDate ASC")
     fun getAllInsurancePolicies(): Flow<List<InsurancePolicy>>
 
-    @Query("SELECT * FROM insurance_policies WHERE ownerUserId = :userId OR (ownerUserId = '' AND :userId = '') ORDER BY expiryDate ASC")
+    @Query("SELECT * FROM insurance_policies WHERE (:userId != '' AND ownerUserId = :userId) OR (:userId = '' AND ownerUserId = '') ORDER BY expiryDate ASC")
     fun getPoliciesForUser(userId: String): Flow<List<InsurancePolicy>>
 
-    @Query("SELECT * FROM insurance_policies WHERE ownerUserId = :userId OR (ownerUserId = '' AND :userId = '') ORDER BY expiryDate ASC")
+    @Query("SELECT * FROM insurance_policies WHERE (:userId != '' AND ownerUserId = :userId) OR (:userId = '' AND ownerUserId = '') ORDER BY expiryDate ASC")
     suspend fun getPoliciesForUserSync(userId: String): List<InsurancePolicy>
 
     @Query("UPDATE insurance_policies SET ownerUserId = :userId WHERE ownerUserId = ''")

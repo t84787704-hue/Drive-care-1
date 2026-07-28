@@ -15,10 +15,10 @@ interface MaintenanceDao {
     @Query("SELECT * FROM maintenance ORDER BY id DESC")
     fun getAllMaintenance(): Flow<List<Maintenance>>
 
-    @Query("SELECT * FROM maintenance WHERE ownerUserId = :userId OR (ownerUserId = '' AND :userId = '') ORDER BY id DESC")
+    @Query("SELECT * FROM maintenance WHERE (:userId != '' AND ownerUserId = :userId) OR (:userId = '' AND ownerUserId = '') ORDER BY id DESC")
     fun getMaintenanceForUser(userId: String): Flow<List<Maintenance>>
 
-    @Query("SELECT * FROM maintenance WHERE ownerUserId = :userId OR (ownerUserId = '' AND :userId = '') ORDER BY id DESC")
+    @Query("SELECT * FROM maintenance WHERE (:userId != '' AND ownerUserId = :userId) OR (:userId = '' AND ownerUserId = '') ORDER BY id DESC")
     suspend fun getMaintenanceForUserSync(userId: String): List<Maintenance>
 
     @Query("UPDATE maintenance SET ownerUserId = :userId WHERE ownerUserId = ''")

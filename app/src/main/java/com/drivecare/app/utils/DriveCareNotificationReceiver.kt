@@ -29,7 +29,8 @@ class DriveCareNotificationReceiver : BroadcastReceiver() {
                     DriveCareNotificationScheduler.schedulePeriodicCheck(context)
                     try {
                         val db = AppDatabase.getDatabase(context)
-                        val geofences = db.geofenceZoneDao().getAllGeofences().firstOrNull() ?: emptyList()
+                        val uid = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: ""
+                        val geofences = db.geofenceZoneDao().getGeofencesForUserSync(uid)
                         GeofenceManager.syncAllGeofences(context, geofences)
                     } catch (e: Exception) {
                         android.util.Log.e("DriveCareNotificationReceiver", "Error re-registering geofences on boot", e)
@@ -62,8 +63,10 @@ class DriveCareNotificationReceiver : BroadcastReceiver() {
 
             var notificationId = 1000
 
+            val uid = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: ""
+
             // 1. Check Service & Maintenance Reminders
-            val reminders = db.reminderDao().getAllRemindersSync()
+            val reminders = db.reminderDao().getRemindersForUserSync(uid)
             reminders.filter { !it.isCompleted }.forEach { r ->
                 if (r.dueDate.isNotBlank() && r.dueDate <= todayStr) {
                     val titleFormat = AppStrings.get("notif_service_due_title", lang)
@@ -80,7 +83,7 @@ class DriveCareNotificationReceiver : BroadcastReceiver() {
             }
 
             // 2. Check Document Expiration
-            val documents = db.documentDao().getAllDocumentsSync()
+            val documents = db.documentDao().getDocumentsForUserSync(uid)
             val warnCalendar = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, 15) }
             val warnDateStr = sdf.format(warnCalendar.time)
 
@@ -115,7 +118,7 @@ class DriveCareNotificationReceiver : BroadcastReceiver() {
             }
 
             // 3. Check Insurance Policy Expiration (90, 60, 30, 15, 7, 1, 0 days, or expired)
-            val insurancePolicies = db.insurancePolicyDao().getAllInsurancePoliciesSync()
+            val insurancePolicies = db.insurancePolicyDao().getPoliciesForUserSync(uid)
             val timeFormat = SimpleDateFormat("hh:mm a", Locale.US)
             val currentTimeStr = timeFormat.format(Calendar.getInstance().time)
 

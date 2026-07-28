@@ -33,8 +33,9 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val db = AppDatabase.getDatabase(context)
-                    val allZones = db.geofenceZoneDao().getAllGeofences().firstOrNull() ?: emptyList()
-                    val allVehicles = db.vehicleDao().getAllVehicles().firstOrNull() ?: emptyList()
+                    val uid = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: ""
+                    val allZones = db.geofenceZoneDao().getGeofencesForUserSync(uid)
+                    val allVehicles = db.vehicleDao().getVehiclesForUserSync(uid)
 
                     var triggeringLocation = geofencingEvent.triggeringLocation
                     if (triggeringLocation == null) {

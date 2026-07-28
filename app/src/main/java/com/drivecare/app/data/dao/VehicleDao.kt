@@ -14,10 +14,10 @@ interface VehicleDao {
     @Query("SELECT * FROM vehicles ORDER BY id DESC")
     fun getAllVehicles(): Flow<List<Vehicle>>
 
-    @Query("SELECT * FROM vehicles WHERE ownerUserId = :userId OR (ownerUserId = '' AND :userId = '') ORDER BY id DESC")
+    @Query("SELECT * FROM vehicles WHERE (:userId != '' AND ownerUserId = :userId) OR (:userId = '' AND ownerUserId = '') ORDER BY id DESC")
     fun getVehiclesForUser(userId: String): Flow<List<Vehicle>>
 
-    @Query("SELECT * FROM vehicles WHERE ownerUserId = :userId OR (ownerUserId = '' AND :userId = '') ORDER BY id DESC")
+    @Query("SELECT * FROM vehicles WHERE (:userId != '' AND ownerUserId = :userId) OR (:userId = '' AND ownerUserId = '') ORDER BY id DESC")
     suspend fun getVehiclesForUserSync(userId: String): List<Vehicle>
 
     @Query("UPDATE vehicles SET ownerUserId = :userId WHERE ownerUserId = ''")

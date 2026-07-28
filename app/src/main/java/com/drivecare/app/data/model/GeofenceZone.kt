@@ -15,5 +15,6 @@ data class GeofenceZone(
     val notifyOnEnter: Boolean = true,
     val notifyOnExit: Boolean = true,
     val isActive: Boolean = true,
-    val isDemo: Boolean = false
+    val isDemo: Boolean = false,
+    val ownerUserId: String = ""
 )

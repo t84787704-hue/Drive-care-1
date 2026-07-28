@@ -13,10 +13,10 @@ interface FuelDao {
     @Query("SELECT * FROM fuel_entries ORDER BY id DESC")
     fun getAllFuelEntries(): Flow<List<FuelEntry>>
 
-    @Query("SELECT * FROM fuel_entries WHERE ownerUserId = :userId OR (ownerUserId = '' AND :userId = '') ORDER BY id DESC")
+    @Query("SELECT * FROM fuel_entries WHERE (:userId != '' AND ownerUserId = :userId) OR (:userId = '' AND ownerUserId = '') ORDER BY id DESC")
     fun getFuelEntriesForUser(userId: String): Flow<List<FuelEntry>>
 
-    @Query("SELECT * FROM fuel_entries WHERE ownerUserId = :userId OR (ownerUserId = '' AND :userId = '') ORDER BY id DESC")
+    @Query("SELECT * FROM fuel_entries WHERE (:userId != '' AND ownerUserId = :userId) OR (:userId = '' AND ownerUserId = '') ORDER BY id DESC")
     suspend fun getFuelEntriesForUserSync(userId: String): List<FuelEntry>
 
     @Query("UPDATE fuel_entries SET ownerUserId = :userId WHERE ownerUserId = ''")

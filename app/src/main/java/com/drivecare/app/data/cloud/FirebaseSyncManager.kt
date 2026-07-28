@@ -630,7 +630,19 @@ class FirebaseSyncManager private constructor() {
                 }
             }
 
-            val totalRestored = vehiclesRestored + fuelRestored + maintRestored + expRestored + docRestored + insRestored + remRestored
+            // 8. Restore Geofences
+            val geoDocs = userRef.collection("geofences").get().await()
+            var geoRestored = 0
+            for (doc in geoDocs.documents) {
+                val g = doc.toGeofenceZone()
+                if (g != null) {
+                    val gWithOwner = if (g.ownerUserId.isBlank()) g.copy(ownerUserId = user.uid) else g
+                    database.geofenceZoneDao().insertGeofence(gWithOwner)
+                    geoRestored++
+                }
+            }
+
+            val totalRestored = vehiclesRestored + fuelRestored + maintRestored + expRestored + docRestored + insRestored + remRestored + geoRestored
             val counts = mapOf(
                 "Vehicles" to vehiclesRestored,
                 "Fuel Entries" to fuelRestored,
@@ -638,7 +650,8 @@ class FirebaseSyncManager private constructor() {
                 "Expenses" to expRestored,
                 "Documents" to docRestored,
                 "Insurance" to insRestored,
-                "Reminders" to remRestored
+                "Reminders" to remRestored,
+                "Geofences" to geoRestored
             )
 
             val now = System.currentTimeMillis()
@@ -668,7 +681,8 @@ class FirebaseSyncManager private constructor() {
         expenses: List<Expense>,
         documents: List<Document>,
         insurancePolicies: List<InsurancePolicy>,
-        reminders: List<Reminder>
+        reminders: List<Reminder>,
+        geofences: List<GeofenceZone> = emptyList()
     ): Result<Unit> = withContext(Dispatchers.IO) {
         val user = _currentUser.value
         if (user == null) {
@@ -706,6 +720,7 @@ class FirebaseSyncManager private constructor() {
                 val dList = if (syncDemoData) documents else documents.filter { !it.isDemo }
                 val iList = if (syncDemoData) insurancePolicies else insurancePolicies.filter { !it.isDemo }
                 val rList = if (syncDemoData) reminders else reminders.filter { !it.isDemo }
+                val gList = if (syncDemoData) geofences else geofences.filter { !it.isDemo }
 
                 for (v in vList) {
                     batch.set(userRef.collection("vehicles").document(v.id.toString()), v.toMap(), SetOptions.merge())
@@ -729,6 +744,9 @@ class FirebaseSyncManager private constructor() {
                 }
                 for (r in rList) {
                     batch.set(userRef.collection("reminders").document(r.id.toString()), r.toMap(), SetOptions.merge())
+                }
+                for (g in gList) {
+                    batch.set(userRef.collection("geofences").document(g.id.toString()), g.toMap(), SetOptions.merge())
                 }
 
                 batch.commit().await()
@@ -793,13 +811,14 @@ class FirebaseSyncManager private constructor() {
             downloadAndRestoreData(context, database)
 
             // Step 2: Fetch current local DB items to upload back to Cloud
-            val localVehicles = database.vehicleDao().getAllVehicles().first()
-            val localFuel = database.fuelDao().getAllFuelEntries().first()
-            val localMaint = database.maintenanceDao().getAllMaintenance().first()
-            val localExp = database.expenseDao().getAllExpenses().first()
-            val localDocs = database.documentDao().getAllDocumentsSync()
-            val localIns = database.insurancePolicyDao().getAllInsurancePolicies().first()
-            val localRem = database.reminderDao().getAllReminders().first()
+            val localVehicles = database.vehicleDao().getVehiclesForUserSync(user.uid)
+            val localFuel = database.fuelDao().getFuelEntriesForUserSync(user.uid)
+            val localMaint = database.maintenanceDao().getMaintenanceForUserSync(user.uid)
+            val localExp = database.expenseDao().getExpensesForUserSync(user.uid)
+            val localDocs = database.documentDao().getDocumentsForUserSync(user.uid)
+            val localIns = database.insurancePolicyDao().getPoliciesForUserSync(user.uid)
+            val localRem = database.reminderDao().getRemindersForUserSync(user.uid)
+            val localGeo = database.geofenceZoneDao().getGeofencesForUserSync(user.uid)
 
             // Step 3: Upload all local data
             uploadAllData(
@@ -810,7 +829,8 @@ class FirebaseSyncManager private constructor() {
                 expenses = localExp,
                 documents = localDocs,
                 insurancePolicies = localIns,
-                reminders = localRem
+                reminders = localRem,
+                geofences = localGeo
             )
         }
     }
@@ -1781,6 +1801,7 @@ class FirebaseSyncManager private constructor() {
 
     private fun GeofenceZone.toMap(): Map<String, Any?> = mapOf(
         "id" to id,
+        "ownerUserId" to ownerUserId.ifBlank { _currentUser.value?.uid ?: "" },
         "vehicleId" to vehicleId,
         "zoneName" to zoneName,
         "centerLatitude" to centerLatitude,
@@ -1987,8 +2008,10 @@ class FirebaseSyncManager private constructor() {
         val lat = getDouble("centerLatitude") ?: get("centerLatitude")?.toString()?.toDoubleOrNull() ?: 0.0
         val lng = getDouble("centerLongitude") ?: get("centerLongitude")?.toString()?.toDoubleOrNull() ?: 0.0
         val rad = getDouble("radiusMeters") ?: get("radiusMeters")?.toString()?.toDoubleOrNull() ?: 500.0
+        val ownerId = getString("ownerUserId") ?: _currentUser.value?.uid ?: ""
         return GeofenceZone(
             id = idVal,
+            ownerUserId = ownerId,
             vehicleId = vId,
             zoneName = getString("zoneName") ?: "Geofence Zone",
             centerLatitude = lat,
