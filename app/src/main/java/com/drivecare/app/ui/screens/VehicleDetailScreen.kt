@@ -1662,14 +1662,18 @@ private fun AddVehicleDocumentDialog(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddVehicleExpenseDialog(
     vehicle: Vehicle,
     viewModel: DriveCareViewModel,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
     var title by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("Parking") }
+    var expandedCategoryDropdown by remember { mutableStateOf(false) }
+    val categories = listOf("Parking", "Fuel", "Maintenance", "Toll", "Insurance", "Tax & Fine", "Wash/Cleaning", "Parts", "Other")
     var amountStr by remember { mutableStateOf("") }
     var date by remember { mutableStateOf(SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())) }
 
@@ -1678,29 +1682,87 @@ private fun AddVehicleExpenseDialog(
         title = { Text("Log Expense for ${vehicle.vehicleName}") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Expense Title *") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = amountStr, onValueChange = { amountStr = it }, label = { Text("Amount *") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Category") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = date, onValueChange = { date = it }, label = { Text("Date (YYYY-MM-DD)") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("Expense Title *") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = amountStr,
+                    onValueChange = { amountStr = it },
+                    label = { Text("Amount *") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    ExposedDropdownMenuBox(
+                        expanded = expandedCategoryDropdown,
+                        onExpandedChange = { expandedCategoryDropdown = !expandedCategoryDropdown }
+                    ) {
+                        OutlinedTextField(
+                            value = category,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Category *") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCategoryDropdown) },
+                            modifier = Modifier.menuAnchor().fillMaxWidth()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = expandedCategoryDropdown,
+                            onDismissRequest = { expandedCategoryDropdown = false }
+                        ) {
+                            categories.forEach { cat ->
+                                DropdownMenuItem(
+                                    text = { Text(cat) },
+                                    onClick = {
+                                        category = cat
+                                        expandedCategoryDropdown = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clickable { expandedCategoryDropdown = !expandedCategoryDropdown }
+                    )
+                }
+                OutlinedTextField(
+                    value = date,
+                    onValueChange = { date = it },
+                    label = { Text("Date (YYYY-MM-DD)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    val amt = amountStr.toDoubleOrNull() ?: 0.0
-                    if (title.isNotBlank() && amt > 0) {
-                        viewModel.addExpense(
-                            Expense(
-                                vehicleId = vehicle.id,
-                                vehicleName = vehicle.vehicleName,
-                                title = title,
-                                category = category,
-                                amount = amt,
-                                date = date
-                            )
-                        )
-                        onDismiss()
+                    val cleanTitle = title.trim()
+                    if (cleanTitle.isBlank()) {
+                        Toast.makeText(context, "Please enter an expense title", Toast.LENGTH_SHORT).show()
+                        return@Button
                     }
+                    val cleanAmountStr = amountStr.trim().replace("$", "").replace("Rs", "").replace(",", ".").replace(" ", "")
+                    val amt = cleanAmountStr.toDoubleOrNull()
+                    if (amt == null || amt <= 0) {
+                        Toast.makeText(context, "Please enter a valid amount", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+
+                    viewModel.addExpense(
+                        Expense(
+                            vehicleId = vehicle.id,
+                            vehicleName = vehicle.vehicleName,
+                            title = cleanTitle,
+                            category = category,
+                            amount = amt,
+                            date = date.ifBlank { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()) }
+                        )
+                    )
+                    Toast.makeText(context, "Expense saved successfully", Toast.LENGTH_SHORT).show()
+                    onDismiss()
                 }
             ) { Text("Save Expense") }
         },

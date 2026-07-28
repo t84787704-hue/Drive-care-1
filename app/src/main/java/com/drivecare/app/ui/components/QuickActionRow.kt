@@ -682,8 +682,9 @@ fun QuickAddExpenseDialog(
             if (vehicles.isNotEmpty()) {
                 Button(
                     onClick = {
-                        val amt = amountStr.toDoubleOrNull()
-                        if (selectedVehicle != null && title.isNotBlank() && amt != null) {
+                        val cleanAmountStr = amountStr.trim().replace("$", "").replace("Rs", "").replace(",", ".").replace(" ", "")
+                        val amt = cleanAmountStr.toDoubleOrNull()
+                        if (selectedVehicle != null && title.isNotBlank() && amt != null && amt > 0) {
                             viewModel.addExpense(
                                 Expense(
                                     vehicleId = selectedVehicle!!.id,

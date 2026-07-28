@@ -446,7 +446,7 @@ fun AddExpenseDialog(
                         return@Button
                     }
 
-                    val cleanAmountStr = amountStr.trim().replace(",", ".")
+                    val cleanAmountStr = amountStr.trim().replace("$", "").replace("Rs", "").replace(",", ".").replace(" ", "")
                     val amt = cleanAmountStr.toDoubleOrNull()
                     if (cleanAmountStr.isBlank() || amt == null || amt <= 0) {
                         Toast.makeText(context, "Please enter amount", Toast.LENGTH_SHORT).show()
