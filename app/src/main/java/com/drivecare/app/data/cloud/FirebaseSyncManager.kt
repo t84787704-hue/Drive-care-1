@@ -1024,6 +1024,615 @@ class FirebaseSyncManager private constructor() {
         }
     }
 
+    // --- User Discovery, Social, Vehicle Sharing & Family Access Methods ---
+
+    suspend fun searchUsers(query: String): List<PublicUserProfile> = withContext(Dispatchers.IO) {
+        val currentUid = _currentUser.value?.uid ?: ""
+        val results = mutableListOf<PublicUserProfile>()
+        if (query.isBlank()) return@withContext results
+        try {
+            val qTrim = query.trim().lowercase(Locale.ROOT)
+            val snapshot = firestore?.collection("users")?.get()?.await()
+            if (snapshot != null) {
+                for (doc in snapshot.documents) {
+                    val uid = doc.id
+                    if (uid == currentUid) continue
+                    val email = doc.getString("email") ?: ""
+                    val name = doc.getString("fullName") ?: doc.getString("displayName") ?: doc.getString("name") ?: ""
+                    val country = doc.getString("country") ?: ""
+                    val currency = doc.getString("preferredCurrency") ?: "PKR"
+                    val photo = doc.getString("photoUrl") ?: ""
+                    val joinDate = doc.getLong("createdAt") ?: 0L
+
+                    if (email.lowercase(Locale.ROOT).contains(qTrim) || name.lowercase(Locale.ROOT).contains(qTrim)) {
+                        results.add(
+                            PublicUserProfile(
+                                uid = uid,
+                                displayName = name.ifBlank { email.substringBefore("@") },
+                                email = email,
+                                country = country,
+                                preferredCurrency = currency,
+                                photoUrl = photo,
+                                joinDate = joinDate
+                            )
+                        )
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            addAuditLog("[SOCIAL ERROR] User search failed: ${e.message}")
+        }
+        results
+    }
+
+    suspend fun sendFriendRequest(targetUser: PublicUserProfile): Result<Unit> = withContext(Dispatchers.IO) {
+        val sender = _currentUser.value ?: return@withContext Result.failure(Exception("Not logged in"))
+        val senderProf = _userProfile.value
+        if (sender.uid == targetUser.uid) return@withContext Result.failure(Exception("Cannot send request to yourself"))
+
+        try {
+            val reqQuery = firestore?.collection("friend_requests")
+                ?.whereEqualTo("senderUid", sender.uid)
+                ?.whereEqualTo("receiverUid", targetUser.uid)
+                ?.get()?.await()
+            if (reqQuery != null && !reqQuery.isEmpty) {
+                val existing = reqQuery.documents.firstOrNull()?.getString("status")
+                if (existing == "Pending" || existing == "Accepted") {
+                    return@withContext Result.failure(Exception("Request or friendship already exists"))
+                }
+            }
+
+            val sortedId = listOf(sender.uid, targetUser.uid).sorted().joinToString("_")
+            val friendshipDoc = firestore?.collection("friendships")?.document(sortedId)?.get()?.await()
+            if (friendshipDoc != null && friendshipDoc.exists()) {
+                return@withContext Result.failure(Exception("You are already friends with this user"))
+            }
+
+            val reqId = firestore?.collection("friend_requests")?.document()?.id ?: System.currentTimeMillis().toString()
+            val requestData = mapOf(
+                "id" to reqId,
+                "senderUid" to sender.uid,
+                "senderName" to (senderProf?.fullName ?: sender.displayName ?: "Driver"),
+                "senderEmail" to sender.email,
+                "senderPhoto" to (senderProf?.photoUrl ?: sender.photoUrl ?: ""),
+                "receiverUid" to targetUser.uid,
+                "receiverName" to targetUser.displayName,
+                "receiverEmail" to targetUser.email,
+                "receiverPhoto" to targetUser.photoUrl,
+                "status" to "Pending",
+                "createdAt" to System.currentTimeMillis(),
+                "updatedAt" to System.currentTimeMillis()
+            )
+
+            firestore?.collection("friend_requests")?.document(reqId)?.set(requestData)?.await()
+
+            sendNotification(
+                recipientUid = targetUser.uid,
+                title = "New Friend Request",
+                message = "${senderProf?.fullName ?: sender.displayName ?: "A user"} sent you a friend request.",
+                type = "FRIEND_REQUEST"
+            )
+
+            addAuditLog("[SOCIAL] Sent friend request to ${targetUser.email}")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            addAuditLog("[SOCIAL ERROR] Send friend request failed: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    suspend fun acceptFriendRequest(request: FriendRequest): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            firestore?.collection("friend_requests")?.document(request.id)
+                ?.update(mapOf("status" to "Accepted", "updatedAt" to System.currentTimeMillis()))?.await()
+
+            val sortedId = listOf(request.senderUid, request.receiverUid).sorted().joinToString("_")
+            val friendshipData = mapOf(
+                "id" to sortedId,
+                "user1Uid" to request.senderUid,
+                "user2Uid" to request.receiverUid,
+                "user1Name" to request.senderName,
+                "user1Email" to request.senderEmail,
+                "user1Photo" to request.senderPhoto,
+                "user2Name" to request.receiverName,
+                "user2Email" to request.receiverEmail,
+                "user2Photo" to request.receiverPhoto,
+                "createdAt" to System.currentTimeMillis()
+            )
+
+            firestore?.collection("friendships")?.document(sortedId)?.set(friendshipData, SetOptions.merge())?.await()
+
+            sendNotification(
+                recipientUid = request.senderUid,
+                title = "Friend Request Accepted",
+                message = "${request.receiverName} accepted your friend request!",
+                type = "FRIEND_ACCEPTED"
+            )
+
+            addAuditLog("[SOCIAL] Accepted friend request from ${request.senderEmail}")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            addAuditLog("[SOCIAL ERROR] Accept friend request failed: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    suspend fun rejectFriendRequest(requestId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            firestore?.collection("friend_requests")?.document(requestId)
+                ?.update(mapOf("status" to "Rejected", "updatedAt" to System.currentTimeMillis()))?.await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun cancelFriendRequest(requestId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            firestore?.collection("friend_requests")?.document(requestId)
+                ?.update(mapOf("status" to "Cancelled", "updatedAt" to System.currentTimeMillis()))?.await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getIncomingFriendRequests(): List<FriendRequest> = withContext(Dispatchers.IO) {
+        val uid = _currentUser.value?.uid ?: return@withContext emptyList()
+        val list = mutableListOf<FriendRequest>()
+        try {
+            val snapshot = firestore?.collection("friend_requests")
+                ?.whereEqualTo("receiverUid", uid)
+                ?.whereEqualTo("status", "Pending")
+                ?.get()?.await()
+            if (snapshot != null) {
+                for (doc in snapshot.documents) {
+                    list.add(
+                        FriendRequest(
+                            id = doc.id,
+                            senderUid = doc.getString("senderUid") ?: "",
+                            senderName = doc.getString("senderName") ?: "",
+                            senderEmail = doc.getString("senderEmail") ?: "",
+                            senderPhoto = doc.getString("senderPhoto") ?: "",
+                            receiverUid = doc.getString("receiverUid") ?: "",
+                            receiverName = doc.getString("receiverName") ?: "",
+                            receiverEmail = doc.getString("receiverEmail") ?: "",
+                            receiverPhoto = doc.getString("receiverPhoto") ?: "",
+                            status = doc.getString("status") ?: "Pending",
+                            createdAt = doc.getLong("createdAt") ?: System.currentTimeMillis(),
+                            updatedAt = doc.getLong("updatedAt") ?: System.currentTimeMillis()
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            addAuditLog("[SOCIAL ERROR] Fetch incoming requests failed: ${e.message}")
+        }
+        list
+    }
+
+    suspend fun getOutgoingFriendRequests(): List<FriendRequest> = withContext(Dispatchers.IO) {
+        val uid = _currentUser.value?.uid ?: return@withContext emptyList()
+        val list = mutableListOf<FriendRequest>()
+        try {
+            val snapshot = firestore?.collection("friend_requests")
+                ?.whereEqualTo("senderUid", uid)
+                ?.get()?.await()
+            if (snapshot != null) {
+                for (doc in snapshot.documents) {
+                    list.add(
+                        FriendRequest(
+                            id = doc.id,
+                            senderUid = doc.getString("senderUid") ?: "",
+                            senderName = doc.getString("senderName") ?: "",
+                            senderEmail = doc.getString("senderEmail") ?: "",
+                            senderPhoto = doc.getString("senderPhoto") ?: "",
+                            receiverUid = doc.getString("receiverUid") ?: "",
+                            receiverName = doc.getString("receiverName") ?: "",
+                            receiverEmail = doc.getString("receiverEmail") ?: "",
+                            receiverPhoto = doc.getString("receiverPhoto") ?: "",
+                            status = doc.getString("status") ?: "Pending",
+                            createdAt = doc.getLong("createdAt") ?: System.currentTimeMillis(),
+                            updatedAt = doc.getLong("updatedAt") ?: System.currentTimeMillis()
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            addAuditLog("[SOCIAL ERROR] Fetch outgoing requests failed: ${e.message}")
+        }
+        list
+    }
+
+    suspend fun getFriendships(): List<Friendship> = withContext(Dispatchers.IO) {
+        val uid = _currentUser.value?.uid ?: return@withContext emptyList()
+        val list = mutableListOf<Friendship>()
+        try {
+            val snap1 = firestore?.collection("friendships")?.whereEqualTo("user1Uid", uid)?.get()?.await()
+            val snap2 = firestore?.collection("friendships")?.whereEqualTo("user2Uid", uid)?.get()?.await()
+            val allDocs = (snap1?.documents ?: emptyList()) + (snap2?.documents ?: emptyList())
+            val seenIds = mutableSetOf<String>()
+
+            for (doc in allDocs) {
+                if (doc.id in seenIds) continue
+                seenIds.add(doc.id)
+                list.add(
+                    Friendship(
+                        id = doc.id,
+                        user1Uid = doc.getString("user1Uid") ?: "",
+                        user2Uid = doc.getString("user2Uid") ?: "",
+                        user1Name = doc.getString("user1Name") ?: "",
+                        user1Email = doc.getString("user1Email") ?: "",
+                        user1Photo = doc.getString("user1Photo") ?: "",
+                        user2Name = doc.getString("user2Name") ?: "",
+                        user2Email = doc.getString("user2Email") ?: "",
+                        user2Photo = doc.getString("user2Photo") ?: "",
+                        createdAt = doc.getLong("createdAt") ?: System.currentTimeMillis()
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            addAuditLog("[SOCIAL ERROR] Fetch friendships failed: ${e.message}")
+        }
+        list
+    }
+
+    suspend fun removeFriendship(friendshipId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            firestore?.collection("friendships")?.document(friendshipId)?.delete()?.await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun shareVehicleWithUser(
+        vehicle: Vehicle,
+        targetUserUid: String,
+        targetEmail: String,
+        targetName: String,
+        permission: String
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        val owner = _currentUser.value ?: return@withContext Result.failure(Exception("Not logged in"))
+        val ownerProf = _userProfile.value
+        try {
+            val shareId = firestore?.collection("shared_vehicles")?.document()?.id ?: System.currentTimeMillis().toString()
+            val data = mapOf(
+                "id" to shareId,
+                "vehicleId" to vehicle.id,
+                "vehicleName" to vehicle.vehicleName,
+                "ownerUid" to owner.uid,
+                "ownerName" to (ownerProf?.fullName ?: owner.displayName ?: "Owner"),
+                "sharedWithUid" to targetUserUid,
+                "sharedWithEmail" to targetEmail,
+                "sharedWithName" to targetName,
+                "permission" to permission,
+                "createdAt" to System.currentTimeMillis()
+            )
+
+            firestore?.collection("shared_vehicles")?.document(shareId)?.set(data)?.await()
+
+            if (targetUserUid.isNotBlank()) {
+                sendNotification(
+                    recipientUid = targetUserUid,
+                    title = "Vehicle Access Granted",
+                    message = "${ownerProf?.fullName ?: owner.displayName ?: "Owner"} shared vehicle '${vehicle.vehicleName}' with you ($permission level).",
+                    type = "VEHICLE_SHARED"
+                )
+            }
+
+            addAuditLog("[SHARING] Shared vehicle '${vehicle.vehicleName}' with $targetEmail")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            addAuditLog("[SHARING ERROR] Share vehicle failed: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getSharedVehiclesForUser(): List<SharedVehicle> = withContext(Dispatchers.IO) {
+        val uid = _currentUser.value?.uid ?: return@withContext emptyList()
+        val email = _currentUser.value?.email ?: ""
+        val list = mutableListOf<SharedVehicle>()
+        try {
+            val snapUid = firestore?.collection("shared_vehicles")?.whereEqualTo("sharedWithUid", uid)?.get()?.await()
+            val snapEmail = if (email.isNotBlank()) firestore?.collection("shared_vehicles")?.whereEqualTo("sharedWithEmail", email)?.get()?.await() else null
+            val allDocs = (snapUid?.documents ?: emptyList()) + (snapEmail?.documents ?: emptyList())
+            val seenIds = mutableSetOf<String>()
+
+            for (doc in allDocs) {
+                if (doc.id in seenIds) continue
+                seenIds.add(doc.id)
+                list.add(
+                    SharedVehicle(
+                        id = doc.id,
+                        vehicleId = doc.getLong("vehicleId") ?: 0L,
+                        vehicleName = doc.getString("vehicleName") ?: "",
+                        ownerUid = doc.getString("ownerUid") ?: "",
+                        ownerName = doc.getString("ownerName") ?: "",
+                        sharedWithUid = doc.getString("sharedWithUid") ?: "",
+                        sharedWithEmail = doc.getString("sharedWithEmail") ?: "",
+                        sharedWithName = doc.getString("sharedWithName") ?: "",
+                        permission = doc.getString("permission") ?: "Viewer",
+                        createdAt = doc.getLong("createdAt") ?: System.currentTimeMillis()
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            addAuditLog("[SHARING ERROR] Get shared vehicles failed: ${e.message}")
+        }
+        list
+    }
+
+    suspend fun updateVehicleSharePermission(shareId: String, newPermission: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            firestore?.collection("shared_vehicles")?.document(shareId)
+                ?.update("permission", newPermission)?.await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun revokeVehicleShare(shareId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            firestore?.collection("shared_vehicles")?.document(shareId)?.delete()?.await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun createFamilyGroup(groupName: String): Result<FamilyGroup> = withContext(Dispatchers.IO) {
+        val owner = _currentUser.value ?: return@withContext Result.failure(Exception("Not logged in"))
+        val ownerProf = _userProfile.value
+        try {
+            val groupId = firestore?.collection("family_groups")?.document()?.id ?: System.currentTimeMillis().toString()
+            val ownerName = ownerProf?.fullName ?: owner.displayName ?: "Owner"
+            val groupData = mapOf(
+                "id" to groupId,
+                "groupName" to groupName,
+                "ownerUid" to owner.uid,
+                "ownerName" to ownerName,
+                "createdAt" to System.currentTimeMillis()
+            )
+            firestore?.collection("family_groups")?.document(groupId)?.set(groupData)?.await()
+
+            val memberId = "${groupId}_${owner.uid}"
+            val memberData = mapOf(
+                "id" to memberId,
+                "groupId" to groupId,
+                "uid" to owner.uid,
+                "email" to owner.email,
+                "name" to ownerName,
+                "photoUrl" to (ownerProf?.photoUrl ?: owner.photoUrl ?: ""),
+                "role" to "Owner",
+                "permission" to "Manager",
+                "status" to "Accepted",
+                "joinedAt" to System.currentTimeMillis()
+            )
+            firestore?.collection("family_groups")?.document(groupId)?.collection("members")
+                ?.document(memberId)?.set(memberData)?.await()
+
+            val fg = FamilyGroup(id = groupId, groupName = groupName, ownerUid = owner.uid, ownerName = ownerName)
+            Result.success(fg)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun inviteFamilyMember(
+        groupId: String,
+        groupName: String,
+        targetEmail: String,
+        role: String,
+        permission: String
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val users = searchUsers(targetEmail)
+            val target = users.find { it.email.equals(targetEmail, ignoreCase = true) }
+            val targetUid = target?.uid ?: ""
+            val targetName = target?.displayName ?: targetEmail.substringBefore("@")
+
+            val memberId = "${groupId}_${if (targetUid.isNotBlank()) targetUid else targetEmail.hashCode()}"
+            val memberData = mapOf(
+                "id" to memberId,
+                "groupId" to groupId,
+                "uid" to targetUid,
+                "email" to targetEmail,
+                "name" to targetName,
+                "photoUrl" to (target?.photoUrl ?: ""),
+                "role" to role,
+                "permission" to permission,
+                "status" to "Pending",
+                "joinedAt" to System.currentTimeMillis()
+            )
+
+            firestore?.collection("family_groups")?.document(groupId)?.collection("members")
+                ?.document(memberId)?.set(memberData)?.await()
+
+            if (targetUid.isNotBlank()) {
+                sendNotification(
+                    recipientUid = targetUid,
+                    title = "Family Group Invite",
+                    message = "You have been invited to join family group '$groupName' as $role ($permission).",
+                    type = "FAMILY_INVITE"
+                )
+            }
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getMyFamilyGroups(): List<FamilyGroup> = withContext(Dispatchers.IO) {
+        val uid = _currentUser.value?.uid ?: return@withContext emptyList()
+        val list = mutableListOf<FamilyGroup>()
+        try {
+            val snap = firestore?.collection("family_groups")?.get()?.await()
+            if (snap != null) {
+                for (doc in snap.documents) {
+                    val ownerUid = doc.getString("ownerUid") ?: ""
+                    val groupId = doc.id
+                    var isMember = (ownerUid == uid)
+                    if (!isMember) {
+                        val mSnap = firestore?.collection("family_groups")?.document(groupId)
+                            ?.collection("members")?.whereEqualTo("uid", uid)?.get()?.await()
+                        if (mSnap != null && !mSnap.isEmpty) isMember = true
+                    }
+                    if (isMember) {
+                        list.add(
+                            FamilyGroup(
+                                id = groupId,
+                                groupName = doc.getString("groupName") ?: "Family Group",
+                                ownerUid = ownerUid,
+                                ownerName = doc.getString("ownerName") ?: "",
+                                createdAt = doc.getLong("createdAt") ?: System.currentTimeMillis()
+                            )
+                        )
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            addAuditLog("[FAMILY ERROR] Get family groups failed: ${e.message}")
+        }
+        list
+    }
+
+    suspend fun getFamilyMembers(groupId: String): List<FamilyMember> = withContext(Dispatchers.IO) {
+        val list = mutableListOf<FamilyMember>()
+        try {
+            val snap = firestore?.collection("family_groups")?.document(groupId)
+                ?.collection("members")?.get()?.await()
+            if (snap != null) {
+                for (doc in snap.documents) {
+                    list.add(
+                        FamilyMember(
+                            id = doc.id,
+                            groupId = groupId,
+                            uid = doc.getString("uid") ?: "",
+                            email = doc.getString("email") ?: "",
+                            name = doc.getString("name") ?: "",
+                            photoUrl = doc.getString("photoUrl") ?: "",
+                            role = doc.getString("role") ?: "Member",
+                            permission = doc.getString("permission") ?: "Viewer",
+                            status = doc.getString("status") ?: "Accepted",
+                            joinedAt = doc.getLong("joinedAt") ?: System.currentTimeMillis()
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            addAuditLog("[FAMILY ERROR] Get family members failed: ${e.message}")
+        }
+        list
+    }
+
+    suspend fun removeFamilyMember(groupId: String, memberId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            firestore?.collection("family_groups")?.document(groupId)
+                ?.collection("members")?.document(memberId)?.delete()?.await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun sendNotification(
+        recipientUid: String,
+        title: String,
+        message: String,
+        type: String
+    ) = withContext(Dispatchers.IO) {
+        if (recipientUid.isBlank()) return@withContext
+        try {
+            val notifId = firestore?.collection("users")?.document(recipientUid)
+                ?.collection("notifications")?.document()?.id ?: System.currentTimeMillis().toString()
+            val notifData = mapOf(
+                "id" to notifId,
+                "recipientUid" to recipientUid,
+                "title" to title,
+                "message" to message,
+                "type" to type,
+                "isRead" to false,
+                "createdAt" to System.currentTimeMillis()
+            )
+            firestore?.collection("users")?.document(recipientUid)
+                ?.collection("notifications")?.document(notifId)?.set(notifData)?.await()
+        } catch (e: Exception) {
+            addAuditLog("[NOTIF ERROR] Send notification failed: ${e.message}")
+        }
+    }
+
+    suspend fun getUserNotifications(): List<AppNotification> = withContext(Dispatchers.IO) {
+        val uid = _currentUser.value?.uid ?: return@withContext emptyList()
+        val list = mutableListOf<AppNotification>()
+        try {
+            val snap = firestore?.collection("users")?.document(uid)
+                ?.collection("notifications")?.get()?.await()
+            if (snap != null) {
+                for (doc in snap.documents) {
+                    list.add(
+                        AppNotification(
+                            id = doc.id,
+                            recipientUid = uid,
+                            title = doc.getString("title") ?: "",
+                            message = doc.getString("message") ?: "",
+                            type = doc.getString("type") ?: "INFO",
+                            isRead = doc.getBoolean("isRead") ?: false,
+                            createdAt = doc.getLong("createdAt") ?: System.currentTimeMillis()
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            addAuditLog("[NOTIF ERROR] Get notifications failed: ${e.message}")
+        }
+        list.sortedByDescending { it.createdAt }
+    }
+
+    suspend fun markNotificationAsRead(notifId: String) = withContext(Dispatchers.IO) {
+        val uid = _currentUser.value?.uid ?: return@withContext
+        try {
+            firestore?.collection("users")?.document(uid)
+                ?.collection("notifications")?.document(notifId)
+                ?.update("isRead", true)?.await()
+        } catch (e: Exception) {
+            addAuditLog("[NOTIF ERROR] Mark read failed: ${e.message}")
+        }
+    }
+
+    suspend fun fetchPublicUserProfile(targetUid: String): PublicUserProfile? = withContext(Dispatchers.IO) {
+        try {
+            val doc = firestore?.collection("users")?.document(targetUid)?.get()?.await()
+            if (doc != null && doc.exists()) {
+                val email = doc.getString("email") ?: ""
+                val name = doc.getString("fullName") ?: doc.getString("displayName") ?: doc.getString("name") ?: ""
+                val country = doc.getString("country") ?: ""
+                val currency = doc.getString("preferredCurrency") ?: "PKR"
+                val photo = doc.getString("photoUrl") ?: ""
+                val joinDate = doc.getLong("createdAt") ?: 0L
+
+                val vSnap = firestore?.collection("users")?.document(targetUid)?.collection("vehicles")?.get()?.await()
+                val vCount = vSnap?.size() ?: 0
+
+                return@withContext PublicUserProfile(
+                    uid = targetUid,
+                    displayName = name.ifBlank { email.substringBefore("@") },
+                    email = email,
+                    country = country,
+                    preferredCurrency = currency,
+                    photoUrl = photo,
+                    joinDate = joinDate,
+                    vehicleCount = vCount
+                )
+            }
+        } catch (e: Exception) {
+            addAuditLog("[PROFILE ERROR] Fetch public profile failed: ${e.message}")
+        }
+        null
+    }
+
     // --- Model Map Converters for Clean Firestore Serialization ---
 
     private fun Vehicle.toMap(): Map<String, Any?> = mapOf(

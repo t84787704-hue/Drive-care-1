@@ -2,6 +2,7 @@ package com.drivecare.app.ui.screens
 
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -16,11 +17,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.drivecare.app.data.model.DriverProfile
-import com.drivecare.app.data.model.Vehicle
-import com.drivecare.app.data.model.VehicleShare
+import com.drivecare.app.data.model.*
 import com.drivecare.app.ui.DriveCareViewModel
 import com.drivecare.app.utils.FeatureFlags
+import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,13 +33,30 @@ fun FamilySharingScreen(
     val context = LocalContext.current
     val vehicles by viewModel.vehicles.collectAsState()
     val profiles by viewModel.driverProfiles.collectAsState()
-    val shares by viewModel.vehicleShares.collectAsState()
+    val legacyShares by viewModel.vehicleShares.collectAsState()
     val isFamilySharingEnabled by FeatureFlags.familySharingEnabled.collectAsState()
 
-    var selectedTab by remember { mutableStateOf(0) } // 0: Driver Profiles, 1: Vehicle Sharing, 2: Ownership Transfer
+    val searchResults by viewModel.userSearchResults.collectAsState()
+    val isSearching by viewModel.isSearchingUsers.collectAsState()
+    val incomingRequests by viewModel.incomingFriendRequests.collectAsState()
+    val outgoingRequests by viewModel.outgoingFriendRequests.collectAsState()
+    val friendships by viewModel.friendships.collectAsState()
+    val sharedVehicles by viewModel.sharedVehiclesV2.collectAsState()
+    val familyGroups by viewModel.familyGroups.collectAsState()
+    val notifications by viewModel.appNotifications.collectAsState()
+    val selectedPublicProfile by viewModel.selectedPublicProfile.collectAsState()
+
+    var selectedTab by remember { mutableStateOf(0) } // 0: Search, 1: Friends, 2: Vehicle Access, 3: Family Groups, 4: Drivers & Ownership
+    var searchQuery by remember { mutableStateOf("") }
+    var showCreateFamilyDialog by remember { mutableStateOf(false) }
+    var showShareVehicleDialog by remember { mutableStateOf(false) }
+    var selectedVehicleForShare by remember { mutableStateOf<Vehicle?>(null) }
     var showAddProfileDialog by remember { mutableStateOf(false) }
-    var showAddShareDialog by remember { mutableStateOf(false) }
     var showTransferOwnershipDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        viewModel.loadSocialData()
+    }
 
     Column(
         modifier = modifier
@@ -45,7 +64,7 @@ fun FamilySharingScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Family Sharing Header & Feature Flag Toggle
+        // Family Sharing Header
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
@@ -56,9 +75,9 @@ fun FamilySharingScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text("Family Sharing & Fleet Multi-User", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text("Share vehicles, manage drivers & transfer ownership", style = MaterialTheme.typography.bodySmall)
+                        Text("User discovery, vehicle sharing, family access & friend requests", style = MaterialTheme.typography.bodySmall)
                     }
                     Switch(
                         checked = isFamilySharingEnabled,
@@ -73,34 +92,347 @@ fun FamilySharingScreen(
                 Text("Family Sharing is turned off in settings.")
             }
         } else {
-            TabRow(selectedTabIndex = selectedTab) {
+            ScrollableTabRow(
+                selectedTabIndex = selectedTab,
+                edgePadding = 0.dp,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Tab(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
-                    text = { Text("Driver Profiles") },
-                    icon = { Icon(Icons.Default.Person, contentDescription = null) }
+                    text = { Text("Search Users") },
+                    icon = { Icon(Icons.Default.Search, contentDescription = null) }
                 )
                 Tab(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
-                    text = { Text("Vehicle Access") },
-                    icon = { Icon(Icons.Default.Group, contentDescription = null) }
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Friends")
+                            if (incomingRequests.isNotEmpty()) {
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Badge { Text("${incomingRequests.size}") }
+                            }
+                        }
+                    },
+                    icon = { Icon(Icons.Default.People, contentDescription = null) }
                 )
                 Tab(
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 },
-                    text = { Text("Ownership") },
-                    icon = { Icon(Icons.Default.SwapHoriz, contentDescription = null) }
+                    text = { Text("Vehicle Access") },
+                    icon = { Icon(Icons.Default.DirectionsCar, contentDescription = null) }
+                )
+                Tab(
+                    selected = selectedTab == 3,
+                    onClick = { selectedTab = 3 },
+                    text = { Text("Family Groups") },
+                    icon = { Icon(Icons.Default.Groups, contentDescription = null) }
+                )
+                Tab(
+                    selected = selectedTab == 4,
+                    onClick = { selectedTab = 4 },
+                    text = { Text("Drivers") },
+                    icon = { Icon(Icons.Default.Person, contentDescription = null) }
                 )
             }
 
             when (selectedTab) {
                 0 -> {
-                    // Driver Profiles Tab
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
+                    // PHASE 6A — USER SEARCH
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = {
+                                searchQuery = it
+                                viewModel.searchUsers(it)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("Search users by Name or Email...") },
+                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                            trailingIcon = {
+                                if (searchQuery.isNotEmpty()) {
+                                    IconButton(onClick = {
+                                        searchQuery = ""
+                                        viewModel.clearUserSearch()
+                                    }) {
+                                        Icon(Icons.Default.Clear, contentDescription = "Clear")
+                                    }
+                                }
+                            },
+                            singleLine = true
+                        )
+
+                        if (isSearching) {
+                            Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator()
+                            }
+                        } else if (searchResults.isEmpty() && searchQuery.isNotBlank()) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                            ) {
+                                Text(
+                                    "No registered users found matching '$searchQuery'.",
+                                    modifier = Modifier.padding(16.dp),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                        } else if (searchResults.isEmpty()) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                            ) {
+                                Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(Icons.Default.PersonSearch, contentDescription = null, modifier = Modifier.size(48.dp))
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text("Global User Discovery", fontWeight = FontWeight.SemiBold)
+                                    Text("Search for friends, family, or drivers across DriveCare.", style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        } else {
+                            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                items(searchResults) { user ->
+                                    UserSearchResultCard(
+                                        user = user,
+                                        onViewProfile = { viewModel.fetchPublicUserProfile(user.uid) },
+                                        onSendRequest = {
+                                            viewModel.sendFriendRequest(user) { success, msg ->
+                                                Toast.makeText(context, msg ?: if (success) "Request sent" else "Failed", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                1 -> {
+                    // PHASE 6B — FRIEND REQUEST SYSTEM & FRIENDS
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        if (incomingRequests.isNotEmpty()) {
+                            Text("Incoming Requests (${incomingRequests.size})", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.heightIn(max = 200.dp)) {
+                                items(incomingRequests) { req ->
+                                    Card(modifier = Modifier.fillMaxWidth()) {
+                                        Row(
+                                            modifier = Modifier.padding(12.dp).fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(req.senderName.ifBlank { req.senderEmail }, fontWeight = FontWeight.Bold)
+                                                Text(req.senderEmail, style = MaterialTheme.typography.bodySmall)
+                                            }
+                                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                Button(
+                                                    onClick = {
+                                                        viewModel.acceptFriendRequest(req) { success, msg ->
+                                                            Toast.makeText(context, msg ?: "Accepted", Toast.LENGTH_SHORT).show()
+                                                        }
+                                                    },
+                                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                                ) {
+                                                    Text("Accept")
+                                                }
+                                                OutlinedButton(
+                                                    onClick = {
+                                                        viewModel.rejectFriendRequest(req.id) {
+                                                            Toast.makeText(context, "Rejected", Toast.LENGTH_SHORT).show()
+                                                        }
+                                                    },
+                                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                                ) {
+                                                    Text("Reject")
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Text("My Friends (${friendships.size})", fontWeight = FontWeight.Bold)
+                        if (friendships.isEmpty()) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                            ) {
+                                Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(Icons.Default.People, contentDescription = null, modifier = Modifier.size(48.dp))
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text("No Friends Added Yet", fontWeight = FontWeight.SemiBold)
+                                    Text("Search for users in the 'Search Users' tab to send friend requests.", style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        } else {
+                            val currentUid = viewModel.currentUser.collectAsState().value?.uid ?: ""
+                            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                items(friendships) { friendship ->
+                                    val friendUid = if (friendship.user1Uid == currentUid) friendship.user2Uid else friendship.user1Uid
+                                    val friendName = if (friendship.user1Uid == currentUid) friendship.user2Name else friendship.user1Name
+                                    val friendEmail = if (friendship.user1Uid == currentUid) friendship.user2Email else friendship.user1Email
+
+                                    Card(modifier = Modifier.fillMaxWidth()) {
+                                        Row(
+                                            modifier = Modifier.padding(12.dp).fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.clickable { viewModel.fetchPublicUserProfile(friendUid) }
+                                            ) {
+                                                Surface(
+                                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                                    shape = CircleShape,
+                                                    modifier = Modifier.size(40.dp)
+                                                ) {
+                                                    Box(contentAlignment = Alignment.Center) {
+                                                        Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                                    }
+                                                }
+                                                Column {
+                                                    Text(friendName.ifBlank { friendEmail }, fontWeight = FontWeight.Bold)
+                                                    Text(friendEmail, style = MaterialTheme.typography.bodySmall)
+                                                }
+                                            }
+                                            Row {
+                                                IconButton(onClick = { viewModel.fetchPublicUserProfile(friendUid) }) {
+                                                    Icon(Icons.Default.AccountBox, contentDescription = "Public Profile")
+                                                }
+                                                IconButton(onClick = {
+                                                    viewModel.removeFriendship(friendship.id) {
+                                                        Toast.makeText(context, "Friend removed", Toast.LENGTH_SHORT).show()
+                                                    }
+                                                }) {
+                                                    Icon(Icons.Default.Delete, contentDescription = "Remove", tint = MaterialTheme.colorScheme.error)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                2 -> {
+                    // PHASE 6C — VEHICLE SHARING & PERMISSIONS
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Shared Vehicles (${sharedVehicles.size})", fontWeight = FontWeight.Bold)
+                            Button(onClick = { showShareVehicleDialog = true }, enabled = vehicles.isNotEmpty()) {
+                                Icon(Icons.Default.Share, contentDescription = null)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Share Vehicle")
+                            }
+                        }
+
+                        if (sharedVehicles.isEmpty()) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                            ) {
+                                Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(Icons.Default.DirectionsCar, contentDescription = null, modifier = Modifier.size(48.dp))
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text("No Shared Vehicles Active", fontWeight = FontWeight.SemiBold)
+                                    Text("Grant Viewer, Editor, or Manager access to your vehicles.", style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        } else {
+                            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                items(sharedVehicles) { sv ->
+                                    Card(modifier = Modifier.fillMaxWidth()) {
+                                        Column(modifier = Modifier.padding(12.dp)) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Column {
+                                                    Text(sv.vehicleName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                                    Text("Shared with: ${sv.sharedWithName} (${sv.sharedWithEmail})", style = MaterialTheme.typography.bodySmall)
+                                                    Text("Owner: ${sv.ownerName}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                                                }
+                                                IconButton(onClick = {
+                                                    viewModel.revokeVehicleShare(sv.id) {
+                                                        Toast.makeText(context, "Share revoked", Toast.LENGTH_SHORT).show()
+                                                    }
+                                                }) {
+                                                    Icon(Icons.Default.Delete, contentDescription = "Revoke", tint = MaterialTheme.colorScheme.error)
+                                                }
+                                            }
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text("Permission:", style = MaterialTheme.typography.labelMedium)
+                                                listOf("Viewer", "Editor", "Manager").forEach { perm ->
+                                                    FilterChip(
+                                                        selected = sv.permission.equals(perm, ignoreCase = true),
+                                                        onClick = {
+                                                            viewModel.updateVehicleSharePermission(sv.id, perm) {
+                                                                Toast.makeText(context, "Permission updated to $perm", Toast.LENGTH_SHORT).show()
+                                                            }
+                                                        },
+                                                        label = { Text(perm) }
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                3 -> {
+                    // PHASE 6D — FAMILY ACCESS & GROUPS
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Family Groups (${familyGroups.size})", fontWeight = FontWeight.Bold)
+                            Button(onClick = { showCreateFamilyDialog = true }) {
+                                Icon(Icons.Default.Add, contentDescription = null)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("New Family Group")
+                            }
+                        }
+
+                        if (familyGroups.isEmpty()) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                            ) {
+                                Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(Icons.Default.Groups, contentDescription = null, modifier = Modifier.size(48.dp))
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text("No Family Groups Created", fontWeight = FontWeight.SemiBold)
+                                    Text("Create a family group to grant collective vehicle access to family members.", style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        } else {
+                            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                items(familyGroups) { group ->
+                                    FamilyGroupCard(group = group, viewModel = viewModel)
+                                }
+                            }
+                        }
+                    }
+                }
+                4 -> {
+                    // DRIVER PROFILES & OWNERSHIP TRANSFER (Legacy Compatible)
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -119,80 +451,23 @@ fun FamilySharingScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                             ) {
-                                Column(
-                                    modifier = Modifier.padding(24.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
+                                Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                                     Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(48.dp))
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Text("No Driver Profiles Yet", fontWeight = FontWeight.SemiBold)
-                                    Text("Add family members or authorized drivers for vehicle sharing.", style = MaterialTheme.typography.bodySmall)
+                                    Text("Add authorized drivers for vehicle logging.", style = MaterialTheme.typography.bodySmall)
                                 }
                             }
                         } else {
-                            LazyColumn(
-                                modifier = Modifier.fillMaxSize(),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
+                            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 items(profiles) { profile ->
                                     DriverProfileCard(profile = profile, onDelete = { viewModel.deleteDriverProfile(profile) })
                                 }
                             }
                         }
-                    }
-                }
-                1 -> {
-                    // Vehicle Sharing Tab
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("Shared Access Grants (${shares.size})", fontWeight = FontWeight.Bold)
-                            Button(onClick = { showAddShareDialog = true }) {
-                                Icon(Icons.Default.Share, contentDescription = null)
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Share Vehicle")
-                            }
-                        }
 
-                        if (shares.isEmpty()) {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(24.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Icon(Icons.Default.DirectionsCar, contentDescription = null, modifier = Modifier.size(48.dp))
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text("No Shared Vehicles", fontWeight = FontWeight.SemiBold)
-                                    Text("Grant secondary access to family members or fleet drivers.", style = MaterialTheme.typography.bodySmall)
-                                }
-                            }
-                        } else {
-                            LazyColumn(
-                                modifier = Modifier.fillMaxSize(),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                items(shares) { share ->
-                                    VehicleShareCard(share = share, onDelete = { viewModel.deleteVehicleShare(share) })
-                                }
-                            }
-                        }
-                    }
-                }
-                2 -> {
-                    // Vehicle Ownership Transfer Tab
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
+                        Divider(modifier = Modifier.padding(vertical = 8.dp))
+
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f))
@@ -215,49 +490,46 @@ fun FamilySharingScreen(
                                 }
                             }
                         }
-
-                        Text("Current Garage Fleet Ownership", fontWeight = FontWeight.Bold)
-
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            items(vehicles) { v ->
-                                Card(modifier = Modifier.fillMaxWidth()) {
-                                    Row(
-                                        modifier = Modifier.padding(12.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Column {
-                                            Text(v.vehicleName, fontWeight = FontWeight.Bold)
-                                            Text("Plate: ${v.registrationNumber.ifBlank { "N/A" }}", style = MaterialTheme.typography.bodySmall)
-                                        }
-                                        Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = MaterialTheme.shapes.small) {
-                                            Text("Owner (Primary)", modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), style = MaterialTheme.typography.labelSmall)
-                                        }
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
             }
         }
     }
 
+    // Public Profile Modal
+    selectedPublicProfile?.let { publicProfile ->
+        PublicProfileDialog(
+            profile = publicProfile,
+            onDismiss = { viewModel.clearSelectedPublicProfile() },
+            onSendRequest = {
+                viewModel.sendFriendRequest(publicProfile) { success, msg ->
+                    Toast.makeText(context, msg ?: if (success) "Sent" else "Failed", Toast.LENGTH_SHORT).show()
+                }
+            }
+        )
+    }
+
+    // Dialogs
+    if (showCreateFamilyDialog) {
+        CreateFamilyGroupDialog(
+            viewModel = viewModel,
+            onDismiss = { showCreateFamilyDialog = false }
+        )
+    }
+
+    if (showShareVehicleDialog) {
+        ShareVehicleDialogV2(
+            viewModel = viewModel,
+            vehicles = vehicles,
+            friends = friendships,
+            onDismiss = { showShareVehicleDialog = false }
+        )
+    }
+
     if (showAddProfileDialog) {
         AddDriverProfileDialog(
             viewModel = viewModel,
             onDismiss = { showAddProfileDialog = false }
-        )
-    }
-
-    if (showAddShareDialog) {
-        AddVehicleShareDialog(
-            viewModel = viewModel,
-            vehicles = vehicles,
-            onDismiss = { showAddShareDialog = false }
         )
     }
 
@@ -269,6 +541,406 @@ fun FamilySharingScreen(
             onDismiss = { showTransferOwnershipDialog = false }
         )
     }
+}
+
+@Composable
+fun UserSearchResultCard(
+    user: PublicUserProfile,
+    onViewProfile: () -> Unit,
+    onSendRequest: () -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.padding(12.dp).fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.clickable { onViewProfile() }
+            ) {
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = CircleShape,
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
+                Column {
+                    Text(user.displayName, fontWeight = FontWeight.Bold)
+                    Text(user.email, style = MaterialTheme.typography.bodySmall)
+                    if (user.country.isNotBlank()) {
+                        Text("${user.country} • ${user.preferredCurrency}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                    }
+                }
+            }
+            Row {
+                IconButton(onClick = onViewProfile) {
+                    Icon(Icons.Default.AccountBox, contentDescription = "View Profile")
+                }
+                IconButton(onClick = onSendRequest) {
+                    Icon(Icons.Default.PersonAdd, contentDescription = "Add Friend", tint = MaterialTheme.colorScheme.primary)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun FamilyGroupCard(
+    group: FamilyGroup,
+    viewModel: DriveCareViewModel
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var showInviteDialog by remember { mutableStateOf(false) }
+    var members by remember { mutableStateOf<List<FamilyMember>>(emptyList()) }
+
+    LaunchedEffect(group.id) {
+        members = viewModel.syncManager.getFamilyMembers(group.id)
+    }
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(group.groupName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Text("Owner: ${group.ownerName}", style = MaterialTheme.typography.bodySmall)
+                }
+                Button(onClick = { showInviteDialog = true }, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)) {
+                    Icon(Icons.Default.PersonAdd, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Invite Member")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            Text("Members (${members.size})", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelMedium)
+
+            members.forEach { member ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("${member.name} (${member.role})", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                        Text("${member.email} • ${member.permission} [${member.status}]", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    if (member.role != "Owner") {
+                        IconButton(onClick = {
+                            viewModel.removeFamilyMember(group.id, member.id) {
+                                members = members.filter { it.id != member.id }
+                                Toast.makeText(context, "Member removed", Toast.LENGTH_SHORT).show()
+                            }
+                        }) {
+                            Icon(Icons.Default.Close, contentDescription = "Remove", tint = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showInviteDialog) {
+        InviteFamilyMemberDialog(
+            groupId = group.id,
+            groupName = group.groupName,
+            viewModel = viewModel,
+            onDismiss = {
+                showInviteDialog = false
+                scope.launch {
+                    members = viewModel.syncManager.getFamilyMembers(group.id)
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun PublicProfileDialog(
+    profile: PublicUserProfile,
+    onDismiss: () -> Unit,
+    onSendRequest: () -> Unit
+) {
+    val dateStr = if (profile.joinDate > 0) {
+        SimpleDateFormat("MMM yyyy", Locale.getDefault()).format(Date(profile.joinDate))
+    } else "Recent"
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = CircleShape,
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(28.dp), tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
+                Column {
+                    Text(profile.displayName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Text("Public Profile", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                }
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Divider()
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Email:", fontWeight = FontWeight.SemiBold)
+                    Text(profile.email)
+                }
+                if (profile.country.isNotBlank()) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Country:", fontWeight = FontWeight.SemiBold)
+                        Text(profile.country)
+                    }
+                }
+                if (profile.preferredCurrency.isNotBlank()) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Currency:", fontWeight = FontWeight.SemiBold)
+                        Text(profile.preferredCurrency)
+                    }
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Member Since:", fontWeight = FontWeight.SemiBold)
+                    Text(dateStr)
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Registered Vehicles:", fontWeight = FontWeight.SemiBold)
+                    Text("${profile.vehicleCount}")
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                onSendRequest()
+                onDismiss()
+            }) {
+                Icon(Icons.Default.PersonAdd, contentDescription = null)
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Add Friend")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Close") }
+        }
+    )
+}
+
+@Composable
+fun CreateFamilyGroupDialog(
+    viewModel: DriveCareViewModel,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    var groupName by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Create Family Access Group", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = groupName,
+                    onValueChange = { groupName = it },
+                    label = { Text("Family Group Name") },
+                    placeholder = { Text("e.g., Khan Family Fleet") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                if (groupName.isNotBlank()) {
+                    viewModel.createFamilyGroup(groupName) { success, msg ->
+                        Toast.makeText(context, msg ?: if (success) "Group created" else "Failed", Toast.LENGTH_SHORT).show()
+                        if (success) onDismiss()
+                    }
+                }
+            }) {
+                Text("Create")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun InviteFamilyMemberDialog(
+    groupId: String,
+    groupName: String,
+    viewModel: DriveCareViewModel,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    var email by remember { mutableStateOf("") }
+    var role by remember { mutableStateOf("Member") }
+    var permission by remember { mutableStateOf("Viewer") }
+
+    val roles = listOf("Father", "Mother", "Son", "Daughter", "Member")
+    val permissions = listOf("Viewer", "Editor", "Manager")
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Invite Family Member", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text("Member Email Address") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                Text("Family Role:", style = MaterialTheme.typography.labelMedium)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    roles.take(3).forEach { r ->
+                        FilterChip(
+                            selected = role == r,
+                            onClick = { role = r },
+                            label = { Text(r, style = MaterialTheme.typography.labelSmall) }
+                        )
+                    }
+                }
+
+                Text("Access Permission:", style = MaterialTheme.typography.labelMedium)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    permissions.forEach { p ->
+                        FilterChip(
+                            selected = permission == p,
+                            onClick = { permission = p },
+                            label = { Text(p, style = MaterialTheme.typography.labelSmall) }
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                if (email.isNotBlank()) {
+                    viewModel.inviteFamilyMember(groupId, groupName, email, role, permission) { success, msg ->
+                        Toast.makeText(context, msg ?: if (success) "Invited" else "Failed", Toast.LENGTH_SHORT).show()
+                        if (success) onDismiss()
+                    }
+                }
+            }) {
+                Text("Send Invite")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ShareVehicleDialogV2(
+    viewModel: DriveCareViewModel,
+    vehicles: List<Vehicle>,
+    friends: List<Friendship>,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    var selectedVehicle by remember { mutableStateOf(vehicles.firstOrNull()) }
+    var expandedVehicleDropdown by remember { mutableStateOf(false) }
+    var recipientEmail by remember { mutableStateOf("") }
+    var permission by remember { mutableStateOf("Viewer") }
+
+    val currentUid = viewModel.currentUser.collectAsState().value?.uid ?: ""
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Share Vehicle Access", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                ExposedDropdownMenuBox(
+                    expanded = expandedVehicleDropdown,
+                    onExpandedChange = { expandedVehicleDropdown = !expandedVehicleDropdown }
+                ) {
+                    OutlinedTextField(
+                        value = selectedVehicle?.vehicleName ?: "Select Vehicle",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Vehicle") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedVehicleDropdown) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedVehicleDropdown,
+                        onDismissRequest = { expandedVehicleDropdown = false }
+                    ) {
+                        vehicles.forEach { v ->
+                            DropdownMenuItem(
+                                text = { Text(v.vehicleName) },
+                                onClick = {
+                                    selectedVehicle = v
+                                    expandedVehicleDropdown = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = recipientEmail,
+                    onValueChange = { recipientEmail = it },
+                    label = { Text("Recipient Email Address") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                if (friends.isNotEmpty()) {
+                    Text("Or Select Friend:", style = MaterialTheme.typography.labelMedium)
+                    LazyColumn(modifier = Modifier.heightIn(max = 120.dp)) {
+                        items(friends) { f ->
+                            val fEmail = if (f.user1Uid == currentUid) f.user2Email else f.user1Email
+                            TextButton(onClick = { recipientEmail = fEmail }) {
+                                Text(fEmail, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+                }
+
+                Text("Permission Level:", style = MaterialTheme.typography.labelMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("Viewer", "Editor", "Manager").forEach { perm ->
+                        FilterChip(
+                            selected = permission == perm,
+                            onClick = { permission = perm },
+                            label = { Text(perm) }
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                val v = selectedVehicle
+                if (v != null && recipientEmail.isNotBlank()) {
+                    viewModel.shareVehicleWithUser(v, "", recipientEmail, recipientEmail.substringBefore("@"), permission) { success, msg ->
+                        Toast.makeText(context, msg ?: if (success) "Shared" else "Failed", Toast.LENGTH_SHORT).show()
+                        if (success) onDismiss()
+                    }
+                }
+            }) {
+                Text("Share")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }
 
 @Composable
@@ -301,36 +973,6 @@ fun DriverProfileCard(profile: DriverProfile, onDelete: () -> Unit) {
             }
             IconButton(onClick = onDelete) {
                 Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
-            }
-        }
-    }
-}
-
-@Composable
-fun VehicleShareCard(share: VehicleShare, onDelete: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text("${share.vehicleName} shared with:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(share.sharedWithEmail, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(2.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.extraSmall) {
-                        Text(share.role, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), style = MaterialTheme.typography.labelSmall)
-                    }
-                    Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.extraSmall) {
-                        Text(share.status, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-            }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = "Revoke", tint = MaterialTheme.colorScheme.error)
             }
         }
     }
@@ -376,92 +1018,6 @@ fun AddDriverProfileDialog(
                 }
             ) {
                 Text("Save")
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
-    )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun AddVehicleShareDialog(
-    viewModel: DriveCareViewModel,
-    vehicles: List<Vehicle>,
-    onDismiss: () -> Unit
-) {
-    val context = LocalContext.current
-    var selectedVehicle by remember { mutableStateOf(vehicles.firstOrNull()) }
-    var expandedVehicleDropdown by remember { mutableStateOf(false) }
-    var email by remember { mutableStateOf("") }
-    var role by remember { mutableStateOf("DRIVER") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Share Vehicle Access", fontWeight = FontWeight.Bold) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (vehicles.isEmpty()) {
-                    Text("No vehicles in garage.")
-                } else {
-                    ExposedDropdownMenuBox(
-                        expanded = expandedVehicleDropdown,
-                        onExpandedChange = { expandedVehicleDropdown = !expandedVehicleDropdown }
-                    ) {
-                        OutlinedTextField(
-                            value = selectedVehicle?.vehicleName ?: "Select Vehicle",
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Vehicle") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedVehicleDropdown) },
-                            modifier = Modifier.menuAnchor().fillMaxWidth()
-                        )
-                        ExposedDropdownMenu(
-                            expanded = expandedVehicleDropdown,
-                            onDismissRequest = { expandedVehicleDropdown = false }
-                        ) {
-                            vehicles.forEach { v ->
-                                DropdownMenuItem(
-                                    text = { Text(v.vehicleName) },
-                                    onClick = {
-                                        selectedVehicle = v
-                                        expandedVehicleDropdown = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-
-                    OutlinedTextField(
-                        value = email,
-                        onValueChange = { email = it },
-                        label = { Text("Recipient Email") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            if (vehicles.isNotEmpty()) {
-                Button(
-                    onClick = {
-                        if (selectedVehicle != null && email.isNotBlank()) {
-                            viewModel.addVehicleShare(
-                                VehicleShare(
-                                    vehicleId = selectedVehicle!!.id,
-                                    vehicleName = selectedVehicle!!.vehicleName,
-                                    sharedWithEmail = email,
-                                    role = role,
-                                    status = "ACTIVE"
-                                )
-                            )
-                            Toast.makeText(context, "Access invitation sent!", Toast.LENGTH_SHORT).show()
-                            onDismiss()
-                        }
-                    }
-                ) {
-                    Text("Share")
-                }
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }

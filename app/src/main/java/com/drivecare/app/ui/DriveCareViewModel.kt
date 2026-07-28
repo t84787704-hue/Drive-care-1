@@ -124,6 +124,34 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     val lastSyncTime: StateFlow<Long> = syncManager.lastSyncTime
     val isFirebaseAvailable: StateFlow<Boolean> = syncManager.isFirebaseAvailable
 
+    // --- Social, Search & Family StateFlows ---
+    private val _userSearchResults = MutableStateFlow<List<com.drivecare.app.data.model.PublicUserProfile>>(emptyList())
+    val userSearchResults: StateFlow<List<com.drivecare.app.data.model.PublicUserProfile>> = _userSearchResults.asStateFlow()
+
+    private val _isSearchingUsers = MutableStateFlow(false)
+    val isSearchingUsers: StateFlow<Boolean> = _isSearchingUsers.asStateFlow()
+
+    private val _incomingFriendRequests = MutableStateFlow<List<com.drivecare.app.data.model.FriendRequest>>(emptyList())
+    val incomingFriendRequests: StateFlow<List<com.drivecare.app.data.model.FriendRequest>> = _incomingFriendRequests.asStateFlow()
+
+    private val _outgoingFriendRequests = MutableStateFlow<List<com.drivecare.app.data.model.FriendRequest>>(emptyList())
+    val outgoingFriendRequests: StateFlow<List<com.drivecare.app.data.model.FriendRequest>> = _outgoingFriendRequests.asStateFlow()
+
+    private val _friendships = MutableStateFlow<List<com.drivecare.app.data.model.Friendship>>(emptyList())
+    val friendships: StateFlow<List<com.drivecare.app.data.model.Friendship>> = _friendships.asStateFlow()
+
+    private val _sharedVehiclesV2 = MutableStateFlow<List<com.drivecare.app.data.model.SharedVehicle>>(emptyList())
+    val sharedVehiclesV2: StateFlow<List<com.drivecare.app.data.model.SharedVehicle>> = _sharedVehiclesV2.asStateFlow()
+
+    private val _familyGroups = MutableStateFlow<List<com.drivecare.app.data.model.FamilyGroup>>(emptyList())
+    val familyGroups: StateFlow<List<com.drivecare.app.data.model.FamilyGroup>> = _familyGroups.asStateFlow()
+
+    private val _appNotifications = MutableStateFlow<List<com.drivecare.app.data.model.AppNotification>>(emptyList())
+    val appNotifications: StateFlow<List<com.drivecare.app.data.model.AppNotification>> = _appNotifications.asStateFlow()
+
+    private val _selectedPublicProfile = MutableStateFlow<com.drivecare.app.data.model.PublicUserProfile?>(null)
+    val selectedPublicProfile: StateFlow<com.drivecare.app.data.model.PublicUserProfile?> = _selectedPublicProfile.asStateFlow()
+
     private val _deletionProgress = MutableStateFlow(DeletionProgressState())
     val deletionProgress: StateFlow<DeletionProgressState> = _deletionProgress.asStateFlow()
 
@@ -1882,6 +1910,175 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     fun triggerManualSync() {
         viewModelScope.launch {
             syncManager.performFullBidirectionalSync(getApplication(), db)
+        }
+    }
+
+    // --- User Discovery, Friend System, Vehicle Sharing, Family Access, Notifications & Public Profile ---
+
+    fun searchUsers(query: String) {
+        viewModelScope.launch {
+            if (query.isBlank()) {
+                _userSearchResults.value = emptyList()
+                return@launch
+            }
+            _isSearchingUsers.value = true
+            val results = syncManager.searchUsers(query)
+            _userSearchResults.value = results
+            _isSearchingUsers.value = false
+        }
+    }
+
+    fun clearUserSearch() {
+        _userSearchResults.value = emptyList()
+    }
+
+    fun sendFriendRequest(targetUser: com.drivecare.app.data.model.PublicUserProfile, onResult: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            val res = syncManager.sendFriendRequest(targetUser)
+            res.onSuccess {
+                loadSocialData()
+                onResult(true, "Friend request sent!")
+            }.onFailure {
+                onResult(false, it.message ?: "Failed to send request")
+            }
+        }
+    }
+
+    fun acceptFriendRequest(request: com.drivecare.app.data.model.FriendRequest, onResult: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            val res = syncManager.acceptFriendRequest(request)
+            res.onSuccess {
+                loadSocialData()
+                onResult(true, "Friend request accepted!")
+            }.onFailure {
+                onResult(false, it.message ?: "Failed to accept request")
+            }
+        }
+    }
+
+    fun rejectFriendRequest(requestId: String, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val res = syncManager.rejectFriendRequest(requestId)
+            loadSocialData()
+            onResult(res.isSuccess)
+        }
+    }
+
+    fun cancelFriendRequest(requestId: String, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val res = syncManager.cancelFriendRequest(requestId)
+            loadSocialData()
+            onResult(res.isSuccess)
+        }
+    }
+
+    fun removeFriendship(friendshipId: String, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val res = syncManager.removeFriendship(friendshipId)
+            loadSocialData()
+            onResult(res.isSuccess)
+        }
+    }
+
+    fun loadSocialData() {
+        viewModelScope.launch {
+            _incomingFriendRequests.value = syncManager.getIncomingFriendRequests()
+            _outgoingFriendRequests.value = syncManager.getOutgoingFriendRequests()
+            _friendships.value = syncManager.getFriendships()
+            _sharedVehiclesV2.value = syncManager.getSharedVehiclesForUser()
+            _familyGroups.value = syncManager.getMyFamilyGroups()
+            _appNotifications.value = syncManager.getUserNotifications()
+        }
+    }
+
+    fun shareVehicleWithUser(
+        vehicle: Vehicle,
+        targetUid: String,
+        targetEmail: String,
+        targetName: String,
+        permission: String,
+        onResult: (Boolean, String?) -> Unit
+    ) {
+        viewModelScope.launch {
+            val res = syncManager.shareVehicleWithUser(vehicle, targetUid, targetEmail, targetName, permission)
+            res.onSuccess {
+                loadSocialData()
+                onResult(true, "Vehicle shared successfully!")
+            }.onFailure {
+                onResult(false, it.message ?: "Failed to share vehicle")
+            }
+        }
+    }
+
+    fun updateVehicleSharePermission(shareId: String, newPermission: String, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val res = syncManager.updateVehicleSharePermission(shareId, newPermission)
+            loadSocialData()
+            onResult(res.isSuccess)
+        }
+    }
+
+    fun revokeVehicleShare(shareId: String, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val res = syncManager.revokeVehicleShare(shareId)
+            loadSocialData()
+            onResult(res.isSuccess)
+        }
+    }
+
+    fun createFamilyGroup(groupName: String, onResult: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            val res = syncManager.createFamilyGroup(groupName)
+            res.onSuccess {
+                loadSocialData()
+                onResult(true, "Family group created!")
+            }.onFailure {
+                onResult(false, it.message ?: "Failed to create family group")
+            }
+        }
+    }
+
+    fun inviteFamilyMember(
+        groupId: String,
+        groupName: String,
+        targetEmail: String,
+        role: String,
+        permission: String,
+        onResult: (Boolean, String?) -> Unit
+    ) {
+        viewModelScope.launch {
+            val res = syncManager.inviteFamilyMember(groupId, groupName, targetEmail, role, permission)
+            res.onSuccess {
+                loadSocialData()
+                onResult(true, "Family member invited!")
+            }.onFailure {
+                onResult(false, it.message ?: "Failed to invite family member")
+            }
+        }
+    }
+
+    fun removeFamilyMember(groupId: String, memberId: String, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val res = syncManager.removeFamilyMember(groupId, memberId)
+            loadSocialData()
+            onResult(res.isSuccess)
+        }
+    }
+
+    fun fetchPublicUserProfile(targetUid: String) {
+        viewModelScope.launch {
+            _selectedPublicProfile.value = syncManager.fetchPublicUserProfile(targetUid)
+        }
+    }
+
+    fun clearSelectedPublicProfile() {
+        _selectedPublicProfile.value = null
+    }
+
+    fun markNotificationAsRead(notifId: String) {
+        viewModelScope.launch {
+            syncManager.markNotificationAsRead(notifId)
+            loadSocialData()
         }
     }
 }
