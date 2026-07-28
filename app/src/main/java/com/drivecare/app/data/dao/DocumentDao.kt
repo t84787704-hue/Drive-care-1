@@ -26,4 +26,7 @@ interface DocumentDao {
 
     @Query("DELETE FROM documents WHERE vehicleId = :vehicleId")
     suspend fun deleteByVehicle(vehicleId: Long)
+
+    @Query("DELETE FROM documents WHERE isDemo = 1")
+    suspend fun deleteDemoDocuments(): Int
 }

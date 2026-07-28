@@ -28,4 +28,7 @@ interface ReminderDao {
 
     @Query("DELETE FROM reminders WHERE vehicleId = :vehicleId")
     suspend fun deleteByVehicle(vehicleId: Long)
+
+    @Query("DELETE FROM reminders WHERE isDemo = 1")
+    suspend fun deleteDemoReminders(): Int
 }

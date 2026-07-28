@@ -32,4 +32,7 @@ interface GeofenceZoneDao {
 
     @Query("DELETE FROM geofence_zones WHERE vehicleId = :vehicleId")
     suspend fun deleteByVehicle(vehicleId: Long)
+
+    @Query("DELETE FROM geofence_zones WHERE isDemo = 1")
+    suspend fun deleteDemoGeofences(): Int
 }

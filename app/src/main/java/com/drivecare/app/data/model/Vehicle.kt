@@ -19,6 +19,7 @@ data class Vehicle(
     val vin: String = "",
     val purchaseDate: String = "",
     val imageUri: String = "",
+    val isDemo: Boolean = false,
     val lastUpdated: Long = System.currentTimeMillis(),
     val createdAt: Long = System.currentTimeMillis()
 )

@@ -27,4 +27,7 @@ interface FuelDao {
 
     @Query("DELETE FROM fuel_entries WHERE vehicleId = :vehicleId")
     suspend fun deleteByVehicle(vehicleId: Long)
+
+    @Query("DELETE FROM fuel_entries WHERE isDemo = 1")
+    suspend fun deleteDemoFuelEntries(): Int
 }

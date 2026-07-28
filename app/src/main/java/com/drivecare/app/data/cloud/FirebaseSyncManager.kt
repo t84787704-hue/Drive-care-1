@@ -78,6 +78,8 @@ class FirebaseSyncManager private constructor() {
     private val _lastUploadCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
     val lastUploadCounts: StateFlow<Map<String, Int>> = _lastUploadCounts.asStateFlow()
 
+    var syncDemoData: Boolean = false
+
     private val syncMutex = Mutex()
 
     private val _auditLogs = MutableStateFlow<List<String>>(emptyList())
@@ -669,27 +671,35 @@ class FirebaseSyncManager private constructor() {
                 )
                 batch.set(userRef, profileMap, SetOptions.merge())
 
-                for (v in vehicles) {
+                val vList = if (syncDemoData) vehicles else vehicles.filter { !it.isDemo }
+                val fList = if (syncDemoData) fuelEntries else fuelEntries.filter { !it.isDemo }
+                val mList = if (syncDemoData) maintenanceRecords else maintenanceRecords.filter { !it.isDemo }
+                val eList = if (syncDemoData) expenses else expenses.filter { !it.isDemo }
+                val dList = if (syncDemoData) documents else documents.filter { !it.isDemo }
+                val iList = if (syncDemoData) insurancePolicies else insurancePolicies.filter { !it.isDemo }
+                val rList = if (syncDemoData) reminders else reminders.filter { !it.isDemo }
+
+                for (v in vList) {
                     batch.set(userRef.collection("vehicles").document(v.id.toString()), v.toMap(), SetOptions.merge())
                 }
-                for (f in fuelEntries) {
+                for (f in fList) {
                     batch.set(userRef.collection("fuelEntries").document(f.id.toString()), f.toMap(), SetOptions.merge())
                 }
-                for (m in maintenanceRecords) {
+                for (m in mList) {
                     batch.set(userRef.collection("maintenance").document(m.id.toString()), m.toMap(), SetOptions.merge())
                 }
-                for (e in expenses) {
+                for (e in eList) {
                     batch.set(userRef.collection("expenses").document(e.id.toString()), e.toMap(), SetOptions.merge())
                 }
-                for (d in documents) {
+                for (d in dList) {
                     val cloudUri = uploadFileToStorage(context, d.fileUri, d.id)
                     val updatedDoc = if (cloudUri != d.fileUri) d.copy(fileUri = cloudUri) else d
                     batch.set(userRef.collection("documents").document(updatedDoc.id.toString()), updatedDoc.toMap(), SetOptions.merge())
                 }
-                for (i in insurancePolicies) {
+                for (i in iList) {
                     batch.set(userRef.collection("insurancePolicies").document(i.id.toString()), i.toMap(), SetOptions.merge())
                 }
-                for (r in reminders) {
+                for (r in rList) {
                     batch.set(userRef.collection("reminders").document(r.id.toString()), r.toMap(), SetOptions.merge())
                 }
 
@@ -780,6 +790,7 @@ class FirebaseSyncManager private constructor() {
     // --- Single Item Immediate Operations ---
 
     suspend fun uploadSingleVehicle(vehicle: Vehicle) = withContext(Dispatchers.IO) {
+        if (vehicle.isDemo && !syncDemoData) return@withContext
         val user = _currentUser.value ?: return@withContext
         try {
             firestore?.collection("users")?.document(user.uid)?.collection("vehicles")
@@ -830,6 +841,7 @@ class FirebaseSyncManager private constructor() {
     }
 
     suspend fun uploadSingleFuelEntry(fuelEntry: FuelEntry) = withContext(Dispatchers.IO) {
+        if (fuelEntry.isDemo && !syncDemoData) return@withContext
         val user = _currentUser.value ?: return@withContext
         try {
             firestore?.collection("users")?.document(user.uid)?.collection("fuelEntries")
@@ -854,6 +866,7 @@ class FirebaseSyncManager private constructor() {
     }
 
     suspend fun uploadSingleMaintenance(maintenance: Maintenance) = withContext(Dispatchers.IO) {
+        if (maintenance.isDemo && !syncDemoData) return@withContext
         val user = _currentUser.value ?: return@withContext
         try {
             firestore?.collection("users")?.document(user.uid)?.collection("maintenance")
@@ -878,6 +891,7 @@ class FirebaseSyncManager private constructor() {
     }
 
     suspend fun uploadSingleExpense(expense: Expense) = withContext(Dispatchers.IO) {
+        if (expense.isDemo && !syncDemoData) return@withContext
         val user = _currentUser.value ?: return@withContext
         try {
             firestore?.collection("users")?.document(user.uid)?.collection("expenses")
@@ -902,6 +916,7 @@ class FirebaseSyncManager private constructor() {
     }
 
     suspend fun uploadSingleDocument(context: Context, document: Document) = withContext(Dispatchers.IO) {
+        if (document.isDemo && !syncDemoData) return@withContext
         val user = _currentUser.value ?: return@withContext
         try {
             val cloudUri = uploadFileToStorage(context, document.fileUri, document.id)
@@ -928,6 +943,7 @@ class FirebaseSyncManager private constructor() {
     }
 
     suspend fun uploadSingleInsurance(context: Context? = null, policy: InsurancePolicy) = withContext(Dispatchers.IO) {
+        if (policy.isDemo && !syncDemoData) return@withContext
         val user = _currentUser.value ?: return@withContext
         try {
             var updatedPolicy = policy
@@ -959,6 +975,7 @@ class FirebaseSyncManager private constructor() {
     }
 
     suspend fun uploadSingleReminder(reminder: Reminder) = withContext(Dispatchers.IO) {
+        if (reminder.isDemo && !syncDemoData) return@withContext
         val user = _currentUser.value ?: return@withContext
         try {
             firestore?.collection("users")?.document(user.uid)?.collection("reminders")
@@ -983,6 +1000,7 @@ class FirebaseSyncManager private constructor() {
     }
 
     suspend fun uploadSingleGeofence(geofence: GeofenceZone) = withContext(Dispatchers.IO) {
+        if (geofence.isDemo && !syncDemoData) return@withContext
         val user = _currentUser.value ?: return@withContext
         try {
             firestore?.collection("users")?.document(user.uid)?.collection("geofences")

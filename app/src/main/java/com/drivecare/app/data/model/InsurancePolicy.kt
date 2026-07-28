@@ -25,6 +25,7 @@ data class InsurancePolicy(
     val notes: String = "",
     val isAutoRenewEnabled: Boolean = false,
     val documentUri: String = "",
+    val isDemo: Boolean = false,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 ) {

@@ -14,5 +14,6 @@ data class Expense(
     val amount: Double = 0.0,
     val date: String = "",
     val notes: String = "",
+    val isDemo: Boolean = false,
     val createdAt: Long = System.currentTimeMillis()
 )

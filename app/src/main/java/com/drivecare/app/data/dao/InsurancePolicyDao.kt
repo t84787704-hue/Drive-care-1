@@ -29,4 +29,7 @@ interface InsurancePolicyDao {
 
     @Query("DELETE FROM insurance_policies WHERE id = :id")
     suspend fun deletePolicyById(id: Long)
+
+    @Query("DELETE FROM insurance_policies WHERE isDemo = 1")
+    suspend fun deleteDemoInsurancePolicies(): Int
 }

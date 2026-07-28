@@ -19,5 +19,6 @@ data class Maintenance(
     val invoicePhotoUri: String = "",
     val nextDueServiceDate: String = "",
     val reminderDate: String = "",
+    val isDemo: Boolean = false,
     val createdAt: Long = System.currentTimeMillis()
 )

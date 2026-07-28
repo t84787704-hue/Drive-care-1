@@ -1866,4 +1866,374 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
             syncManager.performFullBidirectionalSync(getApplication(), db)
         }
     }
+
+    // --- Developer Tools: Demo Data Management ---
+    val syncDemoDataEnabled = MutableStateFlow(false)
+
+    fun setSyncDemoData(enabled: Boolean) {
+        syncDemoDataEnabled.value = enabled
+        syncManager.syncDemoData = enabled
+    }
+
+    fun loadDemoData(onComplete: (Boolean, String) -> Unit = { _, _ -> }) {
+        viewModelScope.launch {
+            try {
+                // 1. Create 3 Demo Vehicles
+                val v1 = Vehicle(
+                    vehicleName = "Toyota Corolla GLi 2021",
+                    brand = "Toyota",
+                    model = "Corolla GLi",
+                    manufacturingYear = "2021",
+                    vehicleType = "Sedan",
+                    registrationNumber = "DEMO-LEB-101",
+                    vin = "DEMO-TOYOTA-2021-001",
+                    fuelType = "Petrol",
+                    odometerReading = "45200",
+                    purchaseDate = "2021-03-15",
+                    notes = "[DEMO_DATA] Primary daily commute vehicle",
+                    isDemo = true
+                )
+                val v1Id = vehicleDao.insertVehicle(v1)
+
+                val v2 = Vehicle(
+                    vehicleName = "Honda Civic Oriel 2023",
+                    brand = "Honda",
+                    model = "Civic Oriel",
+                    manufacturingYear = "2023",
+                    vehicleType = "Sedan",
+                    registrationNumber = "DEMO-ICT-202",
+                    vin = "DEMO-HONDA-2023-002",
+                    fuelType = "Petrol",
+                    odometerReading = "18500",
+                    purchaseDate = "2023-06-20",
+                    notes = "[DEMO_DATA] Family tour and highway cruiser",
+                    isDemo = true
+                )
+                val v2Id = vehicleDao.insertVehicle(v2)
+
+                val v3 = Vehicle(
+                    vehicleName = "Tesla Model Y Long Range 2024",
+                    brand = "Tesla",
+                    model = "Model Y",
+                    manufacturingYear = "2024",
+                    vehicleType = "Electric / SUV",
+                    registrationNumber = "DEMO-EV-303",
+                    vin = "DEMO-TESLA-2024-003",
+                    fuelType = "Electric",
+                    odometerReading = "8200",
+                    purchaseDate = "2024-01-10",
+                    notes = "[DEMO_DATA] Long-range electric vehicle",
+                    isDemo = true
+                )
+                val v3Id = vehicleDao.insertVehicle(v3)
+
+                // 2. Create Demo Fuel Records
+                fuelDao.insertFuelEntry(
+                    FuelEntry(
+                        vehicleId = v1Id,
+                        vehicleName = v1.vehicleName,
+                        fuelDate = "2026-07-20",
+                        fuelType = "Petrol",
+                        fuelQuantity = "45.0",
+                        amountPaid = "12150",
+                        currentOdometer = "44800",
+                        fuelStationName = "Total Parco Station",
+                        notes = "[DEMO_DATA] Full tank refuel",
+                        isDemo = true
+                    )
+                )
+                fuelDao.insertFuelEntry(
+                    FuelEntry(
+                        vehicleId = v1Id,
+                        vehicleName = v1.vehicleName,
+                        fuelDate = "2026-07-26",
+                        fuelType = "Petrol",
+                        fuelQuantity = "42.5",
+                        amountPaid = "11475",
+                        currentOdometer = "45200",
+                        fuelStationName = "Shell Express",
+                        notes = "[DEMO_DATA] Weekly refuel",
+                        isDemo = true
+                    )
+                )
+                fuelDao.insertFuelEntry(
+                    FuelEntry(
+                        vehicleId = v2Id,
+                        vehicleName = v2.vehicleName,
+                        fuelDate = "2026-07-18",
+                        fuelType = "Hi-Octane",
+                        fuelQuantity = "50.0",
+                        amountPaid = "14500",
+                        currentOdometer = "18100",
+                        fuelStationName = "PSO Hi-Octane Hub",
+                        notes = "[DEMO_DATA] Highway trip fuel",
+                        isDemo = true
+                    )
+                )
+                fuelDao.insertFuelEntry(
+                    FuelEntry(
+                        vehicleId = v3Id,
+                        vehicleName = v3.vehicleName,
+                        fuelDate = "2026-07-25",
+                        fuelType = "Electric",
+                        fuelQuantity = "65.0",
+                        amountPaid = "2600",
+                        currentOdometer = "8200",
+                        fuelStationName = "Tesla Supercharger Station",
+                        notes = "[DEMO_DATA] Fast DC charging session 20-80%",
+                        isDemo = true
+                    )
+                )
+
+                // 3. Create Demo Maintenance Records
+                maintenanceDao.insertMaintenance(
+                    Maintenance(
+                        vehicleId = v1Id,
+                        vehicleName = v1.vehicleName,
+                        serviceTitle = "Periodic 45,000 km Oil & Filter Change",
+                        serviceType = "Routine Service",
+                        serviceDate = "2026-07-15",
+                        currentOdometer = "45000",
+                        serviceCost = "8500",
+                        workshopName = "Toyota Central Motors",
+                        notes = "[DEMO_DATA] Engine oil 5W-30 changed with genuine oil filter",
+                        nextDueServiceDate = "2026-11-15",
+                        reminderDate = "2026-11-01",
+                        isDemo = true
+                    )
+                )
+                maintenanceDao.insertMaintenance(
+                    Maintenance(
+                        vehicleId = v2Id,
+                        vehicleName = v2.vehicleName,
+                        serviceTitle = "Brake Pads & Fluid Inspection",
+                        serviceType = "Brake Service",
+                        serviceDate = "2026-07-10",
+                        currentOdometer = "18000",
+                        serviceCost = "12000",
+                        workshopName = "Honda Classic Service Center",
+                        notes = "[DEMO_DATA] Front brake pads replaced and brake fluid flushed",
+                        nextDueServiceDate = "2027-01-10",
+                        reminderDate = "2026-12-25",
+                        isDemo = true
+                    )
+                )
+                maintenanceDao.insertMaintenance(
+                    Maintenance(
+                        vehicleId = v3Id,
+                        vehicleName = v3.vehicleName,
+                        serviceTitle = "Tire Rotation & Cabin HEPA Filter",
+                        serviceType = "Routine Inspection",
+                        serviceDate = "2026-06-30",
+                        currentOdometer = "7500",
+                        serviceCost = "6500",
+                        workshopName = "Tesla Authorized Service Hub",
+                        notes = "[DEMO_DATA] Multi-point EV safety inspection and cabin filter replacement",
+                        nextDueServiceDate = "2026-12-30",
+                        reminderDate = "2026-12-15",
+                        isDemo = true
+                    )
+                )
+
+                // 4. Create Demo Insurance Records
+                insurancePolicyDao.insertPolicy(
+                    InsurancePolicy(
+                        vehicleId = v1Id,
+                        vehicleName = v1.vehicleName,
+                        providerName = "EFU General Insurance",
+                        policyNumber = "EFU-DEMO-2026-881",
+                        coverageType = "Comprehensive",
+                        premiumAmount = 45000.0,
+                        startDate = "2026-01-01",
+                        expiryDate = "2026-12-31",
+                        agentContact = "+92 300 1234567",
+                        claimContact = "111-338-111",
+                        emergencyContact = "0800-EFU-HELP",
+                        notes = "[DEMO_DATA] Comprehensive coverage with tracker & zero-depreciation rider",
+                        isAutoRenewEnabled = true,
+                        isDemo = true
+                    )
+                )
+                insurancePolicyDao.insertPolicy(
+                    InsurancePolicy(
+                        vehicleId = v2Id,
+                        vehicleName = v2.vehicleName,
+                        providerName = "Jubilee General Insurance",
+                        policyNumber = "JUB-DEMO-2026-992",
+                        coverageType = "Comprehensive",
+                        premiumAmount = 58000.0,
+                        startDate = "2026-03-01",
+                        expiryDate = "2027-02-28",
+                        agentContact = "+92 321 7654321",
+                        claimContact = "111-654-111",
+                        emergencyContact = "0800-JUB-HELP",
+                        notes = "[DEMO_DATA] Full road-side assistance & glass protection inclusion",
+                        isAutoRenewEnabled = true,
+                        isDemo = true
+                    )
+                )
+                insurancePolicyDao.insertPolicy(
+                    InsurancePolicy(
+                        vehicleId = v3Id,
+                        vehicleName = v3.vehicleName,
+                        providerName = "State Life Motor Cover",
+                        policyNumber = "SLI-DEMO-2026-103",
+                        coverageType = "Comprehensive",
+                        premiumAmount = 72000.0,
+                        startDate = "2026-02-15",
+                        expiryDate = "2027-02-14",
+                        agentContact = "+92 333 9876543",
+                        claimContact = "111-777-222",
+                        emergencyContact = "0800-SLI-AUTO",
+                        notes = "[DEMO_DATA] EV Battery replacement cover included",
+                        isAutoRenewEnabled = true,
+                        isDemo = true
+                    )
+                )
+
+                // 5. Create Demo Documents
+                documentDao.insertDocument(
+                    Document(
+                        vehicleId = v1Id,
+                        vehicleName = v1.vehicleName,
+                        docTitle = "Smart Card Registration",
+                        docType = "Registration",
+                        issueDate = "2021-03-20",
+                        expiryDate = "2031-03-20",
+                        notes = "[DEMO_DATA] Vehicle Registration Smart Card copy",
+                        reminderDaysBefore = 30,
+                        isDemo = true
+                    )
+                )
+                documentDao.insertDocument(
+                    Document(
+                        vehicleId = v2Id,
+                        vehicleName = v2.vehicleName,
+                        docTitle = "Annual Fitness & Emission Certificate",
+                        docType = "Permit",
+                        issueDate = "2026-01-10",
+                        expiryDate = "2027-01-10",
+                        notes = "[DEMO_DATA] Motor vehicle fitness approval certificate",
+                        reminderDaysBefore = 15,
+                        isDemo = true
+                    )
+                )
+                documentDao.insertDocument(
+                    Document(
+                        vehicleId = v3Id,
+                        vehicleName = v3.vehicleName,
+                        docTitle = "EV High-Voltage Battery Warranty",
+                        docType = "Warranty",
+                        issueDate = "2024-01-10",
+                        expiryDate = "2032-01-10",
+                        notes = "[DEMO_DATA] 8-Year Tesla Factory Battery Warranty",
+                        reminderDaysBefore = 60,
+                        isDemo = true
+                    )
+                )
+
+                // 6. Create Demo Geofences
+                geofenceZoneDao.insertGeofence(
+                    GeofenceZone(
+                        vehicleId = v1Id,
+                        zoneName = "Home Safe Zone (Model Town)",
+                        centerLatitude = 31.4826,
+                        centerLongitude = 74.3228,
+                        radiusMeters = 500.0,
+                        notifyOnEnter = true,
+                        notifyOnExit = true,
+                        isActive = true,
+                        isDemo = true
+                    )
+                )
+                geofenceZoneDao.insertGeofence(
+                    GeofenceZone(
+                        vehicleId = v2Id,
+                        zoneName = "Office Complex (Gulberg)",
+                        centerLatitude = 31.5204,
+                        centerLongitude = 74.3587,
+                        radiusMeters = 300.0,
+                        notifyOnEnter = true,
+                        notifyOnExit = true,
+                        isActive = true,
+                        isDemo = true
+                    )
+                )
+                geofenceZoneDao.insertGeofence(
+                    GeofenceZone(
+                        vehicleId = v3Id,
+                        zoneName = "Supercharger Station Area",
+                        centerLatitude = 31.4697,
+                        centerLongitude = 74.2728,
+                        radiusMeters = 400.0,
+                        notifyOnEnter = true,
+                        notifyOnExit = true,
+                        isActive = true,
+                        isDemo = true
+                    )
+                )
+
+                // 7. Demo Expenses & Reminders
+                expenseDao.insertExpense(
+                    Expense(
+                        vehicleId = v1Id,
+                        vehicleName = v1.vehicleName,
+                        title = "Motorway Toll Tax & M-Tag Topup",
+                        category = "Toll",
+                        amount = 2500.0,
+                        date = "2026-07-22",
+                        notes = "[DEMO_DATA] Toll tax recharge for M-Tag",
+                        isDemo = true
+                    )
+                )
+                expenseDao.insertExpense(
+                    Expense(
+                        vehicleId = v2Id,
+                        vehicleName = v2.vehicleName,
+                        title = "Annual Vehicle Token Tax 2026",
+                        category = "Tax",
+                        amount = 14500.0,
+                        date = "2026-07-05",
+                        notes = "[DEMO_DATA] Excise token tax payment",
+                        isDemo = true
+                    )
+                )
+
+                reminderDao.insertReminder(
+                    Reminder(
+                        vehicleId = v1Id,
+                        vehicleName = v1.vehicleName,
+                        reminderTitle = "Wheel Alignment & Balancing",
+                        reminderType = "Tire Service",
+                        dueDate = "2026-08-15",
+                        isCompleted = false,
+                        isDemo = true
+                    )
+                )
+
+                onComplete(true, "Loaded 3 demo vehicles, fuel records, maintenance, insurance, documents, and geofences successfully!")
+            } catch (e: Exception) {
+                onComplete(false, "Failed to load demo data: ${e.message}")
+            }
+        }
+    }
+
+    fun removeDemoData(onComplete: (Boolean, String) -> Unit = { _, _ -> }) {
+        viewModelScope.launch {
+            try {
+                val vCount = vehicleDao.deleteDemoVehicles()
+                val fCount = fuelDao.deleteDemoFuelEntries()
+                val mCount = maintenanceDao.deleteDemoMaintenance()
+                val iCount = insurancePolicyDao.deleteDemoInsurancePolicies()
+                val dCount = documentDao.deleteDemoDocuments()
+                val gCount = geofenceZoneDao.deleteDemoGeofences()
+                val eCount = expenseDao.deleteDemoExpenses()
+                val rCount = reminderDao.deleteDemoReminders()
+
+                onComplete(true, "Demo data safely removed ($vCount vehicles, $fCount fuel, $mCount maintenance, $iCount insurance, $dCount docs, $gCount geofences). Real user records were not affected.")
+            } catch (e: Exception) {
+                onComplete(false, "Failed to remove demo data: ${e.message}")
+            }
+        }
+    }
 }

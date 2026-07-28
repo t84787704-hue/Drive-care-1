@@ -16,5 +16,6 @@ data class FuelEntry(
     val currentOdometer: String = "0",
     val fuelStationName: String = "",
     val notes: String = "",
+    val isDemo: Boolean = false,
     val createdAt: Long = System.currentTimeMillis()
 )

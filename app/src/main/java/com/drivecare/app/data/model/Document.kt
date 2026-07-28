@@ -18,5 +18,6 @@ data class Document(
     val mimeType: String = "",
     val fileSize: Long = 0L,
     val reminderDaysBefore: Int = 7,
+    val isDemo: Boolean = false,
     val createdAt: Long = System.currentTimeMillis()
 )

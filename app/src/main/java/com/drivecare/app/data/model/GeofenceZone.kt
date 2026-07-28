@@ -14,5 +14,6 @@ data class GeofenceZone(
     val radiusMeters: Double = 500.0,
     val notifyOnEnter: Boolean = true,
     val notifyOnExit: Boolean = true,
-    val isActive: Boolean = true
+    val isActive: Boolean = true,
+    val isDemo: Boolean = false
 )

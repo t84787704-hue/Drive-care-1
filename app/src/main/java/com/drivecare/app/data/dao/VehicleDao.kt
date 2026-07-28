@@ -25,4 +25,7 @@ interface VehicleDao {
 
     @Delete
     suspend fun deleteVehicle(vehicle: Vehicle)
+
+    @Query("DELETE FROM vehicles WHERE isDemo = 1")
+    suspend fun deleteDemoVehicles(): Int
 }

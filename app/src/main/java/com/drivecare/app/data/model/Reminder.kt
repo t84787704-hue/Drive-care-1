@@ -13,5 +13,6 @@ data class Reminder(
     val reminderType: String = "Oil Change",
     val dueDate: String = "",
     val isCompleted: Boolean = false,
+    val isDemo: Boolean = false,
     val createdAt: Long = System.currentTimeMillis()
 )
