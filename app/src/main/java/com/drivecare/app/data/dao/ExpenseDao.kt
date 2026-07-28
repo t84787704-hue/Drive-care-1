@@ -9,6 +9,15 @@ interface ExpenseDao {
     @Query("SELECT * FROM expenses ORDER BY id DESC")
     fun getAllExpenses(): Flow<List<Expense>>
 
+    @Query("SELECT * FROM expenses WHERE ownerUserId = :userId OR (ownerUserId = '' AND :userId = '') ORDER BY id DESC")
+    fun getExpensesForUser(userId: String): Flow<List<Expense>>
+
+    @Query("SELECT * FROM expenses WHERE ownerUserId = :userId OR (ownerUserId = '' AND :userId = '') ORDER BY id DESC")
+    suspend fun getExpensesForUserSync(userId: String): List<Expense>
+
+    @Query("UPDATE expenses SET ownerUserId = :userId WHERE ownerUserId = ''")
+    suspend fun claimUnassignedExpenses(userId: String)
+
     @Query("SELECT * FROM expenses ORDER BY id DESC")
     suspend fun getAllExpensesSync(): List<Expense>
 

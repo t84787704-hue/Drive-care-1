@@ -9,6 +9,15 @@ interface DocumentDao {
     @Query("SELECT * FROM documents ORDER BY createdAt DESC")
     fun getAllDocuments(): Flow<List<Document>>
 
+    @Query("SELECT * FROM documents WHERE ownerUserId = :userId OR (ownerUserId = '' AND :userId = '') ORDER BY createdAt DESC")
+    fun getDocumentsForUser(userId: String): Flow<List<Document>>
+
+    @Query("SELECT * FROM documents WHERE ownerUserId = :userId OR (ownerUserId = '' AND :userId = '') ORDER BY createdAt DESC")
+    suspend fun getDocumentsForUserSync(userId: String): List<Document>
+
+    @Query("UPDATE documents SET ownerUserId = :userId WHERE ownerUserId = ''")
+    suspend fun claimUnassignedDocuments(userId: String)
+
     @Query("SELECT * FROM documents ORDER BY createdAt DESC")
     suspend fun getAllDocumentsSync(): List<Document>
 

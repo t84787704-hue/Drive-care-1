@@ -14,6 +14,15 @@ interface ReminderDao {
     @Query("SELECT * FROM reminders ORDER BY id DESC")
     fun getAllReminders(): Flow<List<Reminder>>
 
+    @Query("SELECT * FROM reminders WHERE ownerUserId = :userId OR (ownerUserId = '' AND :userId = '') ORDER BY id DESC")
+    fun getRemindersForUser(userId: String): Flow<List<Reminder>>
+
+    @Query("SELECT * FROM reminders WHERE ownerUserId = :userId OR (ownerUserId = '' AND :userId = '') ORDER BY id DESC")
+    suspend fun getRemindersForUserSync(userId: String): List<Reminder>
+
+    @Query("UPDATE reminders SET ownerUserId = :userId WHERE ownerUserId = ''")
+    suspend fun claimUnassignedReminders(userId: String)
+
     @Query("SELECT * FROM reminders ORDER BY id DESC")
     suspend fun getAllRemindersSync(): List<Reminder>
 

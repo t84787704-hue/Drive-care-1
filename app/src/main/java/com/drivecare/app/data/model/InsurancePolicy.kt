@@ -11,6 +11,7 @@ import java.util.concurrent.TimeUnit
 data class InsurancePolicy(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
+    val ownerUserId: String = "",
     val vehicleId: Long = 0L,
     val vehicleName: String = "",
     val providerName: String = "", // Insurance Company

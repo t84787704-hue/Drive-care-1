@@ -9,6 +9,8 @@ import com.drivecare.app.data.cloud.FirebaseSyncManager
 import com.drivecare.app.data.cloud.SyncState
 import com.drivecare.app.data.cloud.UserProfile
 import com.drivecare.app.data.db.AppDatabase
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.first
 import com.drivecare.app.data.model.Document
 import com.drivecare.app.data.model.DriverProfile
@@ -181,26 +183,44 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         vehicleDao = vehicleDao
     )
 
-    val vehicles: StateFlow<List<Vehicle>> = vehicleDao.getAllVehicles()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val vehicles: StateFlow<List<Vehicle>> = currentUser.flatMapLatest { user ->
+        val uid = user?.uid ?: ""
+        vehicleDao.getVehiclesForUser(uid)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val fuelEntries: StateFlow<List<FuelEntry>> = fuelDao.getAllFuelEntries()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val fuelEntries: StateFlow<List<FuelEntry>> = currentUser.flatMapLatest { user ->
+        val uid = user?.uid ?: ""
+        fuelDao.getFuelEntriesForUser(uid)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val maintenanceLogs: StateFlow<List<Maintenance>> = maintenanceDao.getAllMaintenance()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val maintenanceLogs: StateFlow<List<Maintenance>> = currentUser.flatMapLatest { user ->
+        val uid = user?.uid ?: ""
+        maintenanceDao.getMaintenanceForUser(uid)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val reminders: StateFlow<List<Reminder>> = reminderDao.getAllReminders()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val reminders: StateFlow<List<Reminder>> = currentUser.flatMapLatest { user ->
+        val uid = user?.uid ?: ""
+        reminderDao.getRemindersForUser(uid)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val documents: StateFlow<List<Document>> = documentDao.getAllDocuments()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val documents: StateFlow<List<Document>> = currentUser.flatMapLatest { user ->
+        val uid = user?.uid ?: ""
+        documentDao.getDocumentsForUser(uid)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val emergencyContacts: StateFlow<List<EmergencyContact>> = emergencyContactDao.getAllContacts()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val expenses: StateFlow<List<Expense>> = expenseDao.getAllExpenses()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val expenses: StateFlow<List<Expense>> = currentUser.flatMapLatest { user ->
+        val uid = user?.uid ?: ""
+        expenseDao.getExpensesForUser(uid)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val driverProfiles: StateFlow<List<DriverProfile>> = driverProfileDao.getAllProfiles()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -217,8 +237,11 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     val recentTelemetry: StateFlow<List<VehicleTelemetry>> = vehicleTelemetryDao.getRecentTelemetry()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val insurancePolicies: StateFlow<List<InsurancePolicy>> = insurancePolicyDao.getAllInsurancePolicies()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val insurancePolicies: StateFlow<List<InsurancePolicy>> = currentUser.flatMapLatest { user ->
+        val uid = user?.uid ?: ""
+        insurancePolicyDao.getPoliciesForUser(uid)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val gpsTrackers: StateFlow<List<GpsTrackerDevice>> = gpsTrackerRepository.getAllTrackers()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -291,6 +314,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                 syncManager.currentUser.collect { user ->
                     if (user != null && user.uid.isNotBlank()) {
                         try {
+                            claimUnassignedRecords(user.uid)
                             syncManager.performFullBidirectionalSync(getApplication(), db)
                         } catch (e: Exception) {
                             e.printStackTrace()
@@ -345,7 +369,9 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun addVehicle(vehicle: Vehicle) {
         viewModelScope.launch {
-            val vWithTimestamp = vehicle.copy(lastUpdated = System.currentTimeMillis())
+            val uid = currentUser.value?.uid ?: ""
+            val vWithUser = if (vehicle.ownerUserId.isBlank() && uid.isNotBlank()) vehicle.copy(ownerUserId = uid) else vehicle
+            val vWithTimestamp = vWithUser.copy(lastUpdated = System.currentTimeMillis())
             val newId = vehicleDao.insertVehicle(vWithTimestamp)
             val v = if (vWithTimestamp.id == 0L) vWithTimestamp.copy(id = newId) else vWithTimestamp
             syncManager.uploadSingleVehicle(v)
@@ -571,8 +597,10 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun addFuelEntry(entry: FuelEntry) {
         viewModelScope.launch {
-            val id = fuelDao.insertFuelEntry(entry)
-            val f = if (entry.id == 0L) entry.copy(id = id) else entry
+            val uid = currentUser.value?.uid ?: ""
+            val entryWithUser = if (entry.ownerUserId.isBlank() && uid.isNotBlank()) entry.copy(ownerUserId = uid) else entry
+            val id = fuelDao.insertFuelEntry(entryWithUser)
+            val f = if (entryWithUser.id == 0L) entryWithUser.copy(id = id) else entryWithUser
             syncManager.uploadSingleFuelEntry(f)
             triggerManualSync()
         }
@@ -588,14 +616,17 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun addMaintenance(maintenance: Maintenance) {
         viewModelScope.launch {
-            val id = maintenanceDao.insertMaintenance(maintenance)
-            val m = if (maintenance.id == 0L) maintenance.copy(id = id) else maintenance
+            val uid = currentUser.value?.uid ?: ""
+            val mWithUser = if (maintenance.ownerUserId.isBlank() && uid.isNotBlank()) maintenance.copy(ownerUserId = uid) else maintenance
+            val id = maintenanceDao.insertMaintenance(mWithUser)
+            val m = if (mWithUser.id == 0L) mWithUser.copy(id = id) else mWithUser
             syncManager.uploadSingleMaintenance(m)
 
             // Auto-create reminder if next due date or reminder date is provided
             val due = if (m.reminderDate.isNotBlank()) m.reminderDate else m.nextDueServiceDate
             if (due.isNotBlank()) {
                 val rem = Reminder(
+                    ownerUserId = uid,
                     vehicleId = m.vehicleId,
                     vehicleName = m.vehicleName,
                     reminderTitle = "Next Service: ${m.serviceTitle}",
@@ -627,8 +658,10 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun addReminder(reminder: Reminder) {
         viewModelScope.launch {
-            val id = reminderDao.insertReminder(reminder)
-            val r = if (reminder.id == 0L) reminder.copy(id = id) else reminder
+            val uid = currentUser.value?.uid ?: ""
+            val rWithUser = if (reminder.ownerUserId.isBlank() && uid.isNotBlank()) reminder.copy(ownerUserId = uid) else reminder
+            val id = reminderDao.insertReminder(rWithUser)
+            val r = if (rWithUser.id == 0L) rWithUser.copy(id = id) else rWithUser
             syncManager.uploadSingleReminder(r)
         }
     }
@@ -650,15 +683,18 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun addDocument(document: Document) {
         viewModelScope.launch {
-            documentDao.insertDocument(document)
-            syncManager.uploadSingleDocument(getApplication(), document)
-            if (document.expiryDate.isNotBlank()) {
+            val uid = currentUser.value?.uid ?: ""
+            val dWithUser = if (document.ownerUserId.isBlank() && uid.isNotBlank()) document.copy(ownerUserId = uid) else document
+            documentDao.insertDocument(dWithUser)
+            syncManager.uploadSingleDocument(getApplication(), dWithUser)
+            if (dWithUser.expiryDate.isNotBlank()) {
                 val rem = Reminder(
-                    vehicleId = document.vehicleId,
-                    vehicleName = document.vehicleName,
-                    reminderTitle = "Document Renewal: ${document.docTitle}",
+                    ownerUserId = uid,
+                    vehicleId = dWithUser.vehicleId,
+                    vehicleName = dWithUser.vehicleName,
+                    reminderTitle = "Document Renewal: ${dWithUser.docTitle}",
                     reminderType = "Document",
-                    dueDate = document.expiryDate
+                    dueDate = dWithUser.expiryDate
                 )
                 val remId = reminderDao.insertReminder(rem)
                 syncManager.uploadSingleReminder(rem.copy(id = remId))
@@ -691,8 +727,10 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun addExpense(expense: Expense) {
         viewModelScope.launch {
-            val id = expenseDao.insertExpense(expense)
-            val e = if (expense.id == 0L) expense.copy(id = id) else expense
+            val uid = currentUser.value?.uid ?: ""
+            val eWithUser = if (expense.ownerUserId.isBlank() && uid.isNotBlank()) expense.copy(ownerUserId = uid) else expense
+            val id = expenseDao.insertExpense(eWithUser)
+            val e = if (eWithUser.id == 0L) eWithUser.copy(id = id) else eWithUser
             syncManager.uploadSingleExpense(e)
         }
     }
@@ -1897,7 +1935,33 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun signOut() {
-        syncManager.signOut()
+        viewModelScope.launch {
+            syncManager.signOut()
+            db.clearAllTables()
+            _selectedFuelVehicle.value = null
+            _selectedDocumentVehicleId.value = null
+            _userSearchResults.value = emptyList()
+            _incomingFriendRequests.value = emptyList()
+            _outgoingFriendRequests.value = emptyList()
+            _friendships.value = emptyList()
+            _sharedVehiclesV2.value = emptyList()
+            _familyGroups.value = emptyList()
+            _appNotifications.value = emptyList()
+            _selectedPublicProfile.value = null
+        }
+    }
+
+    fun claimUnassignedRecords(userId: String) {
+        if (userId.isBlank()) return
+        viewModelScope.launch {
+            vehicleDao.claimUnassignedVehicles(userId)
+            fuelDao.claimUnassignedFuelEntries(userId)
+            maintenanceDao.claimUnassignedMaintenance(userId)
+            documentDao.claimUnassignedDocuments(userId)
+            expenseDao.claimUnassignedExpenses(userId)
+            insurancePolicyDao.claimUnassignedInsurancePolicies(userId)
+            reminderDao.claimUnassignedReminders(userId)
+        }
     }
 
     fun saveUserProfile(profile: UserProfile, onResult: (Boolean) -> Unit) {

@@ -529,7 +529,8 @@ class FirebaseSyncManager private constructor() {
             for (doc in vehicleDocs.documents) {
                 val v = doc.toVehicle()
                 if (v != null) {
-                    database.vehicleDao().insertVehicle(v)
+                    val vWithOwner = if (v.ownerUserId.isBlank()) v.copy(ownerUserId = user.uid) else v
+                    database.vehicleDao().insertVehicle(vWithOwner)
                     vehiclesRestored++
                 }
             }
@@ -542,7 +543,8 @@ class FirebaseSyncManager private constructor() {
             for (doc in fuelDocs.documents) {
                 val f = doc.toFuelEntry()
                 if (f != null) {
-                    database.fuelDao().insertFuelEntry(f)
+                    val fWithOwner = if (f.ownerUserId.isBlank()) f.copy(ownerUserId = user.uid) else f
+                    database.fuelDao().insertFuelEntry(fWithOwner)
                     fuelRestored++
                 }
             }
@@ -553,7 +555,8 @@ class FirebaseSyncManager private constructor() {
             for (doc in maintDocs.documents) {
                 val m = doc.toMaintenance()
                 if (m != null) {
-                    database.maintenanceDao().insertMaintenance(m)
+                    val mWithOwner = if (m.ownerUserId.isBlank()) m.copy(ownerUserId = user.uid) else m
+                    database.maintenanceDao().insertMaintenance(mWithOwner)
                     maintRestored++
                 }
             }
@@ -564,7 +567,8 @@ class FirebaseSyncManager private constructor() {
             for (doc in expDocs.documents) {
                 val e = doc.toExpense()
                 if (e != null) {
-                    database.expenseDao().insertExpense(e)
+                    val eWithOwner = if (e.ownerUserId.isBlank()) e.copy(ownerUserId = user.uid) else e
+                    database.expenseDao().insertExpense(eWithOwner)
                     expRestored++
                 }
             }
@@ -575,7 +579,8 @@ class FirebaseSyncManager private constructor() {
             for (doc in docDocs.documents) {
                 val d = doc.toDocument()
                 if (d != null) {
-                    database.documentDao().insertDocument(d)
+                    val dWithOwner = if (d.ownerUserId.isBlank()) d.copy(ownerUserId = user.uid) else d
+                    database.documentDao().insertDocument(dWithOwner)
                     docRestored++
                 }
             }
@@ -586,7 +591,8 @@ class FirebaseSyncManager private constructor() {
             for (doc in insDocs.documents) {
                 val i = doc.toInsurancePolicy()
                 if (i != null) {
-                    database.insurancePolicyDao().insertPolicy(i)
+                    val iWithOwner = if (i.ownerUserId.isBlank()) i.copy(ownerUserId = user.uid) else i
+                    database.insurancePolicyDao().insertPolicy(iWithOwner)
                     insRestored++
                 }
             }
@@ -597,7 +603,8 @@ class FirebaseSyncManager private constructor() {
             for (doc in remDocs.documents) {
                 val r = doc.toReminder()
                 if (r != null) {
-                    database.reminderDao().insertReminder(r)
+                    val rWithOwner = if (r.ownerUserId.isBlank()) r.copy(ownerUserId = user.uid) else r
+                    database.reminderDao().insertReminder(rWithOwner)
                     remRestored++
                 }
             }
@@ -1637,6 +1644,7 @@ class FirebaseSyncManager private constructor() {
 
     private fun Vehicle.toMap(): Map<String, Any?> = mapOf(
         "id" to id,
+        "ownerUserId" to ownerUserId.ifBlank { _currentUser.value?.uid ?: "" },
         "vehicleName" to vehicleName,
         "vehicleType" to vehicleType,
         "brand" to brand,
@@ -1655,6 +1663,7 @@ class FirebaseSyncManager private constructor() {
 
     private fun FuelEntry.toMap(): Map<String, Any?> = mapOf(
         "id" to id,
+        "ownerUserId" to ownerUserId.ifBlank { _currentUser.value?.uid ?: "" },
         "vehicleId" to vehicleId,
         "vehicleName" to vehicleName,
         "fuelDate" to fuelDate,
@@ -1669,6 +1678,7 @@ class FirebaseSyncManager private constructor() {
 
     private fun Maintenance.toMap(): Map<String, Any?> = mapOf(
         "id" to id,
+        "ownerUserId" to ownerUserId.ifBlank { _currentUser.value?.uid ?: "" },
         "vehicleId" to vehicleId,
         "vehicleName" to vehicleName,
         "serviceTitle" to serviceTitle,
@@ -1686,6 +1696,7 @@ class FirebaseSyncManager private constructor() {
 
     private fun Expense.toMap(): Map<String, Any?> = mapOf(
         "id" to id,
+        "ownerUserId" to ownerUserId.ifBlank { _currentUser.value?.uid ?: "" },
         "vehicleId" to vehicleId,
         "vehicleName" to vehicleName,
         "title" to title,
@@ -1698,6 +1709,7 @@ class FirebaseSyncManager private constructor() {
 
     private fun Document.toMap(): Map<String, Any?> = mapOf(
         "id" to id,
+        "ownerUserId" to ownerUserId.ifBlank { _currentUser.value?.uid ?: "" },
         "vehicleId" to vehicleId,
         "vehicleName" to vehicleName,
         "docTitle" to docTitle,
@@ -1715,6 +1727,7 @@ class FirebaseSyncManager private constructor() {
 
     private fun InsurancePolicy.toMap(): Map<String, Any?> = mapOf(
         "id" to id,
+        "ownerUserId" to ownerUserId.ifBlank { _currentUser.value?.uid ?: "" },
         "vehicleId" to vehicleId,
         "vehicleName" to vehicleName,
         "providerName" to providerName,
@@ -1735,6 +1748,7 @@ class FirebaseSyncManager private constructor() {
 
     private fun Reminder.toMap(): Map<String, Any?> = mapOf(
         "id" to id,
+        "ownerUserId" to ownerUserId.ifBlank { _currentUser.value?.uid ?: "" },
         "vehicleId" to vehicleId,
         "vehicleName" to vehicleName,
         "reminderTitle" to reminderTitle,
@@ -1766,8 +1780,10 @@ class FirebaseSyncManager private constructor() {
         }
         val name = getString("vehicleName") ?: getString("name") ?: getString("title") ?: getString("vehicle_name") ?: ""
         if (name.isBlank() && idVal == 0L) return null
+        val ownerId = getString("ownerUserId") ?: _currentUser.value?.uid ?: ""
         return Vehicle(
             id = idVal,
+            ownerUserId = ownerId,
             vehicleName = if (name.isNotBlank()) name else "Vehicle",
             vehicleType = getString("vehicleType") ?: getString("type") ?: "Car",
             brand = getString("brand") ?: getString("make") ?: "",
@@ -1792,8 +1808,10 @@ class FirebaseSyncManager private constructor() {
             idVal = id.hashCode().toLong().let { if (it < 0) -it else it }
         }
         val vId = getLong("vehicleId") ?: get("vehicleId")?.toString()?.toLongOrNull() ?: 0L
+        val ownerId = getString("ownerUserId") ?: _currentUser.value?.uid ?: ""
         return FuelEntry(
             id = idVal,
+            ownerUserId = ownerId,
             vehicleId = vId,
             vehicleName = getString("vehicleName") ?: "",
             fuelDate = getString("fuelDate") ?: getString("date") ?: "",
@@ -1814,8 +1832,10 @@ class FirebaseSyncManager private constructor() {
             idVal = id.hashCode().toLong().let { if (it < 0) -it else it }
         }
         val vId = getLong("vehicleId") ?: get("vehicleId")?.toString()?.toLongOrNull() ?: 0L
+        val ownerId = getString("ownerUserId") ?: _currentUser.value?.uid ?: ""
         return Maintenance(
             id = idVal,
+            ownerUserId = ownerId,
             vehicleId = vId,
             vehicleName = getString("vehicleName") ?: "",
             serviceTitle = getString("serviceTitle") ?: getString("title") ?: "Service",
@@ -1840,8 +1860,10 @@ class FirebaseSyncManager private constructor() {
         }
         val vId = getLong("vehicleId") ?: get("vehicleId")?.toString()?.toLongOrNull() ?: 0L
         val amt = getDouble("amount") ?: get("amount")?.toString()?.toDoubleOrNull() ?: 0.0
+        val ownerId = getString("ownerUserId") ?: _currentUser.value?.uid ?: ""
         return Expense(
             id = idVal,
+            ownerUserId = ownerId,
             vehicleId = vId,
             vehicleName = getString("vehicleName") ?: "",
             title = getString("title") ?: "Expense",
@@ -1862,8 +1884,10 @@ class FirebaseSyncManager private constructor() {
         val vId = getLong("vehicleId") ?: get("vehicleId")?.toString()?.toLongOrNull() ?: 0L
         val uriStr = getString("fileUri") ?: getString("docPath") ?: ""
         val fName = getString("fileName") ?: if (uriStr.isNotBlank()) uriStr.substringAfterLast("/") else ""
+        val ownerId = getString("ownerUserId") ?: _currentUser.value?.uid ?: ""
         return Document(
             id = idVal,
+            ownerUserId = ownerId,
             vehicleId = vId,
             vehicleName = getString("vehicleName") ?: "",
             docTitle = getString("docTitle") ?: getString("title") ?: "",
@@ -1888,8 +1912,10 @@ class FirebaseSyncManager private constructor() {
         }
         val vId = getLong("vehicleId") ?: get("vehicleId")?.toString()?.toLongOrNull() ?: 0L
         val prem = getDouble("premiumAmount") ?: get("premiumAmount")?.toString()?.toDoubleOrNull() ?: 0.0
+        val ownerId = getString("ownerUserId") ?: _currentUser.value?.uid ?: ""
         return InsurancePolicy(
             id = idVal,
+            ownerUserId = ownerId,
             vehicleId = vId,
             vehicleName = getString("vehicleName") ?: "",
             providerName = getString("providerName") ?: "",
@@ -1916,8 +1942,10 @@ class FirebaseSyncManager private constructor() {
             idVal = id.hashCode().toLong().let { if (it < 0) -it else it }
         }
         val vId = getLong("vehicleId") ?: get("vehicleId")?.toString()?.toLongOrNull() ?: 0L
+        val ownerId = getString("ownerUserId") ?: _currentUser.value?.uid ?: ""
         return Reminder(
             id = idVal,
+            ownerUserId = ownerId,
             vehicleId = vId,
             vehicleName = getString("vehicleName") ?: "",
             reminderTitle = getString("reminderTitle") ?: getString("title") ?: "",
