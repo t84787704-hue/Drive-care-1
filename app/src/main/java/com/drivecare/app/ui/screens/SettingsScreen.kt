@@ -54,7 +54,6 @@ fun SettingsScreen(
     val notifyInsurance by viewModel.notifyInsurance.collectAsState()
     val notifyDocuments by viewModel.notifyDocuments.collectAsState()
     val notifyExpenses by viewModel.notifyExpenses.collectAsState()
-    val syncDemoDataEnabled by viewModel.syncDemoDataEnabled.collectAsState()
 
     var showBackupDialog by remember { mutableStateOf(false) }
     var showRestoreDialog by remember { mutableStateOf(false) }
@@ -62,7 +61,6 @@ fun SettingsScreen(
     var showPermissionOnboardingDialog by remember { mutableStateOf(false) }
     var showPrivacyPolicyDialog by remember { mutableStateOf(false) }
     var showTermsDialog by remember { mutableStateOf(false) }
-    var showDevTools by remember { mutableStateOf(false) }
 
     var backupJsonText by remember { mutableStateOf("") }
     var restoreJsonInput by remember { mutableStateOf("") }
@@ -488,109 +486,6 @@ fun SettingsScreen(
                     Icon(Icons.Default.RestartAlt, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(AppStrings.get("reset_feature_guides", currentLang))
-                }
-            }
-        }
-
-        // Developer Tools Card (Demo Data Management)
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-            )
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(Icons.Default.DeveloperMode, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Text(
-                            text = "Developer Tools",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    IconButton(onClick = { showDevTools = !showDevTools }) {
-                        Icon(
-                            imageVector = if (showDevTools) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                            contentDescription = "Toggle Developer Tools"
-                        )
-                    }
-                }
-
-                if (showDevTools) {
-                    Divider()
-                    Text(
-                        text = "Populate or clean up sandbox demonstration records (3 demo vehicles with fuel, maintenance, insurance, documents, expenses, and geofences). Demo data is marked with 'isDemo' and isolated from real user data.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
-                            onClick = {
-                                viewModel.loadDemoData { _, msg ->
-                                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-                                }
-                            },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Default.AddTask, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Load Demo Data")
-                        }
-
-                        OutlinedButton(
-                            onClick = {
-                                viewModel.removeDemoData { _, msg ->
-                                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-                                }
-                            },
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = MaterialTheme.colorScheme.error
-                            ),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Remove Demo Data")
-                        }
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Sync Demo Data to Cloud",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                text = "By default, demo records are kept strictly local and omitted from cloud backup unless enabled.",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Switch(
-                            checked = syncDemoDataEnabled,
-                            onCheckedChange = { viewModel.setSyncDemoData(it) }
-                        )
-                    }
                 }
             }
         }

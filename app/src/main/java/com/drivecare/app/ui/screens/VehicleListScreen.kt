@@ -139,28 +139,12 @@ fun VehicleListScreen(
 
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            Button(
+                                onClick = { showAddDialog = true }
                             ) {
-                                Button(
-                                    onClick = {
-                                        viewModel.loadDemoData { _, msg ->
-                                            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-                                        }
-                                    }
-                                ) {
-                                    Icon(Icons.Default.AddTask, contentDescription = null, modifier = Modifier.size(18.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Load Demo Data")
-                                }
-
-                                OutlinedButton(
-                                    onClick = { showAddDialog = true }
-                                ) {
-                                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(AppStrings.get("add_vehicle", lang))
-                                }
+                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(AppStrings.get("add_vehicle", lang))
                             }
                         }
                     }
