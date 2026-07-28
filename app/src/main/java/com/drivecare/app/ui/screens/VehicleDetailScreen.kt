@@ -557,7 +557,7 @@ private fun OverviewTabContent(
                 SpecItemRow(label = "Fuel Type", value = vehicle.fuelType)
                 SpecItemRow(label = "Current Odometer", value = "${vehicle.odometerReading} km")
                 SpecItemRow(label = "Purchase Date", value = vehicle.purchaseDate.ifBlank { "N/A" })
-                SpecItemRow(label = "Notes", value = vehicle.notes.ifBlank { "None" })
+                SpecItemRow(label = "Notes", value = vehicle.notes.ifBlank { "None" }, isMultiLine = true)
                 SpecItemRow(label = "Last Updated", value = formattedLastUpdated)
             }
         }
@@ -649,14 +649,57 @@ private fun OverviewTabContent(
 }
 
 @Composable
-private fun SpecItemRow(label: String, value: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+private fun SpecItemRow(
+    label: String,
+    value: String,
+    isMultiLine: Boolean = false
+) {
+    if (isMultiLine || label.equals("Notes", ignoreCase = true)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.fillMaxWidth(),
+                softWrap = true
+            )
+        }
+    } else {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 2.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f, fill = false)
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f, fill = false),
+                textAlign = androidx.compose.ui.text.style.TextAlign.End,
+                softWrap = true
+            )
+        }
     }
 }
 

@@ -670,7 +670,26 @@ fun VehicleDetailDialog(
                         Text("Vehicle Type: ${VehicleTypeHelper.getDisplayName(vehicle.vehicleType, lang)} • Fuel: ${vehicle.fuelType}", style = MaterialTheme.typography.bodySmall)
                         Text("Odometer Reading: ${vehicle.odometerReading} km", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
                         if (vehicle.notes.isNotBlank()) {
-                            Text("Notes: ${vehicle.notes}", style = MaterialTheme.typography.bodySmall)
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 4.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "Notes",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = vehicle.notes,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    softWrap = true,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
                         }
                     }
                 }
