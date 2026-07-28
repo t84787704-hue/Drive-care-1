@@ -334,6 +334,12 @@ class MainActivity : ComponentActivity() {
         val recId = intent.getLongExtra(com.drivecare.app.utils.DriveCareNotificationReceiver.EXTRA_RECORD_ID, -1L).let {
             if (it != -1L) it else null
         }
+        val friendUid = intent.getStringExtra("friend_uid")
+        val friendName = intent.getStringExtra("friend_name") ?: ""
+        if (!friendUid.isNullOrBlank()) {
+            viewModel.openChat(friendUid, friendName, "")
+        }
+
         val dest = mapToDestination(tab, section)
         if (dest != null) {
             pendingNavigationExtra = Pair(dest, recId)
@@ -364,6 +370,8 @@ class MainActivity : ComponentActivity() {
                     "SETTINGS" -> MoreSubSection.SETTINGS
                     "PROFILE" -> MoreSubSection.PROFILE
                     "AUTH" -> MoreSubSection.AUTH
+                    "CHAT" -> MoreSubSection.CHAT
+                    "CONVERSATIONS" -> MoreSubSection.CONVERSATIONS
                     else -> MoreSubSection.MENU
                 }
                 NavDestination(NavTab.MORE, sub)

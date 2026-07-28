@@ -39,6 +39,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
@@ -155,6 +156,37 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
 
     private val _selectedPublicProfile = MutableStateFlow<com.drivecare.app.data.model.PublicUserProfile?>(null)
     val selectedPublicProfile: StateFlow<com.drivecare.app.data.model.PublicUserProfile?> = _selectedPublicProfile.asStateFlow()
+
+    // --- Real-time Chat StateFlows ---
+    private val chatRepository = com.drivecare.app.data.cloud.ChatRepository()
+
+    private val _conversations = MutableStateFlow<List<com.drivecare.app.data.model.Conversation>>(emptyList())
+    val conversations: StateFlow<List<com.drivecare.app.data.model.Conversation>> = _conversations.asStateFlow()
+
+    private val _activeChatMessages = MutableStateFlow<List<com.drivecare.app.data.model.ChatMessage>>(emptyList())
+    val activeChatMessages: StateFlow<List<com.drivecare.app.data.model.ChatMessage>> = _activeChatMessages.asStateFlow()
+
+    val activeChatFriendUid = MutableStateFlow<String?>(null)
+    val activeChatFriendName = MutableStateFlow<String>("")
+    val activeChatFriendEmail = MutableStateFlow<String>("")
+
+    private val _isSendingMessage = MutableStateFlow(false)
+    val isSendingMessage: StateFlow<Boolean> = _isSendingMessage.asStateFlow()
+
+    val totalUnreadMessageCount: StateFlow<Int> = _conversations.map { convList ->
+        val uid = currentUser.value?.uid ?: ""
+        if (uid.isBlank()) 0
+        else {
+            var sum = 0
+            for (conv in convList) {
+                sum += (conv.unreadCounts[uid] ?: 0L).toInt()
+            }
+            sum
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    private var conversationsJob: kotlinx.coroutines.Job? = null
+    private var activeChatMessagesJob: kotlinx.coroutines.Job? = null
 
     private val _deletionProgress = MutableStateFlow(DeletionProgressState())
     val deletionProgress: StateFlow<DeletionProgressState> = _deletionProgress.asStateFlow()
@@ -2078,6 +2110,98 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
             _sharedVehiclesV2.value = syncManager.getSharedVehiclesForUser()
             _familyGroups.value = syncManager.getMyFamilyGroups()
             _appNotifications.value = syncManager.getUserNotifications()
+            startListeningConversations()
+        }
+    }
+
+    fun startListeningConversations() {
+        val uid = currentUser.value?.uid ?: ""
+        conversationsJob?.cancel()
+        if (uid.isNotBlank()) {
+            conversationsJob = viewModelScope.launch {
+                chatRepository.getConversationsFlow(uid).collect { convList ->
+                    _conversations.value = convList
+                }
+            }
+        } else {
+            _conversations.value = emptyList()
+        }
+    }
+
+    fun openChat(friendUid: String, friendName: String, friendEmail: String) {
+        val currentUid = currentUser.value?.uid ?: ""
+        if (currentUid.isBlank() || friendUid.isBlank()) return
+
+        activeChatFriendUid.value = friendUid
+        activeChatFriendName.value = friendName
+        activeChatFriendEmail.value = friendEmail
+
+        val conversationId = com.drivecare.app.data.cloud.ChatRepository.getConversationId(currentUid, friendUid)
+
+        activeChatMessagesJob?.cancel()
+        activeChatMessagesJob = viewModelScope.launch {
+            chatRepository.getMessagesFlow(conversationId).collect { msgList ->
+                _activeChatMessages.value = msgList
+                if (msgList.isNotEmpty() && activeChatFriendUid.value == friendUid) {
+                    chatRepository.markMessagesAsRead(conversationId, currentUid)
+                }
+            }
+        }
+
+        markActiveChatAsRead()
+    }
+
+    fun closeChat() {
+        activeChatFriendUid.value = null
+        activeChatFriendName.value = ""
+        activeChatFriendEmail.value = ""
+        activeChatMessagesJob?.cancel()
+        _activeChatMessages.value = emptyList()
+    }
+
+    fun sendMessage(messageText: String, onResult: (Boolean, String?) -> Unit) {
+        val user = currentUser.value
+        val fUid = activeChatFriendUid.value
+        val fName = activeChatFriendName.value
+        val fEmail = activeChatFriendEmail.value
+
+        if (user == null || user.uid.isBlank() || fUid.isNullOrBlank()) {
+            onResult(false, "User or friend is not logged in")
+            return
+        }
+
+        val myProfile = userProfile.value
+        val senderName = myProfile?.fullName?.ifBlank { user.displayName } ?: user.displayName ?: user.email ?: "DriveCare User"
+        val senderEmail = user.email ?: ""
+
+        viewModelScope.launch {
+            _isSendingMessage.value = true
+            val res = chatRepository.sendMessage(
+                senderUid = user.uid,
+                senderName = senderName,
+                senderEmail = senderEmail,
+                receiverUid = fUid,
+                receiverName = fName,
+                receiverEmail = fEmail,
+                messageText = messageText
+            )
+            _isSendingMessage.value = false
+            res.onSuccess {
+                onResult(true, null)
+            }.onFailure {
+                onResult(false, it.message ?: "Failed to send message")
+            }
+        }
+    }
+
+    fun markActiveChatAsRead() {
+        val currentUid = currentUser.value?.uid ?: ""
+        val fUid = activeChatFriendUid.value ?: return
+        if (currentUid.isNotBlank()) {
+            val convId = com.drivecare.app.data.cloud.ChatRepository.getConversationId(currentUid, fUid)
+            viewModelScope.launch {
+                chatRepository.markMessagesAsRead(convId, currentUid)
+            }
         }
     }
 

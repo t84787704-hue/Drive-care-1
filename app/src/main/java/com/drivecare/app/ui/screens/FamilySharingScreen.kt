@@ -28,7 +28,8 @@ import java.util.*
 @Composable
 fun FamilySharingScreen(
     viewModel: DriveCareViewModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onOpenChat: ((friendUid: String, friendName: String, friendEmail: String) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val vehicles by viewModel.vehicles.collectAsState()
@@ -298,7 +299,21 @@ fun FamilySharingScreen(
                                                     Text(friendEmail, style = MaterialTheme.typography.bodySmall)
                                                 }
                                             }
-                                            Row {
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                FilledTonalButton(
+                                                    onClick = {
+                                                        viewModel.openChat(friendUid, friendName, friendEmail)
+                                                        onOpenChat?.invoke(friendUid, friendName, friendEmail)
+                                                    },
+                                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                                                ) {
+                                                    Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text("Message", style = MaterialTheme.typography.labelMedium)
+                                                }
                                                 IconButton(onClick = { viewModel.fetchPublicUserProfile(friendUid) }) {
                                                     Icon(Icons.Default.AccountBox, contentDescription = "Public Profile")
                                                 }
