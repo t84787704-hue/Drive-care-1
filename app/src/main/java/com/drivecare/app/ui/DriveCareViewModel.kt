@@ -41,6 +41,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.util.Locale
 import org.json.JSONArray
 import org.json.JSONObject
@@ -1934,10 +1936,16 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun signOut() {
+    fun signOut(context: Context? = null, onComplete: (() -> Unit)? = null) {
         viewModelScope.launch {
-            syncManager.signOut()
-            db.clearAllTables()
+            withContext(Dispatchers.IO) {
+                syncManager.signOut(context ?: getApplication())
+                try {
+                    db.clearAllTables()
+                } catch (e: Exception) {
+                    android.util.Log.e("DriveCareViewModel", "Error clearing tables on sign out", e)
+                }
+            }
             _selectedFuelVehicle.value = null
             _selectedDocumentVehicleId.value = null
             _userSearchResults.value = emptyList()
@@ -1948,6 +1956,8 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
             _familyGroups.value = emptyList()
             _appNotifications.value = emptyList()
             _selectedPublicProfile.value = null
+
+            onComplete?.invoke()
         }
     }
 

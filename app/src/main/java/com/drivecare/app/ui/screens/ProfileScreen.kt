@@ -202,7 +202,9 @@ fun ProfileScreen(
                     if (currentUser != null) {
                         OutlinedButton(
                             onClick = {
-                                viewModel.signOut()
+                                viewModel.signOut(context) {
+                                    onNavigateToAuth()
+                                }
                                 Toast.makeText(context, "Signed out successfully", Toast.LENGTH_SHORT).show()
                             },
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
@@ -215,8 +217,9 @@ fun ProfileScreen(
 
                         Button(
                             onClick = {
-                                viewModel.signOut()
-                                onNavigateToAuth()
+                                viewModel.signOut(context) {
+                                    onNavigateToAuth()
+                                }
                             },
                             modifier = Modifier.weight(1f)
                         ) {
@@ -547,7 +550,11 @@ fun ProfileScreen(
             }
 
             OutlinedButton(
-                onClick = { viewModel.signOut() },
+                onClick = {
+                    viewModel.signOut(context) {
+                        onNavigateToAuth()
+                    }
+                },
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
                 modifier = Modifier.fillMaxWidth()
             ) {

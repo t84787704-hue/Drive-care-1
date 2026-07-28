@@ -7,6 +7,8 @@ import android.util.Log
 import com.drivecare.app.data.db.AppDatabase
 import com.drivecare.app.data.model.*
 import com.google.firebase.auth.FirebaseAuth
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
@@ -165,7 +167,14 @@ class FirebaseSyncManager private constructor() {
             return
         }
 
-        // Restore from SharedPreferences
+        if (firebaseAuth != null) {
+            _currentUser.value = null
+            _userProfile.value = null
+            clearPrefs()
+            return
+        }
+
+        // Restore from SharedPreferences only if firebaseAuth is not initialized
         val p = prefs ?: return
         val uid = p.getString("uid", null)
         val email = p.getString("email", null)
@@ -200,7 +209,9 @@ class FirebaseSyncManager private constructor() {
     }
 
     private fun clearPrefs() {
-        prefs?.edit()?.clear()?.apply()
+        try {
+            prefs?.edit()?.clear()?.commit()
+        } catch (_: Exception) {}
     }
 
     // --- Authentication ---
@@ -400,11 +411,21 @@ class FirebaseSyncManager private constructor() {
         Result.success(Unit)
     }
 
-    fun signOut() {
+    fun signOut(context: Context? = null) {
         val email = _currentUser.value?.email ?: ""
         try {
             firebaseAuth?.signOut()
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            Log.e("FirebaseSyncManager", "Firebase signOut warning: ${e.message}")
+        }
+        if (context != null) {
+            try {
+                val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).build()
+                GoogleSignIn.getClient(context, gso).signOut()
+            } catch (e: Exception) {
+                Log.e("FirebaseSyncManager", "GoogleSignIn signOut warning: ${e.message}")
+            }
+        }
         _currentUser.value = null
         _userProfile.value = null
         _syncState.value = SyncState.IDLE
