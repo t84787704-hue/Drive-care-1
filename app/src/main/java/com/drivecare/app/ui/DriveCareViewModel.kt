@@ -1115,6 +1115,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                 put("expiryDate", d.expiryDate)
                 put("notes", d.notes)
                 put("fileUri", d.fileUri)
+                put("fileName", d.fileName)
                 put("mimeType", d.mimeType)
                 put("fileSize", d.fileSize)
                 put("reminderDaysBefore", d.reminderDaysBefore)
@@ -1472,6 +1473,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                             expiryDate = obj.optString("expiryDate", ""),
                             notes = obj.optString("notes", ""),
                             fileUri = obj.optString("fileUri", ""),
+                            fileName = obj.optString("fileName", ""),
                             mimeType = obj.optString("mimeType", ""),
                             fileSize = obj.optLong("fileSize", 0L),
                             reminderDaysBefore = obj.optInt("reminderDaysBefore", 7),

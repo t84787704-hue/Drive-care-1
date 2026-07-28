@@ -1097,6 +1097,7 @@ class FirebaseSyncManager private constructor() {
         "expiryDate" to expiryDate,
         "notes" to notes,
         "fileUri" to fileUri,
+        "fileName" to fileName,
         "mimeType" to mimeType,
         "fileSize" to fileSize,
         "reminderDaysBefore" to reminderDaysBefore,
@@ -1250,6 +1251,8 @@ class FirebaseSyncManager private constructor() {
             idVal = id.hashCode().toLong().let { if (it < 0) -it else it }
         }
         val vId = getLong("vehicleId") ?: get("vehicleId")?.toString()?.toLongOrNull() ?: 0L
+        val uriStr = getString("fileUri") ?: getString("docPath") ?: ""
+        val fName = getString("fileName") ?: if (uriStr.isNotBlank()) uriStr.substringAfterLast("/") else ""
         return Document(
             id = idVal,
             vehicleId = vId,
@@ -1259,7 +1262,8 @@ class FirebaseSyncManager private constructor() {
             issueDate = getString("issueDate") ?: "",
             expiryDate = getString("expiryDate") ?: "",
             notes = getString("notes") ?: "",
-            fileUri = getString("fileUri") ?: getString("docPath") ?: "",
+            fileUri = uriStr,
+            fileName = fName,
             mimeType = getString("mimeType") ?: "",
             fileSize = getLong("fileSize") ?: 0L,
             reminderDaysBefore = getLong("reminderDaysBefore")?.toInt() ?: 7,

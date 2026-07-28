@@ -1,8 +1,12 @@
 package com.drivecare.app.ui.screens
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.widget.Toast
+import androidx.core.content.ContextCompat
+import com.drivecare.app.utils.SavedFileInfo
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
@@ -1386,41 +1390,271 @@ private fun AddVehicleServiceDialog(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddVehicleDocumentDialog(
     vehicle: Vehicle,
     viewModel: DriveCareViewModel,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
     var title by remember { mutableStateOf("") }
     var docType by remember { mutableStateOf("Registration") }
     var expiry by remember { mutableStateOf("") }
+    var notes by remember { mutableStateOf("") }
+
+    var attachedSavedFile by remember { mutableStateOf<SavedFileInfo?>(null) }
+    var fileErrorMessage by remember { mutableStateOf("") }
+    var showCategoryDropdown by remember { mutableStateOf(false) }
+
+    val categories = remember {
+        listOf(
+            "Registration",
+            "Insurance",
+            "Driving License",
+            "Emission Test",
+            "Warranty",
+            "Service Record",
+            "Other"
+        )
+    }
+
+    var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
+
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+        if (success && tempCameraUri != null) {
+            val saved = DocumentFileHelper.saveFileToInternalStorage(context, tempCameraUri!!)
+            if (saved != null) {
+                attachedSavedFile = saved
+                if (title.isBlank()) {
+                    title = saved.fileName
+                }
+                fileErrorMessage = ""
+                Toast.makeText(context, "Photo captured successfully", Toast.LENGTH_SHORT).show()
+            } else {
+                fileErrorMessage = "Failed to process captured image"
+            }
+        }
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            val uri = createTempImageUri(context)
+            tempCameraUri = uri
+            if (uri != null) cameraLauncher.launch(uri)
+        } else {
+            Toast.makeText(context, "Camera permission denied", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            val saved = DocumentFileHelper.saveFileToInternalStorage(context, uri)
+            if (saved != null) {
+                attachedSavedFile = saved
+                if (title.isBlank()) {
+                    title = saved.fileName
+                }
+                fileErrorMessage = ""
+                Toast.makeText(context, "File attached successfully", Toast.LENGTH_SHORT).show()
+            } else {
+                fileErrorMessage = "Failed to copy file to internal storage"
+            }
+        }
+    }
+
+    val filePickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            val saved = DocumentFileHelper.saveFileToInternalStorage(context, uri)
+            if (saved != null) {
+                attachedSavedFile = saved
+                if (title.isBlank()) {
+                    title = saved.fileName
+                }
+                fileErrorMessage = ""
+                Toast.makeText(context, "Document attached successfully", Toast.LENGTH_SHORT).show()
+            } else {
+                fileErrorMessage = "Failed to copy file to internal storage"
+            }
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Add Document for ${vehicle.vehicleName}") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Document Title *") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = docType, onValueChange = { docType = it }, label = { Text("Category") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = expiry, onValueChange = { expiry = it }, label = { Text("Expiry Date (YYYY-MM-DD)") }, modifier = Modifier.fillMaxWidth())
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("Document Title *") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Category Selection Dropdown
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    ExposedDropdownMenuBox(
+                        expanded = showCategoryDropdown,
+                        onExpandedChange = { showCategoryDropdown = !showCategoryDropdown }
+                    ) {
+                        OutlinedTextField(
+                            value = docType,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Category *") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showCategoryDropdown) },
+                            modifier = Modifier.menuAnchor().fillMaxWidth()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = showCategoryDropdown,
+                            onDismissRequest = { showCategoryDropdown = false }
+                        ) {
+                            categories.forEach { cat ->
+                                DropdownMenuItem(
+                                    text = { Text(cat) },
+                                    onClick = {
+                                        docType = cat
+                                        showCategoryDropdown = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clickable { showCategoryDropdown = !showCategoryDropdown }
+                    )
+                }
+
+                OutlinedTextField(
+                    value = expiry,
+                    onValueChange = { expiry = it },
+                    label = { Text("Expiry Date (YYYY-MM-DD)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = { Text("Notes") },
+                    modifier = Modifier.fillMaxWidth(),
+                    maxLines = 2
+                )
+
+                // Attachment Buttons
+                Text("Select Document File / Photo *", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { filePickerLauncher.launch("*/*") },
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+                    ) {
+                        Icon(Icons.Default.AttachFile, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Text("Select File", style = MaterialTheme.typography.labelSmall)
+                    }
+
+                    OutlinedButton(
+                        onClick = { galleryLauncher.launch("image/*") },
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+                    ) {
+                        Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Text("Gallery", style = MaterialTheme.typography.labelSmall)
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                                val uri = createTempImageUri(context)
+                                tempCameraUri = uri
+                                if (uri != null) cameraLauncher.launch(uri)
+                            } else {
+                                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+                    ) {
+                        Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Text("Camera", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+
+                // Selected File Info Display
+                val fileInfo = attachedSavedFile
+                if (fileInfo != null) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                        shape = MaterialTheme.shapes.small,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Attached File:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                Text(fileInfo.fileName, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(DocumentFileHelper.formatFileSize(fileInfo.fileSize), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                } else {
+                    Text("No file attached yet. Select a PDF, JPG, or PNG file.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                }
+
+                if (fileErrorMessage.isNotBlank()) {
+                    Text(fileErrorMessage, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    if (title.isNotBlank()) {
-                        viewModel.addDocument(
-                            Document(
-                                vehicleId = vehicle.id,
-                                vehicleName = vehicle.vehicleName,
-                                docTitle = title,
-                                docType = docType,
-                                expiryDate = expiry
-                            )
-                        )
-                        onDismiss()
+                    val fileInfo = attachedSavedFile
+                    if (title.isBlank()) {
+                        Toast.makeText(context, "Please enter a document title", Toast.LENGTH_SHORT).show()
+                        return@Button
                     }
+                    if (fileInfo == null || fileInfo.fileUriString.isBlank()) {
+                        fileErrorMessage = "Please attach a file (PDF or Image) to save this document."
+                        Toast.makeText(context, "Please attach a file first", Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+
+                    viewModel.addDocument(
+                        Document(
+                            vehicleId = vehicle.id,
+                            vehicleName = vehicle.vehicleName,
+                            docTitle = title.trim(),
+                            docType = docType,
+                            expiryDate = expiry.trim(),
+                            notes = notes.trim(),
+                            fileUri = fileInfo.fileUriString,
+                            fileName = fileInfo.fileName,
+                            mimeType = fileInfo.mimeType,
+                            fileSize = fileInfo.fileSize
+                        )
+                    )
+                    Toast.makeText(context, "Document added successfully", Toast.LENGTH_SHORT).show()
+                    onDismiss()
                 }
             ) { Text("Save Document") }
         },

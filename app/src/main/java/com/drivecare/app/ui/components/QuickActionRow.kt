@@ -428,7 +428,9 @@ fun QuickAddDocumentDialog(
     var expandedVehicleDropdown by remember { mutableStateOf(false) }
 
     var docTitle by remember { mutableStateOf("") }
-    var docType by remember { mutableStateOf("Insurance") }
+    var docType by remember { mutableStateOf("Registration") }
+    var showCategoryDropdown by remember { mutableStateOf(false) }
+    val categories = listOf("Registration", "Insurance", "Driving License", "Emission Test", "Warranty", "Service Record", "Other")
     var expiryDate by remember { mutableStateOf("2027-07-23") }
     var attachedFileInfo by remember { mutableStateOf<SavedFileInfo?>(null) }
 
@@ -439,6 +441,9 @@ fun QuickAddDocumentDialog(
             val saved = DocumentFileHelper.saveFileToInternalStorage(context, uri)
             if (saved != null) {
                 attachedFileInfo = saved
+                if (docTitle.isBlank()) {
+                    docTitle = saved.fileName
+                }
                 Toast.makeText(context, "File attached", Toast.LENGTH_SHORT).show()
             }
         }
@@ -452,32 +457,39 @@ fun QuickAddDocumentDialog(
                 if (vehicles.isEmpty()) {
                     Text("Please add a vehicle first.")
                 } else {
-                    ExposedDropdownMenuBox(
-                        expanded = expandedVehicleDropdown,
-                        onExpandedChange = { expandedVehicleDropdown = !expandedVehicleDropdown }
-                    ) {
-                        OutlinedTextField(
-                            value = selectedVehicle?.vehicleName ?: "Select Vehicle",
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Vehicle") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedVehicleDropdown) },
-                            modifier = Modifier.menuAnchor().fillMaxWidth()
-                        )
-                        ExposedDropdownMenu(
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        ExposedDropdownMenuBox(
                             expanded = expandedVehicleDropdown,
-                            onDismissRequest = { expandedVehicleDropdown = false }
+                            onExpandedChange = { expandedVehicleDropdown = !expandedVehicleDropdown }
                         ) {
-                            vehicles.forEach { v ->
-                                DropdownMenuItem(
-                                    text = { Text(v.vehicleName) },
-                                    onClick = {
-                                        selectedVehicle = v
-                                        expandedVehicleDropdown = false
-                                    }
-                                )
+                            OutlinedTextField(
+                                value = selectedVehicle?.vehicleName ?: "Select Vehicle",
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Vehicle") },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedVehicleDropdown) },
+                                modifier = Modifier.menuAnchor().fillMaxWidth()
+                            )
+                            ExposedDropdownMenu(
+                                expanded = expandedVehicleDropdown,
+                                onDismissRequest = { expandedVehicleDropdown = false }
+                            ) {
+                                vehicles.forEach { v ->
+                                    DropdownMenuItem(
+                                        text = { Text(v.vehicleName) },
+                                        onClick = {
+                                            selectedVehicle = v
+                                            expandedVehicleDropdown = false
+                                        }
+                                    )
+                                }
                             }
                         }
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .clickable { expandedVehicleDropdown = !expandedVehicleDropdown }
+                        )
                     }
 
                     OutlinedTextField(
@@ -487,6 +499,41 @@ fun QuickAddDocumentDialog(
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
+
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        ExposedDropdownMenuBox(
+                            expanded = showCategoryDropdown,
+                            onExpandedChange = { showCategoryDropdown = !showCategoryDropdown }
+                        ) {
+                            OutlinedTextField(
+                                value = docType,
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Category *") },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showCategoryDropdown) },
+                                modifier = Modifier.menuAnchor().fillMaxWidth()
+                            )
+                            ExposedDropdownMenu(
+                                expanded = showCategoryDropdown,
+                                onDismissRequest = { showCategoryDropdown = false }
+                            ) {
+                                categories.forEach { cat ->
+                                    DropdownMenuItem(
+                                        text = { Text(cat) },
+                                        onClick = {
+                                            docType = cat
+                                            showCategoryDropdown = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .clickable { showCategoryDropdown = !showCategoryDropdown }
+                        )
+                    }
 
                     OutlinedTextField(
                         value = expiryDate,

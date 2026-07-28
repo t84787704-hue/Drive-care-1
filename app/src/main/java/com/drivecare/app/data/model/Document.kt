@@ -15,6 +15,7 @@ data class Document(
     val expiryDate: String = "",
     val notes: String = "",
     val fileUri: String = "",
+    val fileName: String = "",
     val mimeType: String = "",
     val fileSize: Long = 0L,
     val reminderDaysBefore: Int = 7,

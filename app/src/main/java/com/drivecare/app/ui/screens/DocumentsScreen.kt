@@ -523,8 +523,10 @@ fun DocumentCardItem(
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
+    val context = LocalContext.current
     val statusInfo = getDocumentStatusInfo(doc, todayStr)
-    val isPdf = doc.mimeType == "application/pdf" || doc.fileUri.endsWith(".pdf", ignoreCase = true)
+    val fileStatus = remember(doc) { getDocumentFileStatus(context, doc) }
+    val isPdf = doc.mimeType == "application/pdf" || doc.fileUri.endsWith(".pdf", ignoreCase = true) || doc.fileName.endsWith(".pdf", ignoreCase = true)
 
     Card(
         modifier = Modifier
@@ -577,17 +579,36 @@ fun DocumentCardItem(
                 }
 
                 // Status Chip
-                Surface(
-                    color = statusInfo.containerColor,
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(
-                        text = statusInfo.labelText,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = statusInfo.textColor
-                    )
+                Column(horizontalAlignment = Alignment.End) {
+                    Surface(
+                        color = statusInfo.containerColor,
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            text = statusInfo.labelText,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = statusInfo.textColor
+                        )
+                    }
+                    if (fileStatus == DocumentFileStatus.FILE_NOT_FOUND) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "File Not Found",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Bold
+                        )
+                    } else if (fileStatus == DocumentFileStatus.CORRUPTED_ZERO_BYTES) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Corrupted (0 B)",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
 
@@ -658,13 +679,19 @@ fun FullDocumentPreviewDialog(
 ) {
     val context = LocalContext.current
     val statusInfo = getDocumentStatusInfo(doc, todayStr)
-    val isPdf = doc.mimeType == "application/pdf" || doc.fileUri.endsWith(".pdf", ignoreCase = true)
+    val fileStatus = remember(doc) { getDocumentFileStatus(context, doc) }
+    val realFileName = remember(doc) {
+        doc.fileName.ifBlank {
+            if (doc.fileUri.isNotBlank()) Uri.parse(doc.fileUri).lastPathSegment ?: "Document" else "No File Attached"
+        }
+    }
+    val isPdf = doc.mimeType == "application/pdf" || doc.fileUri.endsWith(".pdf", ignoreCase = true) || realFileName.endsWith(".pdf", ignoreCase = true)
 
     var zoomScale by remember { mutableFloatStateOf(1f) }
     var rotationDegrees by remember { mutableFloatStateOf(0f) }
 
-    val pdfBitmap = remember(doc.fileUri, isPdf) {
-        if (isPdf) renderPdfPageToBitmap(context, doc.fileUri) else null
+    val pdfBitmap = remember(doc.fileUri, isPdf, fileStatus) {
+        if (isPdf && fileStatus == DocumentFileStatus.VALID) renderPdfPageToBitmap(context, doc.fileUri) else null
     }
 
     Dialog(
@@ -707,48 +734,121 @@ fun FullDocumentPreviewDialog(
                     }
                 }
 
-                // Controls Row (Zoom In/Out/Reset, Rotate)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        IconButton(onClick = { zoomScale = (zoomScale - 0.25f).coerceAtLeast(0.5f) }, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Default.ZoomOut, contentDescription = "Zoom Out", modifier = Modifier.size(18.dp))
-                        }
-                        Text(
-                            text = "${(zoomScale * 100).toInt()}%",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                        IconButton(onClick = { zoomScale = (zoomScale + 0.25f).coerceAtMost(3.0f) }, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Default.ZoomIn, contentDescription = "Zoom In", modifier = Modifier.size(18.dp))
-                        }
-                        IconButton(onClick = { zoomScale = 1f; rotationDegrees = 0f }, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Default.RestartAlt, contentDescription = "Reset Zoom", modifier = Modifier.size(18.dp))
+                // File Status Alert Banners if file is missing or corrupted
+                when (fileStatus) {
+                    DocumentFileStatus.FILE_NOT_FOUND -> {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.errorContainer,
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.ErrorOutline,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                                Column {
+                                    Text(
+                                        text = "Document file not found",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                    Text(
+                                        text = "The file URI is missing or inaccessible on this device.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                }
+                            }
                         }
                     }
-
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        IconButton(onClick = { rotationDegrees = (rotationDegrees + 90f) % 360f }, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Default.RotateRight, contentDescription = "Rotate 90", modifier = Modifier.size(18.dp))
+                    DocumentFileStatus.CORRUPTED_ZERO_BYTES -> {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.errorContainer,
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Warning,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                                Column {
+                                    Text(
+                                        text = "Document file is corrupted (0 B)",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                    Text(
+                                        text = "This file contains 0 bytes of data. Please re-attach or replace the file.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                }
+                            }
                         }
-                        Text(
-                            text = "${rotationDegrees.toInt()}°",
-                            style = MaterialTheme.typography.labelSmall
-                        )
+                    }
+                    else -> {}
+                }
+
+                // Controls Row (Zoom In/Out/Reset, Rotate)
+                if (fileStatus == DocumentFileStatus.VALID) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            IconButton(onClick = { zoomScale = (zoomScale - 0.25f).coerceAtLeast(0.5f) }, modifier = Modifier.size(32.dp)) {
+                                Icon(Icons.Default.ZoomOut, contentDescription = "Zoom Out", modifier = Modifier.size(18.dp))
+                            }
+                            Text(
+                                text = "${(zoomScale * 100).toInt()}%",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                            IconButton(onClick = { zoomScale = (zoomScale + 0.25f).coerceAtMost(3.0f) }, modifier = Modifier.size(32.dp)) {
+                                Icon(Icons.Default.ZoomIn, contentDescription = "Zoom In", modifier = Modifier.size(18.dp))
+                            }
+                            IconButton(onClick = { zoomScale = 1f; rotationDegrees = 0f }, modifier = Modifier.size(32.dp)) {
+                                Icon(Icons.Default.RestartAlt, contentDescription = "Reset Zoom", modifier = Modifier.size(18.dp))
+                            }
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            IconButton(onClick = { rotationDegrees = (rotationDegrees + 90f) % 360f }, modifier = Modifier.size(32.dp)) {
+                                Icon(Icons.Default.RotateRight, contentDescription = "Rotate 90", modifier = Modifier.size(18.dp))
+                            }
+                            Text(
+                                text = "${rotationDegrees.toInt()}°",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
                     }
                 }
 
-                // Scrollable Document Render Box (Max 400dp height constraint as required)
+                // Scrollable Document Render Box
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(max = 400.dp)
+                        .heightIn(max = 320.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .background(Color.Black.copy(alpha = 0.05f))
                         .verticalScroll(rememberScrollState()),
@@ -764,7 +864,25 @@ fun FullDocumentPreviewDialog(
                             .padding(8.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (isPdf) {
+                        if (fileStatus != DocumentFileStatus.VALID) {
+                            Column(
+                                modifier = Modifier.padding(32.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.FolderOff,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(56.dp),
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                                Text(
+                                    text = if (fileStatus == DocumentFileStatus.FILE_NOT_FOUND) "Document File Not Found" else "Corrupted Document File",
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        } else if (isPdf) {
                             if (pdfBitmap != null) {
                                 Image(
                                     bitmap = pdfBitmap,
@@ -812,7 +930,7 @@ fun FullDocumentPreviewDialog(
                                         tint = MaterialTheme.colorScheme.primary
                                     )
                                     Text("File Attached", fontWeight = FontWeight.Bold)
-                                    Text(doc.fileUri.substringAfterLast("/"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(realFileName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         }
@@ -824,22 +942,32 @@ fun FullDocumentPreviewDialog(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                 ) {
-                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text("Status:", style = MaterialTheme.typography.labelMedium)
+                            Text("Validity Status:", style = MaterialTheme.typography.labelMedium)
                             Surface(color = statusInfo.containerColor, shape = RoundedCornerShape(8.dp)) {
                                 Text(statusInfo.labelText, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = statusInfo.textColor)
                             }
                         }
+                        Text("File Name: $realFileName", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
+                        Text("File Size: ${DocumentFileHelper.formatFileSize(doc.fileSize)} • Format: ${doc.mimeType.ifBlank { "Unknown" }}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (doc.issueDate.isNotBlank()) {
                             Text("Issue Date: ${doc.issueDate}", style = MaterialTheme.typography.bodySmall)
                         }
                         if (doc.expiryDate.isNotBlank()) {
                             Text("Expiry Date: ${doc.expiryDate} (Reminder: ${doc.reminderDaysBefore} days before)", style = MaterialTheme.typography.bodySmall)
                         }
-                        Text("File Size: ${DocumentFileHelper.formatFileSize(doc.fileSize)} • ${doc.mimeType.ifBlank { "File" }}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (doc.notes.isNotBlank()) {
-                            Text("Notes: ${doc.notes}", style = MaterialTheme.typography.bodySmall)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text("Notes", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                            Text(
+                                text = doc.notes,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 4.dp)
+                            )
                         }
                     }
                 }
@@ -852,7 +980,7 @@ fun FullDocumentPreviewDialog(
                 ) {
                     OutlinedButton(
                         onClick = {
-                            openDocumentInExternalApp(context, doc.fileUri, doc.mimeType)
+                            openDocumentInExternalApp(context, doc)
                         },
                         modifier = Modifier.weight(1f)
                     ) {
@@ -912,10 +1040,9 @@ fun AddOrEditDocumentDialog(
             "Registration",
             "Insurance",
             "Driving License",
-            "Inspection",
-            "Service Records",
-            "Tax Documents",
+            "Emission Test",
             "Warranty",
+            "Service Record",
             "Other"
         )
     }
@@ -938,6 +1065,9 @@ fun AddOrEditDocumentDialog(
             val saved = DocumentFileHelper.saveFileToInternalStorage(context, tempCameraUri!!)
             if (saved != null) {
                 attachedSavedFile = saved
+                if (docTitle.isBlank()) {
+                    docTitle = saved.fileName
+                }
                 fileErrorMessage = ""
                 Toast.makeText(context, "Photo captured successfully", Toast.LENGTH_SHORT).show()
             } else {
@@ -962,6 +1092,9 @@ fun AddOrEditDocumentDialog(
             val saved = DocumentFileHelper.saveFileToInternalStorage(context, uri)
             if (saved != null) {
                 attachedSavedFile = saved
+                if (docTitle.isBlank()) {
+                    docTitle = saved.fileName
+                }
                 fileErrorMessage = ""
                 Toast.makeText(context, "Image selected successfully", Toast.LENGTH_SHORT).show()
             } else {
@@ -976,6 +1109,9 @@ fun AddOrEditDocumentDialog(
             val saved = DocumentFileHelper.saveFileToInternalStorage(context, uri)
             if (saved != null) {
                 attachedSavedFile = saved
+                if (docTitle.isBlank()) {
+                    docTitle = saved.fileName
+                }
                 fileErrorMessage = ""
                 Toast.makeText(context, "Document attached successfully", Toast.LENGTH_SHORT).show()
             } else {
@@ -1007,61 +1143,75 @@ fun AddOrEditDocumentDialog(
                 )
 
                 // Vehicle Selection Dropdown
-                ExposedDropdownMenuBox(
-                    expanded = showVehicleDropdown,
-                    onExpandedChange = { showVehicleDropdown = it }
-                ) {
-                    OutlinedTextField(
-                        value = selectedVehicle?.vehicleName ?: "Select Vehicle",
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Associated Vehicle *") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showVehicleDropdown) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth()
-                    )
-                    ExposedDropdownMenu(
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    ExposedDropdownMenuBox(
                         expanded = showVehicleDropdown,
-                        onDismissRequest = { showVehicleDropdown = false }
+                        onExpandedChange = { showVehicleDropdown = !showVehicleDropdown }
                     ) {
-                        vehicles.forEach { v ->
-                            DropdownMenuItem(
-                                text = { Text("${v.vehicleName} (${v.registrationNumber})") },
-                                onClick = {
-                                    selectedVehicle = v
-                                    showVehicleDropdown = false
-                                }
-                            )
+                        OutlinedTextField(
+                            value = selectedVehicle?.vehicleName ?: "Select Vehicle",
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Associated Vehicle *") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showVehicleDropdown) },
+                            modifier = Modifier.menuAnchor().fillMaxWidth()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = showVehicleDropdown,
+                            onDismissRequest = { showVehicleDropdown = false }
+                        ) {
+                            vehicles.forEach { v ->
+                                DropdownMenuItem(
+                                    text = { Text("${v.vehicleName} (${v.registrationNumber})") },
+                                    onClick = {
+                                        selectedVehicle = v
+                                        showVehicleDropdown = false
+                                    }
+                                )
+                            }
                         }
                     }
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clickable { showVehicleDropdown = !showVehicleDropdown }
+                    )
                 }
 
                 // Category Selection Dropdown
-                ExposedDropdownMenuBox(
-                    expanded = showCategoryDropdown,
-                    onExpandedChange = { showCategoryDropdown = it }
-                ) {
-                    OutlinedTextField(
-                        value = docCategory,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Category *") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showCategoryDropdown) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth()
-                    )
-                    ExposedDropdownMenu(
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    ExposedDropdownMenuBox(
                         expanded = showCategoryDropdown,
-                        onDismissRequest = { showCategoryDropdown = false }
+                        onExpandedChange = { showCategoryDropdown = !showCategoryDropdown }
                     ) {
-                        categories.forEach { cat ->
-                            DropdownMenuItem(
-                                text = { Text(cat) },
-                                onClick = {
-                                    docCategory = cat
-                                    showCategoryDropdown = false
-                                }
-                            )
+                        OutlinedTextField(
+                            value = docCategory,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Category *") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showCategoryDropdown) },
+                            modifier = Modifier.menuAnchor().fillMaxWidth()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = showCategoryDropdown,
+                            onDismissRequest = { showCategoryDropdown = false }
+                        ) {
+                            categories.forEach { cat ->
+                                DropdownMenuItem(
+                                    text = { Text(cat) },
+                                    onClick = {
+                                        docCategory = cat
+                                        showCategoryDropdown = false
+                                    }
+                                )
+                            }
                         }
                     }
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clickable { showCategoryDropdown = !showCategoryDropdown }
+                    )
                 }
 
                 // Issue Date & Expiry Date Row
@@ -1086,33 +1236,40 @@ fun AddOrEditDocumentDialog(
                 }
 
                 // Reminder Days Dropdown
-                ExposedDropdownMenuBox(
-                    expanded = showReminderDropdown,
-                    onExpandedChange = { showReminderDropdown = it }
-                ) {
-                    val labelText = reminderOptions.find { it.first == reminderDaysBefore }?.second ?: "$reminderDaysBefore Days Before"
-                    OutlinedTextField(
-                        value = labelText,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Expiry Reminder Alert") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showReminderDropdown) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth()
-                    )
-                    ExposedDropdownMenu(
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    ExposedDropdownMenuBox(
                         expanded = showReminderDropdown,
-                        onDismissRequest = { showReminderDropdown = false }
+                        onExpandedChange = { showReminderDropdown = !showReminderDropdown }
                     ) {
-                        reminderOptions.forEach { option ->
-                            DropdownMenuItem(
-                                text = { Text(option.second) },
-                                onClick = {
-                                    reminderDaysBefore = option.first
-                                    showReminderDropdown = false
-                                }
-                            )
+                        val labelText = reminderOptions.find { it.first == reminderDaysBefore }?.second ?: "$reminderDaysBefore Days Before"
+                        OutlinedTextField(
+                            value = labelText,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Expiry Reminder Alert") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showReminderDropdown) },
+                            modifier = Modifier.menuAnchor().fillMaxWidth()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = showReminderDropdown,
+                            onDismissRequest = { showReminderDropdown = false }
+                        ) {
+                            reminderOptions.forEach { option ->
+                                DropdownMenuItem(
+                                    text = { Text(option.second) },
+                                    onClick = {
+                                        reminderDaysBefore = option.first
+                                        showReminderDropdown = false
+                                    }
+                                )
+                            }
                         }
                     }
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clickable { showReminderDropdown = !showReminderDropdown }
+                    )
                 }
 
                 // Notes Input
@@ -1173,7 +1330,7 @@ fun AddOrEditDocumentDialog(
                 // Selected File Banner
                 val currentFileUri = attachedSavedFile?.fileUriString ?: docToEdit?.fileUri ?: ""
                 val currentFileSize = attachedSavedFile?.fileSize ?: docToEdit?.fileSize ?: 0L
-                val currentFileName = attachedSavedFile?.fileName ?: docToEdit?.fileUri?.substringAfterLast("/") ?: ""
+                val currentFileName = attachedSavedFile?.fileName ?: docToEdit?.fileName ?: (if (currentFileUri.isNotBlank()) Uri.parse(currentFileUri).lastPathSegment ?: "" else "")
 
                 if (currentFileUri.isNotBlank()) {
                     Surface(
@@ -1189,13 +1346,13 @@ fun AddOrEditDocumentDialog(
                             Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("Attached File:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                                Text(currentFileName, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(currentFileName.ifBlank { "Attached Document" }, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 Text(DocumentFileHelper.formatFileSize(currentFileSize), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
                 } else {
-                    Text("No file attached yet. Please capture a photo or choose a file.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    Text("No file attached yet. Please capture a photo or choose a PDF/Image file.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                 }
 
                 if (fileErrorMessage.isNotBlank()) {
@@ -1214,15 +1371,16 @@ fun AddOrEditDocumentDialog(
                         Toast.makeText(context, "Please select a vehicle", Toast.LENGTH_SHORT).show()
                         return@Button
                     }
-
                     val finalUri = attachedSavedFile?.fileUriString ?: docToEdit?.fileUri ?: ""
-                    val finalMime = attachedSavedFile?.mimeType ?: docToEdit?.mimeType ?: ""
-                    val finalSize = attachedSavedFile?.fileSize ?: docToEdit?.fileSize ?: 0L
-
                     if (finalUri.isBlank()) {
-                        Toast.makeText(context, "Please attach a document file or photo", Toast.LENGTH_SHORT).show()
+                        fileErrorMessage = "Please attach a file (PDF or Image) to save this document."
+                        Toast.makeText(context, "Please attach a file first", Toast.LENGTH_SHORT).show()
                         return@Button
                     }
+
+                    val finalName = attachedSavedFile?.fileName ?: docToEdit?.fileName ?: (if (finalUri.isNotBlank()) Uri.parse(finalUri).lastPathSegment ?: "" else "")
+                    val finalMime = attachedSavedFile?.mimeType ?: docToEdit?.mimeType ?: ""
+                    val finalSize = attachedSavedFile?.fileSize ?: docToEdit?.fileSize ?: 0L
 
                     val vehicle = selectedVehicle!!
 
@@ -1236,6 +1394,7 @@ fun AddOrEditDocumentDialog(
                             expiryDate = expiryDate.trim(),
                             notes = notes.trim(),
                             fileUri = finalUri,
+                            fileName = finalName,
                             mimeType = finalMime,
                             fileSize = finalSize,
                             reminderDaysBefore = reminderDaysBefore
@@ -1252,6 +1411,7 @@ fun AddOrEditDocumentDialog(
                             expiryDate = expiryDate.trim(),
                             notes = notes.trim(),
                             fileUri = finalUri,
+                            fileName = if (attachedSavedFile != null) attachedSavedFile!!.fileName else docToEdit.fileName,
                             mimeType = if (attachedSavedFile != null) finalMime else docToEdit.mimeType,
                             fileSize = if (attachedSavedFile != null) finalSize else docToEdit.fileSize,
                             reminderDaysBefore = reminderDaysBefore
@@ -1333,23 +1493,122 @@ fun loadBitmapFromUri(context: Context, uriString: String): ImageBitmap? {
     }
 }
 
-fun openDocumentInExternalApp(context: Context, uriString: String, mimeType: String) {
-    try {
-        val uri = Uri.parse(uriString)
-        val contentUri = if (uri.scheme == "file") {
-            val file = File(uri.path ?: return)
-            FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-        } else uri
+enum class DocumentFileStatus {
+    VALID,
+    FILE_NOT_FOUND,
+    CORRUPTED_ZERO_BYTES
+}
 
-        val type = if (mimeType.isNotBlank()) mimeType else "*/*"
+fun getDocumentFileStatus(context: Context, doc: Document): DocumentFileStatus {
+    if (doc.fileUri.isBlank()) return DocumentFileStatus.FILE_NOT_FOUND
+    val uri = try {
+        Uri.parse(doc.fileUri)
+    } catch (e: Exception) {
+        return DocumentFileStatus.FILE_NOT_FOUND
+    }
+
+    return when {
+        uri.scheme == "file" || uri.scheme == null -> {
+            val path = uri.path ?: doc.fileUri
+            val file = File(path)
+            if (!file.exists()) {
+                DocumentFileStatus.FILE_NOT_FOUND
+            } else if (file.length() == 0L || doc.fileSize == 0L) {
+                DocumentFileStatus.CORRUPTED_ZERO_BYTES
+            } else {
+                DocumentFileStatus.VALID
+            }
+        }
+        uri.scheme == "content" -> {
+            try {
+                val pfd = context.contentResolver.openFileDescriptor(uri, "r")
+                if (pfd != null) {
+                    val size = pfd.statSize
+                    pfd.close()
+                    if (size == 0L || doc.fileSize == 0L) {
+                        DocumentFileStatus.CORRUPTED_ZERO_BYTES
+                    } else {
+                        DocumentFileStatus.VALID
+                    }
+                } else {
+                    DocumentFileStatus.FILE_NOT_FOUND
+                }
+            } catch (e: Exception) {
+                DocumentFileStatus.FILE_NOT_FOUND
+            }
+        }
+        uri.scheme == "http" || uri.scheme == "https" -> {
+            if (doc.fileSize == 0L) DocumentFileStatus.CORRUPTED_ZERO_BYTES else DocumentFileStatus.VALID
+        }
+        else -> {
+            if (doc.fileSize == 0L) DocumentFileStatus.CORRUPTED_ZERO_BYTES else DocumentFileStatus.VALID
+        }
+    }
+}
+
+fun openDocumentInExternalApp(context: Context, doc: Document) {
+    if (doc.fileUri.isBlank()) {
+        Toast.makeText(context, "Document file not found", Toast.LENGTH_SHORT).show()
+        return
+    }
+
+    val fileStatus = getDocumentFileStatus(context, doc)
+    if (fileStatus == DocumentFileStatus.FILE_NOT_FOUND) {
+        Toast.makeText(context, "Document file not found", Toast.LENGTH_SHORT).show()
+        return
+    }
+    if (fileStatus == DocumentFileStatus.CORRUPTED_ZERO_BYTES) {
+        Toast.makeText(context, "Document file is corrupted (0 B)", Toast.LENGTH_SHORT).show()
+        return
+    }
+
+    try {
+        val uri = Uri.parse(doc.fileUri)
+        val contentUri: Uri = when {
+            uri.scheme == "file" || uri.scheme == null -> {
+                val path = uri.path ?: doc.fileUri
+                val file = File(path)
+                if (!file.exists()) {
+                    Toast.makeText(context, "Document file not found", Toast.LENGTH_SHORT).show()
+                    return
+                }
+                FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            }
+            uri.scheme == "content" -> uri
+            uri.scheme == "http" || uri.scheme == "https" -> uri
+            else -> {
+                val file = File(doc.fileUri)
+                if (!file.exists()) {
+                    Toast.makeText(context, "Document file not found", Toast.LENGTH_SHORT).show()
+                    return
+                }
+                FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            }
+        }
+
+        val type = when {
+            doc.mimeType.isNotBlank() && doc.mimeType != "application/octet-stream" -> doc.mimeType
+            doc.fileName.endsWith(".pdf", ignoreCase = true) || doc.fileUri.endsWith(".pdf", ignoreCase = true) -> "application/pdf"
+            doc.fileName.endsWith(".jpg", ignoreCase = true) || doc.fileName.endsWith(".jpeg", ignoreCase = true) || doc.fileUri.endsWith(".jpg", ignoreCase = true) -> "image/jpeg"
+            doc.fileName.endsWith(".png", ignoreCase = true) || doc.fileUri.endsWith(".png", ignoreCase = true) -> "image/png"
+            else -> "*/*"
+        }
+
         val intent = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(contentUri, type)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         context.startActivity(Intent.createChooser(intent, "Open Document With"))
     } catch (e: Exception) {
-        Toast.makeText(context, "No app available to open this document", Toast.LENGTH_SHORT).show()
+        e.printStackTrace()
+        Toast.makeText(context, "No application available to open this document", Toast.LENGTH_LONG).show()
     }
+}
+
+fun openDocumentInExternalApp(context: Context, uriString: String, mimeType: String) {
+    val doc = Document(fileUri = uriString, mimeType = mimeType)
+    openDocumentInExternalApp(context, doc)
 }
 
 fun createTempImageUri(context: Context): Uri? {
