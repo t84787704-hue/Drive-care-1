@@ -7,8 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Chat
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -16,7 +15,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -47,7 +45,7 @@ fun DriveCarePlayStoreBanner(
                         )
                     )
                 )
-                .padding(horizontal = 14.dp, vertical = 12.dp)
+                .padding(horizontal = 16.dp, vertical = 14.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxSize(),
@@ -57,7 +55,7 @@ fun DriveCarePlayStoreBanner(
                 // LEFT: DriveCare Emblem Logo
                 Box(
                     modifier = Modifier
-                        .size(54.dp)
+                        .size(56.dp)
                         .clip(CircleShape)
                         .background(Color(0xFF1D4ED8).copy(alpha = 0.25f))
                         .border(1.5.dp, Color(0xFF10B981), CircleShape),
@@ -70,96 +68,45 @@ fun DriveCarePlayStoreBanner(
                     )
                 }
 
-                Spacer(modifier = Modifier.width(14.dp))
+                Spacer(modifier = Modifier.width(12.dp))
 
-                // CENTER: Brand Name & Tagline (Fully visible, single line, no truncation)
+                // CENTER: Brand Name & Tagline
                 Column(
                     modifier = Modifier.weight(1.3f),
                     verticalArrangement = Arrangement.Center
                 ) {
                     Text(
                         text = "DriveCare",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontSize = 18.sp,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontSize = 20.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = Color.White,
-                        maxLines = 1,
-                        softWrap = false
+                        color = Color.White
                     )
 
-                    Spacer(modifier = Modifier.height(2.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
 
                     Text(
                         text = "Complete Vehicle Management Platform",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontSize = 8.5.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF38BDF8),
-                        maxLines = 1,
-                        softWrap = false
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF38BDF8)
                     )
                 }
 
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(12.dp))
 
-                // RIGHT: 6 Feature Chips Grid (Clean 2-column grid without truncation)
+                // RIGHT: Clean Feature List (No Chips, Full Readability)
                 Column(
-                    modifier = Modifier.weight(1.5f),
-                    verticalArrangement = Arrangement.spacedBy(5.dp)
+                    modifier = Modifier.weight(1.2f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        FeatureChip(
-                            modifier = Modifier.weight(1f),
-                            icon = Icons.Default.DirectionsCar,
-                            label = "Vehicle Management",
-                            accentColor = Color(0xFF38BDF8)
-                        )
-                        FeatureChip(
-                            modifier = Modifier.weight(1f),
-                            icon = Icons.Default.LocalGasStation,
-                            label = "Fuel Tracking",
-                            accentColor = Color(0xFF10B981)
-                        )
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        FeatureChip(
-                            modifier = Modifier.weight(1f),
-                            icon = Icons.Default.Build,
-                            label = "Maintenance",
-                            accentColor = Color(0xFFF59E0B)
-                        )
-                        FeatureChip(
-                            modifier = Modifier.weight(1f),
-                            icon = Icons.Default.Description,
-                            label = "Documents",
-                            accentColor = Color(0xFFA855F7)
-                        )
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        FeatureChip(
-                            modifier = Modifier.weight(1f),
-                            icon = Icons.Default.People,
-                            label = "Family Sharing",
-                            accentColor = Color(0xFFEC4899)
-                        )
-                        FeatureChip(
-                            modifier = Modifier.weight(1f),
-                            icon = Icons.AutoMirrored.Filled.Chat,
-                            label = "Smart Chat",
-                            accentColor = Color(0xFF6366F1)
-                        )
-                    }
+                    FeatureListItem(label = "Vehicle Management")
+                    FeatureListItem(label = "Fuel Tracking")
+                    FeatureListItem(label = "Maintenance History")
+                    FeatureListItem(label = "Documents & Insurance")
+                    FeatureListItem(label = "Family Sharing")
+                    FeatureListItem(label = "Smart Chat")
                 }
             }
         }
@@ -167,46 +114,33 @@ fun DriveCarePlayStoreBanner(
 }
 
 @Composable
-private fun FeatureChip(
-    modifier: Modifier = Modifier,
-    icon: ImageVector,
-    label: String,
-    accentColor: Color
+private fun FeatureListItem(
+    label: String
 ) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(10.dp),
-        color = Color(0xFF1E293B).copy(alpha = 0.85f),
-        border = androidx.compose.foundation.BorderStroke(0.8.dp, accentColor.copy(alpha = 0.45f))
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 4.dp, vertical = 3.5.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(3.5.dp)
+        Box(
+            modifier = Modifier
+                .size(14.dp)
+                .clip(CircleShape)
+                .background(Color(0xFF10B981).copy(alpha = 0.2f)),
+            contentAlignment = Alignment.Center
         ) {
-            Box(
-                modifier = Modifier
-                    .size(15.dp)
-                    .clip(CircleShape)
-                    .background(accentColor.copy(alpha = 0.2f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = label,
-                    tint = accentColor,
-                    modifier = Modifier.size(9.5.dp)
-                )
-            }
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                fontSize = 8.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                maxLines = 1,
-                softWrap = false
+            Icon(
+                imageVector = Icons.Default.Check,
+                contentDescription = null,
+                tint = Color(0xFF34D399),
+                modifier = Modifier.size(10.dp)
             )
         }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            fontSize = 9.5.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Color(0xFFF1F5F9)
+        )
     }
 }
