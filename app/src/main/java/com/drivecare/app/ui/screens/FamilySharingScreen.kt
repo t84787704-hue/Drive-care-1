@@ -268,11 +268,17 @@ fun FamilySharingScreen(
                             }
                         } else {
                             val currentUid = viewModel.currentUser.collectAsState().value?.uid ?: ""
+                            val conversations by viewModel.conversations.collectAsState()
+
                             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 items(friendships) { friendship ->
                                     val friendUid = if (friendship.user1Uid == currentUid) friendship.user2Uid else friendship.user1Uid
                                     val friendName = if (friendship.user1Uid == currentUid) friendship.user2Name else friendship.user1Name
                                     val friendEmail = if (friendship.user1Uid == currentUid) friendship.user2Email else friendship.user1Email
+
+                                    val convId = com.drivecare.app.data.cloud.ChatRepository.getConversationId(currentUid, friendUid)
+                                    val conv = conversations.find { it.conversationId == convId }
+                                    val friendUnreadCount = conv?.unreadCounts?.get(currentUid) ?: 0L
 
                                     Card(modifier = Modifier.fillMaxWidth()) {
                                         Row(
@@ -295,7 +301,17 @@ fun FamilySharingScreen(
                                                     }
                                                 }
                                                 Column {
-                                                    Text(friendName.ifBlank { friendEmail }, fontWeight = FontWeight.Bold)
+                                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                        Text(friendName.ifBlank { friendEmail }, fontWeight = FontWeight.Bold)
+                                                        if (friendUnreadCount > 0) {
+                                                            Badge(
+                                                                containerColor = MaterialTheme.colorScheme.primary,
+                                                                contentColor = MaterialTheme.colorScheme.onPrimary
+                                                            ) {
+                                                                Text("($friendUnreadCount)", fontWeight = FontWeight.Bold)
+                                                            }
+                                                        }
+                                                    }
                                                     Text(friendEmail, style = MaterialTheme.typography.bodySmall)
                                                 }
                                             }

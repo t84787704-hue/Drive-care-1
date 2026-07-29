@@ -477,4 +477,14 @@ class MainActivity : ComponentActivity() {
             )
         )
     }
+
+    override fun onResume() {
+        super.onResume()
+        viewModel.setUserOnlineStatus(true)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        viewModel.setUserOnlineStatus(false)
+    }
 }

@@ -173,6 +173,10 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     private val _isSendingMessage = MutableStateFlow(false)
     val isSendingMessage: StateFlow<Boolean> = _isSendingMessage.asStateFlow()
 
+    private val _activeFriendPresence = MutableStateFlow<com.drivecare.app.data.model.UserPresence>(com.drivecare.app.data.model.UserPresence())
+    val activeFriendPresence: StateFlow<com.drivecare.app.data.model.UserPresence> = _activeFriendPresence.asStateFlow()
+    private var activeFriendPresenceJob: kotlinx.coroutines.Job? = null
+
     val totalUnreadMessageCount: StateFlow<Int> = _conversations.map { convList ->
         val uid = currentUser.value?.uid ?: ""
         if (uid.isBlank()) 0
@@ -2148,15 +2152,48 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
 
+        activeFriendPresenceJob?.cancel()
+        activeFriendPresenceJob = viewModelScope.launch {
+            chatRepository.getUserPresenceFlow(friendUid).collect { presence ->
+                _activeFriendPresence.value = presence
+            }
+        }
+
         markActiveChatAsRead()
+        setUserOnlineStatus(true)
     }
 
     fun closeChat() {
+        val currentUid = currentUser.value?.uid ?: ""
+        if (currentUid.isNotBlank()) {
+            viewModelScope.launch {
+                chatRepository.updateUserPresence(currentUid, isOnline = true, typingToUserId = "")
+            }
+        }
         activeChatFriendUid.value = null
         activeChatFriendName.value = ""
         activeChatFriendEmail.value = ""
         activeChatMessagesJob?.cancel()
+        activeFriendPresenceJob?.cancel()
         _activeChatMessages.value = emptyList()
+        _activeFriendPresence.value = com.drivecare.app.data.model.UserPresence()
+    }
+
+    fun setTypingStatus(isTyping: Boolean) {
+        val currentUid = currentUser.value?.uid ?: return
+        if (currentUid.isBlank()) return
+        val targetUid = if (isTyping) activeChatFriendUid.value ?: "" else ""
+        viewModelScope.launch {
+            chatRepository.updateUserPresence(currentUid, isOnline = true, typingToUserId = targetUid)
+        }
+    }
+
+    fun setUserOnlineStatus(isOnline: Boolean) {
+        val currentUid = currentUser.value?.uid ?: return
+        if (currentUid.isBlank()) return
+        viewModelScope.launch {
+            chatRepository.updateUserPresence(currentUid, isOnline = isOnline, typingToUserId = if (!isOnline) "" else null)
+        }
     }
 
     fun sendMessage(messageText: String, onResult: (Boolean, String?) -> Unit) {

@@ -8,5 +8,8 @@ data class PublicUserProfile(
     val preferredCurrency: String = "",
     val photoUrl: String = "",
     val joinDate: Long = 0L,
-    val vehicleCount: Int = 0
+    val vehicleCount: Int = 0,
+    val isOnline: Boolean = false,
+    val lastSeen: Long = 0L,
+    val typingToUserId: String = ""
 )

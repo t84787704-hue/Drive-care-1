@@ -43,6 +43,7 @@ fun ChatScreen(
     val friendEmail by viewModel.activeChatFriendEmail.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
     val isSending by viewModel.isSendingMessage.collectAsState()
+    val friendPresence by viewModel.activeFriendPresence.collectAsState()
 
     var inputMessageText by remember { mutableStateOf("") }
 
@@ -111,17 +112,29 @@ fun ChatScreen(
                             maxLines = 1
                         )
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            val isFriendTyping = friendPresence.typingToUserId == currentUid && currentUid.isNotBlank()
+                            val statusText = when {
+                                isFriendTyping -> "${friendName.ifBlank { "Friend" }} is typing..."
+                                friendPresence.isOnline -> "Online"
+                                else -> formatLastSeen(friendPresence.lastSeen)
+                            }
+                            val statusDotColor = when {
+                                isFriendTyping || friendPresence.isOnline -> androidx.compose.ui.graphics.Color(0xFF4CAF50)
+                                else -> androidx.compose.ui.graphics.Color.Gray
+                            }
+
                             Box(
                                 modifier = Modifier
                                     .size(8.dp)
                                     .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primary)
+                                    .background(statusDotColor)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "Connected Friend",
+                                text = statusText,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = if (isFriendTyping) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = if (isFriendTyping) FontWeight.Medium else FontWeight.Normal
                             )
                         }
                     }
@@ -145,7 +158,10 @@ fun ChatScreen(
                 ) {
                     OutlinedTextField(
                         value = inputMessageText,
-                        onValueChange = { inputMessageText = it },
+                        onValueChange = { newText ->
+                            inputMessageText = newText
+                            viewModel.setTypingStatus(newText.isNotBlank())
+                        },
                         modifier = Modifier.weight(1f),
                         placeholder = { Text("Type a message...") },
                         shape = RoundedCornerShape(24.dp),
@@ -160,6 +176,7 @@ fun ChatScreen(
                             if (inputMessageText.isNotBlank() && !isSending) {
                                 val textToSend = inputMessageText
                                 inputMessageText = ""
+                                viewModel.setTypingStatus(false)
                                 viewModel.sendMessage(textToSend) { success, errorMsg ->
                                     if (!success) {
                                         Toast.makeText(context, errorMsg ?: "Failed to send message", Toast.LENGTH_SHORT).show()
@@ -307,19 +324,44 @@ fun ChatMessageBubble(
                     )
 
                     if (isFromMe) {
-                        val icon = if (message.isRead) Icons.Default.DoneAll else if (message.isDelivered) Icons.Default.DoneAll else Icons.Default.Check
-                        val tint = if (message.isRead) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+                        val icon = if (message.isRead || message.isDelivered) Icons.Default.DoneAll else Icons.Default.Check
+                        val tint = when {
+                            message.isRead -> androidx.compose.ui.graphics.Color(0xFF0084FF)
+                            message.isDelivered -> androidx.compose.ui.graphics.Color.Gray
+                            else -> androidx.compose.ui.graphics.Color.Gray
+                        }
 
                         Icon(
                             imageVector = icon,
                             contentDescription = if (message.isRead) "Read" else if (message.isDelivered) "Delivered" else "Sent",
                             tint = tint,
-                            modifier = Modifier.size(14.dp)
+                            modifier = Modifier.size(15.dp)
                         )
                     }
                 }
             }
+        }
+    }
+}
+
+private fun formatLastSeen(timestamp: Long): String {
+    if (timestamp <= 0L) return "Offline"
+    val now = Calendar.getInstance()
+    val time = Calendar.getInstance().apply { timeInMillis = timestamp }
+
+    val timeStr = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(timestamp))
+    return when {
+        now.get(Calendar.YEAR) == time.get(Calendar.YEAR) &&
+        now.get(Calendar.DAY_OF_YEAR) == time.get(Calendar.DAY_OF_YEAR) -> {
+            "Last Seen Today $timeStr"
+        }
+        now.get(Calendar.YEAR) == time.get(Calendar.YEAR) &&
+        now.get(Calendar.DAY_OF_YEAR) - time.get(Calendar.DAY_OF_YEAR) == 1 -> {
+            "Last Seen Yesterday $timeStr"
+        }
+        else -> {
+            val dateStr = SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(timestamp))
+            "Last Seen $dateStr $timeStr"
         }
     }
 }

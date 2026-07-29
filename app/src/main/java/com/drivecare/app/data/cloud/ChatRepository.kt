@@ -12,6 +12,7 @@ import com.drivecare.app.MainActivity
 import com.drivecare.app.R
 import com.drivecare.app.data.model.ChatMessage
 import com.drivecare.app.data.model.Conversation
+import com.drivecare.app.data.model.UserPresence
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -128,6 +129,7 @@ class ChatRepository(private val firestore: FirebaseFirestore = FirebaseFirestor
                             val timestamp = doc.getLong("timestamp") ?: 0L
                             val isRead = doc.getBoolean("isRead") ?: false
                             val isDelivered = doc.getBoolean("isDelivered") ?: true
+                            val readAt = doc.getLong("readAt") ?: 0L
 
                             ChatMessage(
                                 messageId = messageId,
@@ -137,7 +139,8 @@ class ChatRepository(private val firestore: FirebaseFirestore = FirebaseFirestor
                                 messageText = messageText,
                                 timestamp = timestamp,
                                 isRead = isRead,
-                                isDelivered = isDelivered
+                                isDelivered = isDelivered,
+                                readAt = readAt
                             )
                         } catch (e: Exception) {
                             Log.e("ChatRepository", "Error parsing message doc ${doc.id}: ${e.message}")
@@ -189,7 +192,8 @@ class ChatRepository(private val firestore: FirebaseFirestore = FirebaseFirestor
                 messageText = messageText.trim(),
                 timestamp = timestamp,
                 isRead = false,
-                isDelivered = true
+                isDelivered = true,
+                readAt = 0L
             )
 
             val msgData = mapOf(
@@ -200,7 +204,8 @@ class ChatRepository(private val firestore: FirebaseFirestore = FirebaseFirestor
                 "messageText" to chatMessage.messageText,
                 "timestamp" to chatMessage.timestamp,
                 "isRead" to chatMessage.isRead,
-                "isDelivered" to chatMessage.isDelivered
+                "isDelivered" to chatMessage.isDelivered,
+                "readAt" to chatMessage.readAt
             )
 
             // 1. Write message to conversations/{conversationId}/messages/{messageId}
@@ -269,12 +274,13 @@ class ChatRepository(private val firestore: FirebaseFirestore = FirebaseFirestor
                 .await()
 
             if (!unreadDocs.isEmpty) {
+                val now = System.currentTimeMillis()
                 val batch = firestore.batch()
                 for (doc in unreadDocs.documents) {
-                    batch.update(doc.reference, "isRead", true)
+                    batch.update(doc.reference, mapOf("isRead" to true, "isDelivered" to true, "readAt" to now))
                     // Also update in root messages collection if present
                     val rootMsgRef = firestore.collection("messages").document(doc.id)
-                    batch.update(rootMsgRef, "isRead", true)
+                    batch.update(rootMsgRef, mapOf("isRead" to true, "isDelivered" to true, "readAt" to now))
                 }
                 batch.commit().await()
             }
@@ -348,5 +354,72 @@ class ChatRepository(private val firestore: FirebaseFirestore = FirebaseFirestor
         } catch (e: Exception) {
             Log.e("ChatRepository", "Error showing message notification: ${e.message}")
         }
+    }
+
+    /**
+     * Updates real-time presence (online status, last seen, typing target) for a user.
+     */
+    suspend fun updateUserPresence(
+        uid: String,
+        isOnline: Boolean,
+        typingToUserId: String? = null
+    ) = withContext(Dispatchers.IO) {
+        if (uid.isBlank()) return@withContext
+        try {
+            val now = System.currentTimeMillis()
+            val updates = mutableMapOf<String, Any>(
+                "uid" to uid,
+                "isOnline" to isOnline,
+                "lastSeen" to now
+            )
+            if (typingToUserId != null) {
+                updates["typingToUserId"] = typingToUserId
+            }
+            firestore.collection("user_presence").document(uid)
+                .set(updates, SetOptions.merge())
+                .await()
+
+            firestore.collection("users").document(uid)
+                .set(mapOf("isOnline" to isOnline, "lastSeen" to now), SetOptions.merge())
+        } catch (e: Exception) {
+            Log.e("ChatRepository", "Error updating user presence for $uid: ${e.message}")
+        }
+    }
+
+    /**
+     * Real-time listener for user presence (online status, last seen, typing indicator).
+     */
+    fun getUserPresenceFlow(uid: String): Flow<UserPresence> = callbackFlow {
+        if (uid.isBlank()) {
+            trySend(UserPresence())
+            close()
+            return@callbackFlow
+        }
+
+        val listener = firestore.collection("user_presence")
+            .document(uid)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null || !snapshot.exists()) {
+                    trySend(UserPresence(uid = uid))
+                    return@addSnapshotListener
+                }
+                try {
+                    val isOnline = snapshot.getBoolean("isOnline") ?: false
+                    val lastSeen = snapshot.getLong("lastSeen") ?: 0L
+                    val typingTo = snapshot.getString("typingToUserId") ?: ""
+                    trySend(
+                        UserPresence(
+                            uid = uid,
+                            isOnline = isOnline,
+                            lastSeen = lastSeen,
+                            typingToUserId = typingTo
+                        )
+                    )
+                } catch (e: Exception) {
+                    trySend(UserPresence(uid = uid))
+                }
+            }
+
+        awaitClose { listener.remove() }
     }
 }
