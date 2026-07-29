@@ -699,7 +699,7 @@ fun VehicleDetailDialog(
                     Column(modifier = Modifier.padding(12.dp)) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Text("Fuel Analytics", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
-                            TextButton(onClick = { onNavigateToSection(NavTab.FUEL, null, vehicle.id) }) {
+                            TextButton(onClick = { onNavigateToSection(NavTab.MORE, MoreSubSection.EXPENSES, vehicle.id) }) {
                                 Text("Log Fuel", style = MaterialTheme.typography.labelSmall)
                             }
                         }

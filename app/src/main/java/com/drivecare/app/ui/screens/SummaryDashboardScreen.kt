@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -370,7 +371,288 @@ fun SummaryDashboardScreen(
             }
         }
 
-        // Insurance Status & Expiry Summary
+        // SECTION 1: 🚗 My Vehicles (Primary Module)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(Icons.Default.DirectionsCar, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Text(
+                    text = "My Vehicles",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            TextButton(onClick = { onNavigateTab?.invoke("GARAGE") }) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(AppStrings.get("add_vehicle", lang))
+            }
+        }
+
+        if (vehicles.isEmpty()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        Icons.Default.DirectionsCar,
+                        contentDescription = null,
+                        modifier = Modifier.size(56.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        AppStrings.get("no_vehicles_registered", lang),
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        AppStrings.get("no_vehicles_desc", lang),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(onClick = { onNavigateTab?.invoke("GARAGE") }) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(AppStrings.get("add_vehicle", lang))
+                    }
+                }
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                vehicles.forEach { v ->
+                    val vHealth = viewModel.calculateHealthScore(v, reminders, fuelEntries, maintenanceLogs, documents)
+                    val vEfficiency = viewModel.calculateVehicleFuelEfficiency(v, fuelEntries)
+                    val vCostPerKm = viewModel.calculateCostPerKm(v, fuelEntries, maintenanceLogs, expenses)
+
+                    VehicleHealthCard(
+                        vehicle = v,
+                        healthScore = vHealth,
+                        efficiency = vEfficiency,
+                        costPerKm = vCostPerKm,
+                        lang = lang,
+                        onClick = { onNavigateTab?.invoke("GARAGE") },
+                        onNavigateTab = onNavigateTab
+                    )
+                }
+            }
+        }
+
+        // SECTION 2: 💬 Family & Fleet Chat
+        val totalUnreadMessageCount by viewModel.totalUnreadMessageCount.collectAsState()
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Text(
+                    text = "Family & Fleet Chat",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            TextButton(onClick = { onNavigateTab?.invoke("CHAT") }) {
+                Text("Open Chat")
+            }
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.Group, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+                            }
+                        }
+                        Column {
+                            Text(
+                                text = "Family Sharing & Fleet Messaging",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Coordinate maintenance, fuel logs & vehicle access in real time",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    if (totalUnreadMessageCount > 0) {
+                        Badge(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ) {
+                            Text("$totalUnreadMessageCount New", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = { onNavigateTab?.invoke("CHAT") },
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(vertical = 10.dp, horizontal = 12.dp)
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Group & Direct Chat", style = MaterialTheme.typography.labelMedium)
+                    }
+
+                    OutlinedButton(
+                        onClick = { onNavigateTab?.invoke("SHARING") },
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(vertical = 10.dp, horizontal = 12.dp)
+                    ) {
+                        Icon(Icons.Default.Group, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Family Access", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+            }
+        }
+
+        // SECTION 3: ⛽ Fuel Tracker
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(Icons.Default.LocalGasStation, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Text(
+                    text = "Fuel Tracker",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            TextButton(onClick = { onNavigateTab?.invoke("EXPENSES") }) {
+                Text("View Fuel & Expenses")
+            }
+        }
+
+        if (monthlyFuelData.isNotEmpty() || expenseCategories.isNotEmpty()) {
+            if (monthlyFuelData.isNotEmpty()) {
+                MonthlyFuelChartCard(monthlyFuelData)
+            }
+            if (expenseCategories.isNotEmpty()) {
+                ExpenseCategoryBreakdownCard(expenseCategories, grandTotalSpent)
+            }
+        }
+
+        // SECTION 4: 🔧 Maintenance History
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(Icons.Default.Build, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Text(
+                    text = "Maintenance History & Reminders",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            TextButton(onClick = { onNavigateTab?.invoke("SERVICES") }) {
+                Text("View Maintenance")
+            }
+        }
+
+        if (reminders.isNotEmpty()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "${AppStrings.get("pending_tasks", lang)} ($activeRemindersCount)",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        TextButton(onClick = { onNavigateTab?.invoke("SERVICES") }) {
+                            Text("+ Add Reminder")
+                        }
+                    }
+
+                    reminders.take(3).forEach { reminder ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                .padding(10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(reminder.reminderTitle, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                Text("Due: ${reminder.dueDate}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            if (reminder.isCompleted) {
+                                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF2E7D32), modifier = Modifier.size(20.dp))
+                            } else {
+                                AssistChip(
+                                    onClick = { onNavigateTab?.invoke("SERVICES") },
+                                    label = { Text("Pending", style = MaterialTheme.typography.labelSmall) }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // SECTION 5: 📄 Documents & Insurance
         val activeInsCount = remember(insurancePolicies) { 
             try { insurancePolicies.count { it.getPolicyStatus() == "ACTIVE" } } catch (e: Exception) { 0 } 
         }
@@ -391,6 +673,32 @@ fun SummaryDashboardScreen(
             }
         }
 
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(Icons.Default.VerifiedUser, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Text(
+                    text = "Documents & Insurance",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Row {
+                TextButton(onClick = { onNavigateTab?.invoke("DOCUMENTS") }) {
+                    Text("Docs")
+                }
+                TextButton(onClick = { onNavigateTab?.invoke("INSURANCE") }) {
+                    Text("Insurance")
+                }
+            }
+        }
+
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -399,31 +707,17 @@ fun SummaryDashboardScreen(
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.VerifiedUser, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Text("Insurance Management", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    }
-                    TextButton(onClick = { onNavigateTab?.invoke("MORE") }) {
-                        Text("Manage All")
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Surface(modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.primaryContainer) {
                         Column(modifier = Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Active", style = MaterialTheme.typography.labelSmall)
+                            Text("Active Policies", style = MaterialTheme.typography.labelSmall)
                             Text("$activeInsCount", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         }
                     }
                     Surface(modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp), color = Color(0xFFFFF8E1)) {
                         Column(modifier = Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Expiring", style = MaterialTheme.typography.labelSmall, color = Color(0xFFF57F17))
+                            Text("Expiring Soon", style = MaterialTheme.typography.labelSmall, color = Color(0xFFF57F17))
                             Text("$expiringInsCount", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFFF57F17))
                         }
                     }
@@ -435,9 +729,8 @@ fun SummaryDashboardScreen(
                     }
                 }
 
-                Text("Upcoming Renewals & Expired Alerts", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-
                 if (urgentInsuranceList.isNotEmpty()) {
+                    Text("Upcoming Renewals & Expiry Alerts", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         urgentInsuranceList.take(3).forEach { pol ->
                             val status = pol.getPolicyStatus()
@@ -488,90 +781,6 @@ fun SummaryDashboardScreen(
                             )
                         }
                     }
-                }
-            }
-        }
-
-        // Analytics & Charts Section
-        if (monthlyFuelData.isNotEmpty() || expenseCategories.isNotEmpty()) {
-            Text(
-                text = AppStrings.get("analytics_cost_breakdown", lang),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            // Monthly Fuel Cost Bar Chart
-            if (monthlyFuelData.isNotEmpty()) {
-                MonthlyFuelChartCard(monthlyFuelData)
-            }
-
-            // Expense Category Breakdown
-            if (expenseCategories.isNotEmpty()) {
-                ExpenseCategoryBreakdownCard(expenseCategories, grandTotalSpent)
-            }
-        }
-
-        // Vehicle Health & Efficiency Breakdown
-        Text(
-            text = AppStrings.get("fleet_summary", lang),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-
-        if (vehicles.isEmpty()) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(
-                        Icons.Default.DirectionsCar,
-                        contentDescription = null,
-                        modifier = Modifier.size(56.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        AppStrings.get("no_vehicles_registered", lang),
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        AppStrings.get("no_vehicles_desc", lang),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = { onNavigateTab?.invoke("GARAGE") }) {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(AppStrings.get("add_vehicle", lang))
-                    }
-                }
-            }
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                vehicles.forEach { v ->
-                    val vHealth = viewModel.calculateHealthScore(v, reminders, fuelEntries, maintenanceLogs, documents)
-                    val vEfficiency = viewModel.calculateVehicleFuelEfficiency(v, fuelEntries)
-                    val vCostPerKm = viewModel.calculateCostPerKm(v, fuelEntries, maintenanceLogs, expenses)
-
-                    VehicleHealthCard(
-                        vehicle = v,
-                        healthScore = vHealth,
-                        efficiency = vEfficiency,
-                        costPerKm = vCostPerKm,
-                        lang = lang,
-                        onClick = { onNavigateTab?.invoke("GARAGE") }
-                    )
                 }
             }
         }
@@ -830,7 +1039,8 @@ fun VehicleHealthCard(
     efficiency: com.drivecare.app.ui.FuelEfficiencyStats,
     costPerKm: Double,
     lang: com.drivecare.app.utils.AppLanguage,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onNavigateTab: ((String) -> Unit)? = null
 ) {
     Card(
         modifier = Modifier
@@ -922,6 +1132,44 @@ fun VehicleHealthCard(
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            // Connected Quick Actions for Vehicle
+            if (onNavigateTab != null) {
+                Spacer(modifier = Modifier.height(10.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    AssistChip(
+                        onClick = { onNavigateTab.invoke("FUEL") },
+                        label = { Text("Fuel", style = MaterialTheme.typography.labelSmall) },
+                        leadingIcon = { Icon(Icons.Default.LocalGasStation, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                    )
+                    AssistChip(
+                        onClick = { onNavigateTab.invoke("SERVICES") },
+                        label = { Text("Service", style = MaterialTheme.typography.labelSmall) },
+                        leadingIcon = { Icon(Icons.Default.Build, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                    )
+                    AssistChip(
+                        onClick = { onNavigateTab.invoke("DOCUMENTS") },
+                        label = { Text("Docs", style = MaterialTheme.typography.labelSmall) },
+                        leadingIcon = { Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                    )
+                    AssistChip(
+                        onClick = { onNavigateTab.invoke("INSURANCE") },
+                        label = { Text("Insurance", style = MaterialTheme.typography.labelSmall) },
+                        leadingIcon = { Icon(Icons.Default.VerifiedUser, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                    )
+                    AssistChip(
+                        onClick = { onNavigateTab.invoke("CHAT") },
+                        label = { Text("Chat", style = MaterialTheme.typography.labelSmall) },
+                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null, modifier = Modifier.size(14.dp)) }
                     )
                 }
             }

@@ -14,6 +14,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -37,7 +38,7 @@ import com.drivecare.app.utils.LocaleManager
 enum class NavTab(val stringKey: String, val icon: ImageVector) {
     SUMMARY("tab_dashboard", Icons.Default.Dashboard),
     GARAGE("tab_garage", Icons.Default.DirectionsCar),
-    FUEL("tab_fuel", Icons.Default.LocalGasStation),
+    CHAT("tab_chat", Icons.AutoMirrored.Filled.Chat),
     SERVICE("tab_services", Icons.Default.Build),
     MORE("tab_more", Icons.Default.MoreHoriz)
 }
@@ -176,7 +177,7 @@ class MainActivity : ComponentActivity() {
                         val primary = when (currentTab) {
                             NavTab.SUMMARY -> AppFeature.DASHBOARD
                             NavTab.GARAGE -> AppFeature.GARAGE
-                            NavTab.FUEL -> AppFeature.FUEL
+                            NavTab.CHAT -> AppFeature.FAMILY_SHARING
                             NavTab.SERVICE -> AppFeature.SERVICES
                             NavTab.MORE -> when (currentSubSection) {
                                 MoreSubSection.EXPENSES -> AppFeature.EXPENSES
@@ -290,8 +291,10 @@ class MainActivity : ComponentActivity() {
                                 onNavigateTab = { target ->
                                     val dest = when (target) {
                                         "GARAGE" -> NavDestination(NavTab.GARAGE)
-                                        "FUEL" -> NavDestination(NavTab.FUEL)
+                                        "CHAT", "CONVERSATIONS" -> NavDestination(NavTab.CHAT)
                                         "SERVICES", "SERVICE" -> NavDestination(NavTab.SERVICE)
+                                        "INSURANCE" -> NavDestination(NavTab.MORE, MoreSubSection.INSURANCE)
+                                        "DOCUMENTS" -> NavDestination(NavTab.MORE, MoreSubSection.DOCUMENTS)
                                         "EXPENSES" -> NavDestination(NavTab.MORE, MoreSubSection.EXPENSES)
                                         "TIMELINE" -> NavDestination(NavTab.MORE, MoreSubSection.TIMELINE)
                                         "GPS" -> NavDestination(NavTab.MORE, MoreSubSection.GPS_TRACKING)
@@ -319,10 +322,17 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             )
-                            NavTab.FUEL -> FuelTrackerScreen(
+                            NavTab.CHAT -> MoreScreen(
                                 viewModel = viewModel,
                                 modifier = modifier,
-                                highlightRecordId = currentHighlightId
+                                subSection = MoreSubSection.CONVERSATIONS,
+                                highlightRecordId = currentHighlightId,
+                                onSubSectionSelect = { sub ->
+                                    val dest = NavDestination(NavTab.MORE, sub)
+                                    if (currentDestination != dest) {
+                                        backStack.add(dest)
+                                    }
+                                }
                             )
                             NavTab.SERVICE -> MaintenanceScreen(
                                 viewModel = viewModel,
@@ -381,7 +391,8 @@ class MainActivity : ComponentActivity() {
             "DOCUMENTS" -> NavDestination(NavTab.MORE, MoreSubSection.DOCUMENTS)
             "EXPENSES" -> NavDestination(NavTab.MORE, MoreSubSection.EXPENSES)
             "SERVICE", "SERVICES", "MAINTENANCE" -> NavDestination(NavTab.SERVICE)
-            "FUEL" -> NavDestination(NavTab.FUEL)
+            "FUEL" -> NavDestination(NavTab.MORE, MoreSubSection.EXPENSES)
+            "CHAT", "CONVERSATIONS" -> NavDestination(NavTab.CHAT)
             "GARAGE" -> NavDestination(NavTab.GARAGE)
             "SUMMARY", "DASHBOARD" -> NavDestination(NavTab.SUMMARY)
             "MORE" -> {
