@@ -57,7 +57,7 @@ fun DriveCarePlayStoreBanner(
                 // LEFT: DriveCare Emblem Logo
                 Box(
                     modifier = Modifier
-                        .size(60.dp)
+                        .size(54.dp)
                         .clip(CircleShape)
                         .background(Color(0xFF1D4ED8).copy(alpha = 0.25f))
                         .border(1.5.dp, Color(0xFF10B981), CircleShape),
@@ -66,21 +66,21 @@ fun DriveCarePlayStoreBanner(
                     Image(
                         painter = painterResource(id = R.drawable.ic_drivecare_emblem),
                         contentDescription = "DriveCare Emblem",
-                        modifier = Modifier.size(42.dp)
+                        modifier = Modifier.size(38.dp)
                     )
                 }
 
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(14.dp))
 
-                // CENTER: Brand Name & Tagline (Fully visible, single line, no ellipsis)
+                // CENTER: Brand Name & Tagline (Fully visible, single line, no truncation)
                 Column(
-                    modifier = Modifier.weight(1.35f),
+                    modifier = Modifier.weight(1.3f),
                     verticalArrangement = Arrangement.Center
                 ) {
                     Text(
                         text = "DriveCare",
                         style = MaterialTheme.typography.titleLarge,
-                        fontSize = 19.sp,
+                        fontSize = 18.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = Color.White,
                         maxLines = 1,
@@ -92,7 +92,7 @@ fun DriveCarePlayStoreBanner(
                     Text(
                         text = "Complete Vehicle Management Platform",
                         style = MaterialTheme.typography.bodySmall,
-                        fontSize = 9.5.sp,
+                        fontSize = 8.5.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color(0xFF38BDF8),
                         maxLines = 1,
@@ -100,16 +100,16 @@ fun DriveCarePlayStoreBanner(
                     )
                 }
 
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(10.dp))
 
                 // RIGHT: 6 Feature Chips Grid (Clean 2-column grid without truncation)
                 Column(
-                    modifier = Modifier.weight(1.45f),
+                    modifier = Modifier.weight(1.5f),
                     verticalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         FeatureChip(
                             modifier = Modifier.weight(1f),
@@ -127,7 +127,7 @@ fun DriveCarePlayStoreBanner(
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         FeatureChip(
                             modifier = Modifier.weight(1f),
@@ -145,7 +145,7 @@ fun DriveCarePlayStoreBanner(
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         FeatureChip(
                             modifier = Modifier.weight(1f),
@@ -175,18 +175,18 @@ private fun FeatureChip(
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(10.dp),
         color = Color(0xFF1E293B).copy(alpha = 0.85f),
         border = androidx.compose.foundation.BorderStroke(0.8.dp, accentColor.copy(alpha = 0.45f))
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 5.dp, vertical = 4.dp),
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 3.5.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+            horizontalArrangement = Arrangement.spacedBy(3.5.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .size(16.dp)
+                    .size(15.dp)
                     .clip(CircleShape)
                     .background(accentColor.copy(alpha = 0.2f)),
                 contentAlignment = Alignment.Center
@@ -195,13 +195,13 @@ private fun FeatureChip(
                     imageVector = icon,
                     contentDescription = label,
                     tint = accentColor,
-                    modifier = Modifier.size(10.dp)
+                    modifier = Modifier.size(9.5.dp)
                 )
             }
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
-                fontSize = 9.sp,
+                fontSize = 8.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
                 maxLines = 1,
