@@ -52,10 +52,10 @@ fun DriveCarePlayStoreBanner(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // LEFT: DriveCare Emblem Logo
+                // LEFT: DriveCare Emblem Logo (Increased size by ~20%)
                 Box(
                     modifier = Modifier
-                        .size(56.dp)
+                        .size(68.dp)
                         .clip(CircleShape)
                         .background(Color(0xFF1D4ED8).copy(alpha = 0.25f))
                         .border(1.5.dp, Color(0xFF10B981), CircleShape),
@@ -64,21 +64,21 @@ fun DriveCarePlayStoreBanner(
                     Image(
                         painter = painterResource(id = R.drawable.ic_drivecare_emblem),
                         contentDescription = "DriveCare Emblem",
-                        modifier = Modifier.size(38.dp)
+                        modifier = Modifier.size(46.dp)
                     )
                 }
 
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(14.dp))
 
                 // CENTER: Brand Name & Tagline
                 Column(
-                    modifier = Modifier.weight(1.3f),
+                    modifier = Modifier.weight(1.35f),
                     verticalArrangement = Arrangement.Center
                 ) {
                     Text(
                         text = "DriveCare",
                         style = MaterialTheme.typography.headlineSmall,
-                        fontSize = 20.sp,
+                        fontSize = 21.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = Color.White
                     )
@@ -86,7 +86,7 @@ fun DriveCarePlayStoreBanner(
                     Spacer(modifier = Modifier.height(4.dp))
 
                     Text(
-                        text = "Complete Vehicle Management Platform",
+                        text = "Smart Vehicle Management Platform",
                         style = MaterialTheme.typography.bodyMedium,
                         fontSize = 10.5.sp,
                         fontWeight = FontWeight.Bold,
@@ -96,17 +96,17 @@ fun DriveCarePlayStoreBanner(
 
                 Spacer(modifier = Modifier.width(12.dp))
 
-                // RIGHT: Clean Feature List (No Chips, Full Readability)
+                // RIGHT: Clean Feature List (High Readability & Safe Spacing)
                 Column(
-                    modifier = Modifier.weight(1.2f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically)
+                    modifier = Modifier.weight(1.3f),
+                    verticalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterVertically)
                 ) {
                     FeatureListItem(label = "Vehicle Management")
                     FeatureListItem(label = "Fuel Tracking")
                     FeatureListItem(label = "Maintenance History")
                     FeatureListItem(label = "Documents & Insurance")
                     FeatureListItem(label = "Family Sharing")
-                    FeatureListItem(label = "Smart Chat")
+                    FeatureListItem(label = "Smart Notifications")
                 }
             }
         }
