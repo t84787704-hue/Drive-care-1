@@ -52,10 +52,10 @@ fun DriveCarePlayStoreBanner(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // LEFT: DriveCare Emblem Logo (Enlarged by ~15%)
+                // LEFT: DriveCare Emblem Logo (Enlarged size)
                 Box(
                     modifier = Modifier
-                        .size(76.dp)
+                        .size(88.dp)
                         .clip(CircleShape)
                         .background(Color(0xFF1D4ED8).copy(alpha = 0.25f))
                         .border(1.5.dp, Color(0xFF10B981), CircleShape),
@@ -64,13 +64,13 @@ fun DriveCarePlayStoreBanner(
                     Image(
                         painter = painterResource(id = R.drawable.ic_drivecare_emblem),
                         contentDescription = "DriveCare Emblem",
-                        modifier = Modifier.size(52.dp)
+                        modifier = Modifier.size(60.dp)
                     )
                 }
 
                 Spacer(modifier = Modifier.width(14.dp))
 
-                // CENTER: Brand Name & Tagline (Smart Vehicle Management for Families & Fleets)
+                // CENTER: Brand Name & Tagline
                 Column(
                     modifier = Modifier.weight(1.35f),
                     verticalArrangement = Arrangement.Center
@@ -78,7 +78,7 @@ fun DriveCarePlayStoreBanner(
                     Text(
                         text = "DriveCare",
                         style = MaterialTheme.typography.headlineSmall,
-                        fontSize = 21.sp,
+                        fontSize = 22.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = Color.White
                     )
@@ -88,8 +88,8 @@ fun DriveCarePlayStoreBanner(
                     Text(
                         text = "Smart Vehicle Management\nfor Families & Fleets",
                         style = MaterialTheme.typography.bodyMedium,
-                        fontSize = 10.5.sp,
-                        lineHeight = 14.5.sp,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF38BDF8)
                     )
@@ -97,15 +97,16 @@ fun DriveCarePlayStoreBanner(
 
                 Spacer(modifier = Modifier.width(14.dp))
 
-                // RIGHT: Clean Feature List (Exact 4 items as requested)
+                // RIGHT: Clean Feature List with Family Sharing
                 Column(
                     modifier = Modifier.weight(1.25f),
-                    verticalArrangement = Arrangement.spacedBy(7.dp, Alignment.CenterVertically)
+                    verticalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterVertically)
                 ) {
                     FeatureListItem(label = "Vehicle Management")
                     FeatureListItem(label = "Fuel Tracking")
                     FeatureListItem(label = "Maintenance History")
                     FeatureListItem(label = "Documents & Insurance")
+                    FeatureListItem(label = "Family Sharing")
                 }
             }
         }
