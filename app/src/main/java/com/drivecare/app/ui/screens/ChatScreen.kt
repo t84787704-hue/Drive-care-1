@@ -48,17 +48,31 @@ fun ChatScreen(
 
     val currentUid = currentUser?.uid ?: ""
 
-    // Mark messages as read on entry and when new messages arrive
-    LaunchedEffect(friendUid, messages.size) {
+    // Detect IME (soft keyboard) bottom padding changes
+    val imeBottomPadding = WindowInsets.ime.asPaddingValues().calculateBottomPadding()
+
+    // Mark messages as read on entry and when friendUid changes
+    LaunchedEffect(friendUid) {
         if (friendUid != null) {
             viewModel.markActiveChatAsRead()
         }
+    }
+
+    // Auto-scroll to latest message when:
+    // 1. Initial load / new message arrives
+    // 2. User sends a message
+    // 3. Soft keyboard opens (imeBottomPadding changes)
+    LaunchedEffect(messages.size, imeBottomPadding) {
         if (messages.isNotEmpty()) {
             listState.animateScrollToItem(messages.size - 1)
         }
     }
 
     Scaffold(
+        modifier = modifier
+            .fillMaxSize()
+            .imePadding(),
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             Surface(
                 color = MaterialTheme.colorScheme.surfaceVariant,
@@ -118,7 +132,9 @@ fun ChatScreen(
             Surface(
                 color = MaterialTheme.colorScheme.surface,
                 tonalElevation = 8.dp,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
             ) {
                 Row(
                     modifier = Modifier
@@ -187,9 +203,10 @@ fun ChatScreen(
         }
     ) { innerPadding ->
         Box(
-            modifier = modifier
+            modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .consumeWindowInsets(innerPadding)
         ) {
             if (messages.isEmpty()) {
                 Column(

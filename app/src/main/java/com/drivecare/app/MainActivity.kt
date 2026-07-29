@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -60,6 +61,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
 
         // Schedule WorkManager system notification worker
         try {
@@ -201,6 +203,8 @@ class MainActivity : ComponentActivity() {
                             MoreSubSection.SETTINGS -> AppStrings.get("settings_title", currentLang)
                             MoreSubSection.PROFILE -> AppStrings.get("user_profile_title", currentLang)
                             MoreSubSection.AUTH -> AppStrings.get("cloud_signin_title", currentLang)
+                            MoreSubSection.CHAT -> "Direct Chat"
+                            MoreSubSection.CONVERSATIONS -> "Messages & Chat"
                             else -> AppStrings.get("tab_more", currentLang)
                         }
                     } else {
