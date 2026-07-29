@@ -326,7 +326,7 @@ private fun LightDarkVariantsContent() {
                             color = Color(0xFF0F172A)
                         )
                         Text(
-                            text = "Your Complete Vehicle Management Platform",
+                            text = "Complete Vehicle Management Platform",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Medium,
                             color = Color(0xFF2563EB)
@@ -370,7 +370,7 @@ private fun LightDarkVariantsContent() {
                             color = Color.White
                         )
                         Text(
-                            text = "Your Complete Vehicle Management Platform",
+                            text = "Complete Vehicle Management Platform",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Medium,
                             color = Color(0xFF34D399)

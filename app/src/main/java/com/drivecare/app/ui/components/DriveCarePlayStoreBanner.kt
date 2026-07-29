@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -76,23 +77,6 @@ fun DriveCarePlayStoreBanner(
                     modifier = Modifier.weight(1.3f),
                     verticalArrangement = Arrangement.Center
                 ) {
-                    Surface(
-                        shape = RoundedCornerShape(20.dp),
-                        color = Color(0xFF10B981).copy(alpha = 0.2f),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF10B981))
-                    ) {
-                        Text(
-                            text = "OFFICIAL PLAY STORE RELEASE",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF34D399),
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                            letterSpacing = 1.sp
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
                     Text(
                         text = "DriveCare",
                         style = MaterialTheme.typography.headlineMedium,
@@ -104,10 +88,10 @@ fun DriveCarePlayStoreBanner(
                     Spacer(modifier = Modifier.height(4.dp))
 
                     Text(
-                        text = "Your Complete Vehicle Management Platform",
+                        text = "Complete Vehicle Management Platform",
                         style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = Color(0xFF94A3B8)
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF38BDF8)
                     )
                 }
 
@@ -128,7 +112,7 @@ fun DriveCarePlayStoreBanner(
                             text = "Core Platform Features",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF38BDF8)
+                            color = Color(0xFF34D399)
                         )
 
                         Row(
@@ -162,7 +146,7 @@ fun DriveCarePlayStoreBanner(
                             FeatureBadge(
                                 modifier = Modifier.weight(1f),
                                 icon = Icons.Default.Description,
-                                label = "Smart Documents",
+                                label = "Documents",
                                 accentColor = Color(0xFFA855F7)
                             )
                         }
@@ -179,8 +163,8 @@ fun DriveCarePlayStoreBanner(
                             )
                             FeatureBadge(
                                 modifier = Modifier.weight(1f),
-                                icon = Icons.Default.Chat,
-                                label = "Secure Messaging",
+                                icon = Icons.AutoMirrored.Filled.Chat,
+                                label = "Smart Chat",
                                 accentColor = Color(0xFF6366F1)
                             )
                         }

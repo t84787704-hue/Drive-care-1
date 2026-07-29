@@ -110,7 +110,7 @@ fun DriveCareSplashScreen(
                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
                 ) {
                     Text(
-                        text = "SMART VEHICLE MANAGEMENT",
+                        text = "COMPLETE VEHICLE MANAGEMENT PLATFORM",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
