@@ -1,6 +1,7 @@
 package com.drivecare.app.ui.screens
 
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -16,12 +17,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import com.drivecare.app.R
 import com.drivecare.app.data.cloud.SyncState
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -548,13 +551,25 @@ fun MoreScreen(
     if (showAboutDialog) {
         AlertDialog(
             onDismissRequest = { showAboutDialog = false },
-            title = { Text(AppStrings.get("app_name", lang), fontWeight = FontWeight.Bold) },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_drivecare_emblem),
+                        contentDescription = "DriveCare Emblem",
+                        modifier = Modifier.size(36.dp)
+                    )
+                    Text(AppStrings.get("app_name", lang), fontWeight = FontWeight.ExtraBold)
+                }
+            },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("DriveCare Worldwide", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("Version 2.0.0 Global Edition", style = MaterialTheme.typography.bodyMedium)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Designed to empower drivers and fleet owners worldwide with intelligent health scoring, fuel tracking, maintenance recommendations, and multi-language support.")
+                    Text("DriveCare Platform", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text("Version 3.5.0 Official Global Release", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("Your Complete Vehicle Management Platform. Empowering drivers and fleet owners worldwide with intelligent health scoring, fuel tracking, maintenance alerts, document security, and real-time family sharing.")
                 }
             },
             confirmButton = {

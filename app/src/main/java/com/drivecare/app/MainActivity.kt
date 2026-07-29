@@ -127,7 +127,14 @@ class MainActivity : ComponentActivity() {
             ) {
                 val colorScheme = if (useDarkTheme) darkColorScheme() else lightColorScheme()
                 MaterialTheme(colorScheme = colorScheme) {
-                    val backStack = remember { mutableStateListOf(NavDestination(NavTab.SUMMARY)) }
+                    var showSplash by remember { mutableStateOf(true) }
+
+                    if (showSplash) {
+                        com.drivecare.app.ui.components.DriveCareSplashScreen(
+                            onSplashFinished = { showSplash = false }
+                        )
+                    } else {
+                        val backStack = remember { mutableStateListOf(NavDestination(NavTab.SUMMARY)) }
 
                     // Handle deep link notification navigation while preserving back navigation
                     val navPair = pendingNavigationExtra
@@ -338,6 +345,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
         }
     }
 

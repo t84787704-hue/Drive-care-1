@@ -293,7 +293,7 @@ private fun LightDarkVariantsContent() {
     ) {
         item {
             Text(
-                text = "1. Light Theme Logo (Daytime / Clean Canvas)",
+                text = "1. Light Theme Logo (Daytime Canvas)",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold
             )
@@ -314,7 +314,7 @@ private fun LightDarkVariantsContent() {
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Image(
-                        painter = painterResource(id = R.drawable.ic_drivecare_emblem),
+                        painter = painterResource(id = R.drawable.ic_drivecare_emblem_light),
                         contentDescription = "DriveCare Light Logo",
                         modifier = Modifier.size(64.dp)
                     )
@@ -326,10 +326,10 @@ private fun LightDarkVariantsContent() {
                             color = Color(0xFF0F172A)
                         )
                         Text(
-                            text = "Smart Vehicle Management",
+                            text = "Your Complete Vehicle Management Platform",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Medium,
-                            color = Color(0xFF00C853)
+                            color = Color(0xFF2563EB)
                         )
                     }
                 }
@@ -338,7 +338,7 @@ private fun LightDarkVariantsContent() {
 
         item {
             Text(
-                text = "2. Dark Theme Logo (Nighttime / High Contrast Canvas)",
+                text = "2. Dark Theme Logo (Nighttime Canvas)",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold
             )
@@ -348,7 +348,7 @@ private fun LightDarkVariantsContent() {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF0A192F))
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF0B132B))
             ) {
                 Row(
                     modifier = Modifier
@@ -358,7 +358,7 @@ private fun LightDarkVariantsContent() {
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Image(
-                        painter = painterResource(id = R.drawable.ic_drivecare_emblem),
+                        painter = painterResource(id = R.drawable.ic_drivecare_emblem_dark),
                         contentDescription = "DriveCare Dark Logo",
                         modifier = Modifier.size(64.dp)
                     )
@@ -370,10 +370,10 @@ private fun LightDarkVariantsContent() {
                             color = Color.White
                         )
                         Text(
-                            text = "Smart Vehicle Management",
+                            text = "Your Complete Vehicle Management Platform",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Medium,
-                            color = Color(0xFF00C853)
+                            color = Color(0xFF34D399)
                         )
                     }
                 }
@@ -382,31 +382,43 @@ private fun LightDarkVariantsContent() {
 
         item {
             Text(
-                text = "3. Transparent Background Emblem",
+                text = "3. Monochrome Vector Logo (High-Contrast Stencil)",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold
             )
         }
 
         item {
-            Surface(
+            Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B))
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(20.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Image(
-                        painter = painterResource(id = R.drawable.ic_drivecare_emblem),
-                        contentDescription = "Transparent Emblem",
-                        modifier = Modifier.size(80.dp)
+                        painter = painterResource(id = R.drawable.ic_drivecare_emblem_mono),
+                        contentDescription = "Monochrome Emblem",
+                        modifier = Modifier.size(64.dp)
                     )
+                    Column {
+                        Text(
+                            text = "Monochrome Version",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "Optimized for single-color printing, engravings, and dark status bars.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF94A3B8)
+                        )
+                    }
                 }
             }
         }
@@ -421,7 +433,7 @@ private fun PlayStoreAssetsContent() {
     ) {
         item {
             Text(
-                text = "1. Google Play Store App Icon (512x512 px)",
+                text = "1. Google Play Store App Icon (512x512 px Adaptive Icon)",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold
             )
@@ -455,13 +467,13 @@ private fun PlayStoreAssetsContent() {
                     Spacer(modifier = Modifier.height(10.dp))
 
                     Text(
-                        text = "512 x 512 PX • High-Res PNG / Vector",
+                        text = "512 x 512 PX • High-Res Vector & Adaptive Mask",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        text = "Complies with Google Play Store adaptive icon mask and safe zone boundaries.",
+                        text = "Complies with Google Play Store adaptive icon mask and 66dp inner safe zone.",
                         style = MaterialTheme.typography.bodySmall,
                         textAlign = TextAlign.Center,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -479,57 +491,9 @@ private fun PlayStoreAssetsContent() {
         }
 
         item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(180.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF0B132B))
-            ) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    // Decorative Background Pattern
-                    Row(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(24.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Surface(
-                                shape = RoundedCornerShape(20.dp),
-                                color = Color(0xFF00C853).copy(alpha = 0.15f)
-                            ) {
-                                Text(
-                                    text = "OFFICIAL APP",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF00C853),
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "DriveCare",
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                            Text(
-                                text = "Smart Vehicle Management & GPS Tracking",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF94A3B8)
-                            )
-                        }
-
-                        Image(
-                            painter = painterResource(id = R.drawable.ic_drivecare_emblem),
-                            contentDescription = "Feature Graphic Emblem",
-                            modifier = Modifier.size(90.dp)
-                        )
-                    }
-                }
-            }
+            DriveCarePlayStoreBanner(
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }

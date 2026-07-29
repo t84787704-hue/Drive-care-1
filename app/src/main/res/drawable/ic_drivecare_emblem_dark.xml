@@ -5,51 +5,50 @@
     android:viewportWidth="200"
     android:viewportHeight="200">
 
-    <!-- Global Connectivity Network Ring (Top Right Orbit Arc) -->
+    <!-- Orbit Ring (Electric Cyan Glow) -->
     <path
-        android:fillColor="#06B6D4"
+        android:fillColor="#22D3EE"
         android:pathData="M140,24 C165,36 182,62 184,92 C186,122 172,152 148,170 L142,162 C162,146 174,122 172,96 C170,70 156,48 134,36 Z" />
 
-    <!-- Outer Protective Shield Badge (Deep Tech Royal Blue #1D4ED8) -->
+    <!-- Outer Shield (Midnight Tech Indigo #0F172A with Cyan Border Accent) -->
     <path
-        android:fillColor="#1D4ED8"
+        android:fillColor="#0B132B"
         android:pathData="M100,16 C124,25 152,28 172,34 C172,82 166,128 100,184 C34,128 28,82 28,34 C48,28 76,25 100,16 Z" />
 
-    <!-- Inner Smart Tech Shield Frame (Electric Cyan #06B6D4 & Emerald #10B981) -->
+    <!-- Inner Shield (Neon Emerald #34D399 & Cyan #22D3EE) -->
     <path
-        android:fillColor="#10B981"
+        android:fillColor="#34D399"
         android:pathData="M100,26 C119,33 143,36 160,41 C160,82 155,120 100,170 C45,120 40,82 40,41 C57,36 81,33 100,26 Z M100,36 C86,42 66,45 52,49 C52,82 56,112 100,154 C144,112 148,82 148,49 C134,45 114,42 100,36 Z" />
 
-    <!-- GPS Location Pin Crest (Integrated at Top Center Shield Crest) -->
+    <!-- GPS Crest (Glowing Rose #FB7185) -->
     <path
-        android:fillColor="#F43F5E"
+        android:fillColor="#FB7185"
         android:pathData="M100,36 C90.6,36 83,43.6 83,53 C83,65.5 100,84 100,84 C100,84 117,65.5 117,53 C117,43.6 109.4,36 100,36 Z" />
 
-    <!-- GPS Pin Inner Core Dot -->
     <path
         android:fillColor="#FFFFFF"
         android:pathData="M100,47 C96.7,47 94,49.7 94,53 C94,56.3 96.7,59 100,59 C103.3,59 106,56.3 106,53 C106,49.7 103.3,47 100,47 Z" />
 
-    <!-- Modern Aerodynamic Vehicle Silhouette (Crisp White #FFFFFF) -->
+    <!-- Luminous White Car Silhouette -->
     <path
         android:fillColor="#FFFFFF"
         android:pathData="M52,110 C56,102 66,93 84,91 C94,90 106,90 116,93 C126,96 136,102 142,110 C144,113 142,116 138,116 L56,116 C52,116 50,113 52,110 Z M74,99 C68,101 64,105 62,109 L132,109 C130,105 126,101 120,99 C110,96 94,95 74,99 Z" />
 
-    <!-- Aerodynamic Speed Line / Windshield Highlight (Cyan #38BDF8) -->
+    <!-- Cyan Windshield Highlight -->
     <path
         android:fillColor="#38BDF8"
         android:pathData="M78,100 C88,97 102,97 112,100 L122,108 L72,108 Z" />
 
-    <!-- Smart Vehicle Headlight Beams (Vibrant Tech Emerald #10B981) -->
+    <!-- Headlight Beams (Neon Cyan) -->
     <path
-        android:fillColor="#10B981"
+        android:fillColor="#22D3EE"
         android:pathData="M48,111 L60,109 L60,113 L48,113 Z" />
 
     <path
-        android:fillColor="#10B981"
+        android:fillColor="#22D3EE"
         android:pathData="M146,111 L134,109 L134,113 L146,113 Z" />
 
-    <!-- Digital Hub Wheels Outer (Royal Navy #0F172A) -->
+    <!-- Wheels -->
     <path
         android:fillColor="#0F172A"
         android:pathData="M74,118 C78.4,118 82,114.4 82,110 C82,105.6 78.4,102 74,102 C69.6,102 66,105.6 66,110 C66,114.4 69.6,118 74,118 Z" />
@@ -58,27 +57,17 @@
         android:fillColor="#0F172A"
         android:pathData="M120,118 C124.4,118 128,114.4 128,110 C128,105.6 124.4,102 120,102 C115.6,102 112,105.6 112,110 C112,114.4 115.6,118 120,118 Z" />
 
-    <!-- Wheel Inner Core (Electric Green #10B981) -->
     <path
-        android:fillColor="#10B981"
+        android:fillColor="#34D399"
         android:pathData="M74,114 C76.2,114 78,112.2 78,110 C78,107.8 76.2,106 74,106 C71.8,106 70,107.8 70,110 C70,112.2 71.8,114 74,114 Z" />
 
     <path
-        android:fillColor="#10B981"
+        android:fillColor="#34D399"
         android:pathData="M120,114 C122.2,114 124,112.2 124,110 C124,107.8 122.2,106 120,106 C117.8,106 116,107.8 116,110 C116,112.2 117.8,114 120,114 Z" />
 
-    <!-- Smart Digital Connectivity Nodes (IoT Health & Cloud Pulse) -->
+    <!-- Neon Emerald Pulse Line -->
     <path
-        android:fillColor="#38BDF8"
-        android:pathData="M100,126 C102.8,126 105,123.8 105,121 C105,118.2 102.8,116 100,116 C97.2,116 95,118.2 95,121 C95,123.8 97.2,126 100,126 Z" />
-
-    <path
-        android:fillColor="#10B981"
-        android:pathData="M100,140 C103.3,140 106,137.3 106,134 C106,130.7 103.3,128 100,128 C96.7,128 94,130.7 94,134 C94,137.3 96.7,140 100,140 Z" />
-
-    <!-- Health Heartbeat Pulse Line at Shield Center Base -->
-    <path
-        android:fillColor="#10B981"
+        android:fillColor="#34D399"
         android:pathData="M76,134 L88,134 L92,128 L97,142 L103,124 L108,136 L112,134 L124,134 L124,137 L110,137 L106,128 L102,146 L96,128 L94,137 L76,137 Z" />
 
 </vector>

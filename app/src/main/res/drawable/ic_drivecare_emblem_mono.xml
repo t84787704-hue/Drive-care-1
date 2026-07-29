@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- Monochrome Outer Shield Outline -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M100,16 C124,25 152,28 172,34 C172,82 166,128 100,184 C34,128 28,82 28,34 C48,28 76,25 100,16 Z M100,28 C82,34 58,37 42,42 C42,82 46,118 100,166 C154,118 158,82 158,42 C142,37 118,34 100,28 Z" />
+
+    <!-- Monochrome GPS Location Pin -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M100,36 C90.6,36 83,43.6 83,53 C83,65.5 100,84 100,84 C100,84 117,65.5 117,53 C117,43.6 109.4,36 100,36 Z M100,58 C97.2,58 95,55.8 95,53 C95,50.2 97.2,48 100,48 C102.8,48 105,50.2 105,53 C105,55.8 102.8,58 100,58 Z" />
+
+    <!-- Monochrome Car Silhouette -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M52,110 C56,102 66,93 84,91 C94,90 106,90 116,93 C126,96 136,102 142,110 C144,113 142,116 138,116 L56,116 C52,116 50,113 52,110 Z M74,99 C68,101 64,105 62,109 L132,109 C130,105 126,101 120,99 C110,96 94,95 74,99 Z" />
+
+    <!-- Monochrome Wheels -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M74,118 C78.4,118 82,114.4 82,110 C82,105.6 78.4,102 74,102 C69.6,102 66,105.6 66,110 C66,114.4 69.6,118 74,118 Z" />
+
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M120,118 C124.4,118 128,114.4 128,110 C128,105.6 124.4,102 120,102 C115.6,102 112,105.6 112,110 C112,114.4 115.6,118 120,118 Z" />
+
+    <!-- Monochrome Pulse Line -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M76,134 L88,134 L92,128 L97,142 L103,124 L108,136 L112,134 L124,134 L124,137 L110,137 L106,128 L102,146 L96,128 L94,137 L76,137 Z" />
+
+</vector>

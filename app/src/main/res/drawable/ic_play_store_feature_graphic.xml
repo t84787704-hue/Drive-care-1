@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="1024dp"
+    android:height="500dp"
+    android:viewportWidth="1024"
+    android:viewportHeight="500">
+
+    <!-- Dark Navy Gradient Background #0B132B -->
+    <path
+        android:fillColor="#0B132B"
+        android:pathData="M0,0 L1024,0 L1024,500 L0,500 Z" />
+
+    <!-- Tech Grid Subtle Lines -->
+    <path
+        android:fillColor="#1D4ED8"
+        android:fillAlpha="0.15"
+        android:pathData="M0,0 L1024,500 L1024,0 L0,500 Z" />
+
+    <!-- Left Shield Emblem Container (Scale and offset for banner left) -->
+    <!-- Shield Outer Badge -->
+    <path
+        android:fillColor="#1D4ED8"
+        android:pathData="M160,110 C208,128 264,134 304,146 C304,242 292,334 160,446 L160,446 C28,334 16,242 16,146 C56,134 112,128 160,110 Z" />
+
+    <!-- Inner Emerald Frame -->
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M160,130 C198,144 246,150 280,160 C280,242 270,318 160,418 C50,318 40,242 40,160 C74,150 122,144 160,130 Z" />
+
+    <!-- Car Silhouette on Banner Left -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M70,290 C78,274 98,256 134,252 C154,250 178,250 198,256 C218,262 238,274 250,290 L80,290 Z" />
+
+    <!-- Right Highlight Badges Background Card Area -->
+    <path
+        android:fillColor="#1E293B"
+        android:fillAlpha="0.6"
+        android:pathData="M680,60 L985,60 C1000,60 1010,70 1010,85 L1010,415 C1010,430 1000,440 985,440 L680,440 C665,440 655,430 655,415 L655,85 C655,70 665,60 680,60 Z" />
+
+</vector>
