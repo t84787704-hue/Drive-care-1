@@ -969,7 +969,13 @@ private fun InsuranceTabContent(
                 }
             }
 
-            items(vInsurance, key = { it.id }) { pol ->
+            items(
+                items = vInsurance,
+                key = { pol ->
+                    if (pol.id != 0L) "vdetail_ins_${pol.id}"
+                    else "vdetail_ins_0_${pol.policyNumber}_${pol.providerName}_${pol.createdAt}_${pol.hashCode()}"
+                }
+            ) { pol ->
                 InsurancePolicyCard(
                     policy = pol,
                     currencySymbol = currencySymbol,

@@ -73,27 +73,27 @@ fun InsuranceRenewalScreen(
         SimpleDateFormat("yyyy-MM-dd", Locale.US).format(cal.time)
     }
 
-    // Filter policies
+    // Filter policies safely using getPolicyStatus
     val filteredPolicies = remember(insurancePolicies, selectedVehicleFilter, selectedStatusFilter) {
-        insurancePolicies.filter { p ->
+        insurancePolicies.toList().filter { p ->
             (selectedVehicleFilter == null || p.vehicleId == selectedVehicleFilter) &&
                     when (selectedStatusFilter) {
-                        "ACTIVE" -> p.expiryDate.isBlank() || p.expiryDate >= warn30DaysStr
-                        "EXPIRING" -> p.expiryDate in todayStr..warn30DaysStr
-                        "EXPIRED" -> p.expiryDate.isNotBlank() && p.expiryDate < todayStr
+                        "ACTIVE" -> p.getPolicyStatus() == "ACTIVE"
+                        "EXPIRING" -> p.getPolicyStatus() == "EXPIRING_SOON"
+                        "EXPIRED" -> p.getPolicyStatus() == "EXPIRED"
                         else -> true
                     }
         }
     }
 
     val activeCount = remember(insurancePolicies) {
-        insurancePolicies.count { it.expiryDate.isBlank() || it.expiryDate >= warn30DaysStr }
+        insurancePolicies.count { it.getPolicyStatus() == "ACTIVE" }
     }
     val expiringCount = remember(insurancePolicies) {
-        insurancePolicies.count { it.expiryDate in todayStr..warn30DaysStr }
+        insurancePolicies.count { it.getPolicyStatus() == "EXPIRING_SOON" }
     }
     val expiredCount = remember(insurancePolicies) {
-        insurancePolicies.count { it.expiryDate.isNotBlank() && it.expiryDate < todayStr }
+        insurancePolicies.count { it.getPolicyStatus() == "EXPIRED" }
     }
 
     Scaffold(
@@ -187,11 +187,11 @@ fun InsuranceRenewalScreen(
                                 label = { Text(AppStrings.get("all_vehicles", lang)) }
                             )
                         }
-                        items(vehicles, key = { it.id }) { v ->
+                        items(vehicles, key = { v -> if (v.id != 0L) "v_chip_${v.id}" else "v_chip_0_${v.vehicleName}_${v.hashCode()}" }) { v ->
                             FilterChip(
                                 selected = selectedVehicleFilter == v.id,
                                 onClick = { selectedVehicleFilter = v.id },
-                                label = { Text(v.vehicleName) }
+                                label = { Text(v.vehicleName.ifBlank { "Vehicle" }) }
                             )
                         }
                     }
@@ -200,30 +200,37 @@ fun InsuranceRenewalScreen(
 
             // Status Filter Chips
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
+                androidx.compose.foundation.lazy.LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    FilterChip(
-                        selected = selectedStatusFilter == "ALL",
-                        onClick = { selectedStatusFilter = "ALL" },
-                        label = { Text("${AppStrings.get("filter_all", lang)} (${insurancePolicies.size})", maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                    )
-                    FilterChip(
-                        selected = selectedStatusFilter == "ACTIVE",
-                        onClick = { selectedStatusFilter = "ACTIVE" },
-                        label = { Text("${AppStrings.get("status_active", lang)} ($activeCount)", maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                    )
-                    FilterChip(
-                        selected = selectedStatusFilter == "EXPIRING",
-                        onClick = { selectedStatusFilter = "EXPIRING" },
-                        label = { Text("${AppStrings.get("filter_expiring", lang)} ($expiringCount)", maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                    )
-                    FilterChip(
-                        selected = selectedStatusFilter == "EXPIRED",
-                        onClick = { selectedStatusFilter = "EXPIRED" },
-                        label = { Text("${AppStrings.get("status_expired", lang)} ($expiredCount)", maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                    )
+                    item {
+                        FilterChip(
+                            selected = selectedStatusFilter == "ALL",
+                            onClick = { selectedStatusFilter = "ALL" },
+                            label = { Text("${AppStrings.get("filter_all", lang)} (${insurancePolicies.size})", maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                        )
+                    }
+                    item {
+                        FilterChip(
+                            selected = selectedStatusFilter == "ACTIVE",
+                            onClick = { selectedStatusFilter = "ACTIVE" },
+                            label = { Text("${AppStrings.get("status_active", lang)} ($activeCount)", maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                        )
+                    }
+                    item {
+                        FilterChip(
+                            selected = selectedStatusFilter == "EXPIRING",
+                            onClick = { selectedStatusFilter = "EXPIRING" },
+                            label = { Text("${AppStrings.get("filter_expiring", lang)} ($expiringCount)", maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                        )
+                    }
+                    item {
+                        FilterChip(
+                            selected = selectedStatusFilter == "EXPIRED",
+                            onClick = { selectedStatusFilter = "EXPIRED" },
+                            label = { Text("${AppStrings.get("status_expired", lang)} ($expiredCount)", maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                        )
+                    }
                 }
             }
 
@@ -232,7 +239,7 @@ fun InsuranceRenewalScreen(
                 item {
                     var vehicleDropdownExpanded by remember { mutableStateOf(false) }
                     val currentVehicleName = remember(selectedVehicleFilter, vehicles) {
-                        vehicles.find { it.id == selectedVehicleFilter }?.vehicleName ?: "All Vehicles"
+                        vehicles.find { it.id == selectedVehicleFilter }?.vehicleName?.ifBlank { "Vehicle" } ?: "All Vehicles"
                     }
 
                     ExposedDropdownMenuBox(
@@ -261,7 +268,7 @@ fun InsuranceRenewalScreen(
                             )
                             vehicles.forEach { v ->
                                 DropdownMenuItem(
-                                    text = { Text("${v.vehicleName} (${v.brand} ${v.model})") },
+                                    text = { Text("${v.vehicleName.ifBlank { "Vehicle" }} (${v.brand} ${v.model})") },
                                     onClick = {
                                         selectedVehicleFilter = v.id
                                         vehicleDropdownExpanded = false
@@ -276,6 +283,18 @@ fun InsuranceRenewalScreen(
             // Policy List
             if (filteredPolicies.isEmpty()) {
                 item {
+                    val fallbackTitle = when (selectedStatusFilter) {
+                        "EXPIRING" -> "No Upcoming Renewals"
+                        "EXPIRED" -> "No Expired Policies"
+                        "ACTIVE" -> "No Active Policies"
+                        else -> "No Insurance Policies Found"
+                    }
+                    val fallbackSubtitle = when (selectedStatusFilter) {
+                        "EXPIRING" -> "There are no insurance policies expiring within the next 30 days."
+                        "EXPIRED" -> "Great news! None of your vehicle insurance policies have expired."
+                        "ACTIVE" -> "No active insurance policies found for the selected filter."
+                        else -> "Tap the + button below to add your vehicle insurance policy and set renewal reminders."
+                    }
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
@@ -294,12 +313,12 @@ fun InsuranceRenewalScreen(
                                 modifier = Modifier.size(48.dp)
                             )
                             Text(
-                                text = "No Insurance Policies Found",
+                                text = fallbackTitle,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "Tap the + button below to add your vehicle insurance policy and set renewal reminders.",
+                                text = fallbackSubtitle,
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -307,28 +326,38 @@ fun InsuranceRenewalScreen(
                     }
                 }
             } else {
-                items(filteredPolicies, key = { it.id }) { policy ->
-                        InsurancePolicyCard(
-                            policy = policy,
-                            currencySymbol = currencySymbol,
-                            todayStr = todayStr,
-                            warn30DaysStr = warn30DaysStr,
-                            onRenew = { policyToRenew = policy },
-                            onEdit = {
-                                policyToEdit = policy
-                                showAddDialog = true
-                            },
-                            onDelete = { policyToDelete = policy },
-                            onCallAgent = {
-                                if (policy.agentContact.isNotBlank()) {
+                items(
+                    items = filteredPolicies,
+                    key = { policy ->
+                        if (policy.id != 0L) "policy_${policy.id}"
+                        else "policy_0_${policy.policyNumber}_${policy.providerName}_${policy.createdAt}_${policy.hashCode()}"
+                    }
+                ) { policy ->
+                    InsurancePolicyCard(
+                        policy = policy,
+                        currencySymbol = currencySymbol,
+                        todayStr = todayStr,
+                        warn30DaysStr = warn30DaysStr,
+                        onRenew = { policyToRenew = policy },
+                        onEdit = {
+                            policyToEdit = policy
+                            showAddDialog = true
+                        },
+                        onDelete = { policyToDelete = policy },
+                        onCallAgent = {
+                            if (policy.agentContact.isNotBlank()) {
+                                try {
                                     val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${policy.agentContact}"))
                                     context.startActivity(intent)
-                                } else {
-                                    Toast.makeText(context, "No agent phone number provided", Toast.LENGTH_SHORT).show()
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Cannot dial ${policy.agentContact}", Toast.LENGTH_SHORT).show()
                                 }
+                            } else {
+                                Toast.makeText(context, "No agent phone number provided", Toast.LENGTH_SHORT).show()
                             }
-                        )
-                    }
+                        }
+                    )
+                }
             }
         }
     }
@@ -488,14 +517,14 @@ fun InsurancePolicyCard(
                     )
                     Column {
                         Text(
-                            text = policy.providerName,
+                            text = policy.providerName.ifBlank { "Insurance Provider" },
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = "${AppStrings.get("policy_no_prefix", lang)} ${policy.policyNumber}",
+                            text = "${AppStrings.get("policy_no_prefix", lang)} ${policy.policyNumber.ifBlank { "N/A" }}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
@@ -538,11 +567,11 @@ fun InsurancePolicyCard(
             ) {
                 Column {
                     Text(AppStrings.get("vehicle_linked", lang), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(policy.vehicleName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(policy.vehicleName.ifBlank { "Unassigned Vehicle" }, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 Column {
                     Text(AppStrings.get("coverage_type", lang), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(policy.coverageType, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(policy.coverageType.ifBlank { "Comprehensive" }, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 Column {
                     Text(AppStrings.get("premium", lang), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)

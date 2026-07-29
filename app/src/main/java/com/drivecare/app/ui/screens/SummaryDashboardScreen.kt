@@ -371,13 +371,24 @@ fun SummaryDashboardScreen(
         }
 
         // Insurance Status & Expiry Summary
-        val activeInsCount = remember(insurancePolicies) { insurancePolicies.count { it.getPolicyStatus() == "ACTIVE" } }
-        val expiringInsCount = remember(insurancePolicies) { insurancePolicies.count { it.getPolicyStatus() == "EXPIRING_SOON" } }
-        val expiredInsCount = remember(insurancePolicies) { insurancePolicies.count { it.getPolicyStatus() == "EXPIRED" } }
+        val activeInsCount = remember(insurancePolicies) { 
+            try { insurancePolicies.count { it.getPolicyStatus() == "ACTIVE" } } catch (e: Exception) { 0 } 
+        }
+        val expiringInsCount = remember(insurancePolicies) { 
+            try { insurancePolicies.count { it.getPolicyStatus() == "EXPIRING_SOON" } } catch (e: Exception) { 0 } 
+        }
+        val expiredInsCount = remember(insurancePolicies) { 
+            try { insurancePolicies.count { it.getPolicyStatus() == "EXPIRED" } } catch (e: Exception) { 0 } 
+        }
         val urgentInsuranceList = remember(insurancePolicies) {
-            insurancePolicies
-                .filter { it.getPolicyStatus() != "ACTIVE" || (it.calculateDaysUntilExpiry() ?: 999) <= 60 }
-                .sortedBy { it.calculateDaysUntilExpiry() ?: 999 }
+            try {
+                insurancePolicies
+                    .toList()
+                    .filter { it.getPolicyStatus() != "ACTIVE" || (it.calculateDaysUntilExpiry() ?: 999) <= 60 }
+                    .sortedBy { it.calculateDaysUntilExpiry() ?: 999 }
+            } catch (e: Exception) {
+                emptyList()
+            }
         }
 
         Card(
@@ -424,13 +435,17 @@ fun SummaryDashboardScreen(
                     }
                 }
 
+                Text("Upcoming Renewals & Expired Alerts", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+
                 if (urgentInsuranceList.isNotEmpty()) {
-                    Text("Upcoming Renewals & Expired Alerts", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         urgentInsuranceList.take(3).forEach { pol ->
                             val status = pol.getPolicyStatus()
                             val isExp = status == "EXPIRED"
                             val isWarn = status == "EXPIRING_SOON"
+                            val vehicleLabel = pol.vehicleName.ifBlank { "Unassigned Vehicle" }
+                            val providerLabel = pol.providerName.ifBlank { "Insurance Provider" }
+                            val policyNoLabel = pol.policyNumber.ifBlank { "N/A" }
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -441,8 +456,8 @@ fun SummaryDashboardScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text("${pol.vehicleName} • ${pol.providerName}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Text("Policy: ${pol.policyNumber} • ${pol.getExpiryCountdownText()}", style = MaterialTheme.typography.bodySmall, color = if (isExp) Color(0xFFC62828) else if (isWarn) Color(0xFFF57F17) else MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("$vehicleLabel • $providerLabel", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text("Policy: $policyNoLabel • ${pol.getExpiryCountdownText()}", style = MaterialTheme.typography.bodySmall, color = if (isExp) Color(0xFFC62828) else if (isWarn) Color(0xFFF57F17) else MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 Button(
                                     onClick = { renewingInsurancePolicy = pol },
@@ -452,6 +467,25 @@ fun SummaryDashboardScreen(
                                     Text("Renew", style = MaterialTheme.typography.labelSmall)
                                 }
                             }
+                        }
+                    }
+                } else {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF2E7D32), modifier = Modifier.size(20.dp))
+                            Text(
+                                text = "No upcoming renewals or expired policies. All policies are active & up to date!",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }

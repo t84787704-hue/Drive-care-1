@@ -35,10 +35,23 @@ data class InsurancePolicy(
     fun calculateDaysUntilExpiry(): Long? {
         if (expiryDate.isBlank()) return null
         return try {
-            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-            val exp = sdf.parse(expiryDate) ?: return null
-            val todayStr = sdf.format(Date())
-            val today = sdf.parse(todayStr) ?: return null
+            val cleanStr = expiryDate.trim().take(10)
+            val formats = arrayOf("yyyy-MM-dd", "yyyy/MM/dd", "dd-MM-yyyy", "dd/MM/yyyy")
+            var parsedDate: Date? = null
+            for (fmt in formats) {
+                try {
+                    val sdf = SimpleDateFormat(fmt, Locale.US)
+                    sdf.isLenient = false
+                    parsedDate = sdf.parse(cleanStr)
+                    if (parsedDate != null) break
+                } catch (e: Exception) {
+                    // Try next format
+                }
+            }
+            val exp = parsedDate ?: return null
+            val sdfDay = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+            val todayStr = sdfDay.format(Date())
+            val today = sdfDay.parse(todayStr) ?: return null
             val diffMs = exp.time - today.time
             TimeUnit.MILLISECONDS.toDays(diffMs)
         } catch (e: Exception) {
@@ -48,20 +61,31 @@ data class InsurancePolicy(
 
     fun getExpiryCountdownText(): String {
         val days = calculateDaysUntilExpiry() ?: return "No Expiry Date"
-        return when {
-            days < 0 -> "Expired ${-days} day${if (-days > 1) "s" else ""} ago"
-            days == 0L -> "Expires Today"
-            days == 1L -> "Expires Tomorrow"
-            else -> "Expires in $days days"
+        return try {
+            when {
+                days < 0 -> {
+                    val absDays = if (days == Long.MIN_VALUE) Long.MAX_VALUE else -days
+                    "Expired $absDays day${if (absDays > 1L) "s" else ""} ago"
+                }
+                days == 0L -> "Expires Today"
+                days == 1L -> "Expires Tomorrow"
+                else -> "Expires in $days days"
+            }
+        } catch (e: Exception) {
+            "No Expiry Date"
         }
     }
 
     fun getPolicyStatus(): String {
-        val days = calculateDaysUntilExpiry() ?: return "ACTIVE"
-        return when {
-            days < 0 -> "EXPIRED"
-            days <= 30 -> "EXPIRING_SOON"
-            else -> "ACTIVE"
+        return try {
+            val days = calculateDaysUntilExpiry() ?: return "ACTIVE"
+            when {
+                days < 0 -> "EXPIRED"
+                days <= 30 -> "EXPIRING_SOON"
+                else -> "ACTIVE"
+            }
+        } catch (e: Exception) {
+            "ACTIVE"
         }
     }
 }
