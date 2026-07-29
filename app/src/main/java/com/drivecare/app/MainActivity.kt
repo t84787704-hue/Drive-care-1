@@ -63,6 +63,13 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        // Initialize FCM & Application Notification Channels
+        try {
+            com.drivecare.app.utils.FcmNotificationManager.createNotificationChannels(this)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
         // Schedule WorkManager system notification worker
         try {
             DriveCareNotificationScheduler.schedulePeriodicCheck(this)
@@ -91,7 +98,16 @@ class MainActivity : ComponentActivity() {
         setContent {
             val currentLang by viewModel.currentLanguage.collectAsState()
             val themeMode by viewModel.themeMode.collectAsState()
+            val currentUser by viewModel.currentUser.collectAsState()
             val systemInDark = isSystemInDarkTheme()
+
+            LaunchedEffect(currentUser?.uid) {
+                val uid = currentUser?.uid
+                if (!uid.isNullOrBlank()) {
+                    com.drivecare.app.utils.FcmNotificationManager.syncFcmToken(this@MainActivity, uid)
+                    com.drivecare.app.utils.FcmNotificationManager.startRealtimeNotificationListener(this@MainActivity, uid)
+                }
+            }
 
             val useDarkTheme = when (themeMode) {
                 "DARK" -> true
@@ -481,10 +497,15 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         viewModel.setUserOnlineStatus(true)
+        val uid = viewModel.currentUser.value?.uid ?: ""
+        if (uid.isNotBlank()) {
+            com.drivecare.app.utils.FcmNotificationManager.startRealtimeNotificationListener(this, uid)
+        }
     }
 
     override fun onPause() {
         super.onPause()
         viewModel.setUserOnlineStatus(false)
+        com.drivecare.app.utils.FcmNotificationManager.stopRealtimeNotificationListener()
     }
 }

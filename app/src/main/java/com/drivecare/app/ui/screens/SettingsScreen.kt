@@ -54,6 +54,10 @@ fun SettingsScreen(
     val notifyInsurance by viewModel.notifyInsurance.collectAsState()
     val notifyDocuments by viewModel.notifyDocuments.collectAsState()
     val notifyExpenses by viewModel.notifyExpenses.collectAsState()
+    val notifyChat by viewModel.notifyChat.collectAsState()
+    val notifyFriendRequests by viewModel.notifyFriendRequests.collectAsState()
+    val notifyVehicleSharing by viewModel.notifyVehicleSharing.collectAsState()
+    val notifyGeneral by viewModel.notifyGeneral.collectAsState()
 
     var showBackupDialog by remember { mutableStateOf(false) }
     var showRestoreDialog by remember { mutableStateOf(false) }
@@ -353,6 +357,54 @@ fun SettingsScreen(
                     Switch(
                         checked = notifyExpenses,
                         onCheckedChange = { viewModel.setNotificationPreference("expenses", it) }
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Chat Message Notifications", style = MaterialTheme.typography.bodyMedium)
+                    Switch(
+                        checked = notifyChat,
+                        onCheckedChange = { viewModel.setNotificationPreference("chat", it) }
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Friend Request Notifications", style = MaterialTheme.typography.bodyMedium)
+                    Switch(
+                        checked = notifyFriendRequests,
+                        onCheckedChange = { viewModel.setNotificationPreference("friend_requests", it) }
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Vehicle Sharing Notifications", style = MaterialTheme.typography.bodyMedium)
+                    Switch(
+                        checked = notifyVehicleSharing,
+                        onCheckedChange = { viewModel.setNotificationPreference("vehicle_sharing", it) }
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("General System Notifications", style = MaterialTheme.typography.bodyMedium)
+                    Switch(
+                        checked = notifyGeneral,
+                        onCheckedChange = { viewModel.setNotificationPreference("general", it) }
                     )
                 }
 

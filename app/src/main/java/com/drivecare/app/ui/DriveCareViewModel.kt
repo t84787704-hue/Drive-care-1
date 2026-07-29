@@ -327,6 +327,18 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     private val _notifyExpenses = MutableStateFlow(prefs.getBoolean("notify_expenses", true))
     val notifyExpenses: StateFlow<Boolean> = _notifyExpenses.asStateFlow()
 
+    private val _notifyChat = MutableStateFlow(prefs.getBoolean("notify_chat", true))
+    val notifyChat: StateFlow<Boolean> = _notifyChat.asStateFlow()
+
+    private val _notifyFriendRequests = MutableStateFlow(prefs.getBoolean("notify_friend_requests", true))
+    val notifyFriendRequests: StateFlow<Boolean> = _notifyFriendRequests.asStateFlow()
+
+    private val _notifyVehicleSharing = MutableStateFlow(prefs.getBoolean("notify_vehicle_sharing", true))
+    val notifyVehicleSharing: StateFlow<Boolean> = _notifyVehicleSharing.asStateFlow()
+
+    private val _notifyGeneral = MutableStateFlow(prefs.getBoolean("notify_general", true))
+    val notifyGeneral: StateFlow<Boolean> = _notifyGeneral.asStateFlow()
+
     private val _currentLanguage = MutableStateFlow(
         try {
             val code = prefs.getString("selected_language", AppLanguage.ENGLISH.code) ?: AppLanguage.ENGLISH.code
@@ -1898,6 +1910,22 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
             "expenses" -> {
                 _notifyExpenses.value = enabled
                 prefs.edit().putBoolean("notify_expenses", enabled).apply()
+            }
+            "chat" -> {
+                _notifyChat.value = enabled
+                prefs.edit().putBoolean("notify_chat", enabled).apply()
+            }
+            "friend_requests" -> {
+                _notifyFriendRequests.value = enabled
+                prefs.edit().putBoolean("notify_friend_requests", enabled).apply()
+            }
+            "vehicle_sharing" -> {
+                _notifyVehicleSharing.value = enabled
+                prefs.edit().putBoolean("notify_vehicle_sharing", enabled).apply()
+            }
+            "general" -> {
+                _notifyGeneral.value = enabled
+                prefs.edit().putBoolean("notify_general", enabled).apply()
             }
         }
     }

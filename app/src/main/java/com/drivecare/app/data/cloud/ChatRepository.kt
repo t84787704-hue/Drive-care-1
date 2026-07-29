@@ -252,6 +252,29 @@ class ChatRepository(private val firestore: FirebaseFirestore = FirebaseFirestor
                 convRef.set(updateMap, SetOptions.merge()).await()
             }
 
+            // Trigger FCM / Firestore push notification to recipient
+            val previewText = when {
+                chatMessage.messageText.contains("Voice Message") || chatMessage.messageText.startsWith("[Voice]") || chatMessage.messageText.startsWith("[Audio]") -> "🎤 Voice Message"
+                chatMessage.messageText.contains("Image") || chatMessage.messageText.startsWith("[Image]") || chatMessage.messageText.startsWith("[Photo]") -> "📷 Image"
+                else -> chatMessage.messageText
+            }
+            val notifType = when {
+                previewText.contains("Voice") -> "CHAT_VOICE"
+                previewText.contains("Image") -> "CHAT_IMAGE"
+                else -> "CHAT_TEXT"
+            }
+
+            com.drivecare.app.utils.FcmNotificationManager.sendPushNotification(
+                recipientUid = receiverUid,
+                title = senderName.ifBlank { "DriveCare User" },
+                body = previewText,
+                type = notifType,
+                friendUid = senderUid,
+                friendName = senderName,
+                targetTab = "MORE",
+                targetSection = "CHAT"
+            )
+
             Result.success(chatMessage)
         } catch (e: Exception) {
             Log.e("ChatRepository", "sendMessage failed: ${e.message}", e)
@@ -310,50 +333,27 @@ class ChatRepository(private val firestore: FirebaseFirestore = FirebaseFirestor
         conversationId: String,
         senderUid: String
     ) {
-        try {
-            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val channel = NotificationChannel(
-                    CHANNEL_ID_CHAT,
-                    "DriveCare Chat Messages",
-                    NotificationManager.IMPORTANCE_HIGH
-                ).apply {
-                    description = "Notifications for incoming real-time messages from friends"
-                }
-                notificationManager.createNotificationChannel(channel)
-            }
-
-            val intent = Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                putExtra("target_tab", "MORE")
-                putExtra("target_section", "CHAT")
-                putExtra("conversation_id", conversationId)
-                putExtra("friend_uid", senderUid)
-                putExtra("friend_name", senderName)
-            }
-
-            val pendingIntent = PendingIntent.getActivity(
-                context,
-                conversationId.hashCode(),
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-
-            val notification = NotificationCompat.Builder(context, CHANNEL_ID_CHAT)
-                .setSmallIcon(R.mipmap.ic_launcher)
-                .setContentTitle("Message from $senderName")
-                .setContentText(messageText)
-                .setAutoCancel(true)
-                .setContentIntent(pendingIntent)
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-                .build()
-
-            notificationManager.notify(conversationId.hashCode(), notification)
-        } catch (e: Exception) {
-            Log.e("ChatRepository", "Error showing message notification: ${e.message}")
+        val previewText = when {
+            messageText.contains("Voice Message") || messageText.startsWith("[Voice]") || messageText.startsWith("[Audio]") -> "🎤 Voice Message"
+            messageText.contains("Image") || messageText.startsWith("[Image]") || messageText.startsWith("[Photo]") -> "📷 Image"
+            else -> messageText
         }
+        val type = when {
+            previewText.contains("Voice") -> "CHAT_VOICE"
+            previewText.contains("Image") -> "CHAT_IMAGE"
+            else -> "CHAT_TEXT"
+        }
+        com.drivecare.app.utils.FcmNotificationManager.showNotification(
+            context = context,
+            title = senderName.ifBlank { "Friend" },
+            body = previewText,
+            type = type,
+            friendUid = senderUid,
+            friendName = senderName,
+            targetTab = "MORE",
+            targetSection = "CHAT",
+            notificationId = conversationId.hashCode()
+        )
     }
 
     /**

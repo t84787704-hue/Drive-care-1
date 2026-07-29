@@ -1156,9 +1156,13 @@ class FirebaseSyncManager private constructor() {
 
             sendNotification(
                 recipientUid = targetUser.uid,
-                title = "New Friend Request",
+                title = "DriveCare",
                 message = "${senderProf?.fullName ?: sender.displayName ?: "A user"} sent you a friend request.",
-                type = "FRIEND_REQUEST"
+                type = "FRIEND_REQUEST",
+                friendUid = sender.uid,
+                friendName = senderProf?.fullName ?: sender.displayName ?: "",
+                targetTab = "MORE",
+                targetSection = "FAMILY_SHARING"
             )
 
             addAuditLog("[SOCIAL] Sent friend request to ${targetUser.email}")
@@ -1192,9 +1196,13 @@ class FirebaseSyncManager private constructor() {
 
             sendNotification(
                 recipientUid = request.senderUid,
-                title = "Friend Request Accepted",
-                message = "${request.receiverName} accepted your friend request!",
-                type = "FRIEND_ACCEPTED"
+                title = "DriveCare",
+                message = "${request.receiverName} accepted your friend request.",
+                type = "FRIEND_ACCEPTED",
+                friendUid = request.receiverUid,
+                friendName = request.receiverName,
+                targetTab = "MORE",
+                targetSection = "FAMILY_SHARING"
             )
 
             addAuditLog("[SOCIAL] Accepted friend request from ${request.senderEmail}")
@@ -1363,9 +1371,11 @@ class FirebaseSyncManager private constructor() {
             if (targetUserUid.isNotBlank()) {
                 sendNotification(
                     recipientUid = targetUserUid,
-                    title = "Vehicle Access Granted",
-                    message = "${ownerProf?.fullName ?: owner.displayName ?: "Owner"} shared vehicle '${vehicle.vehicleName}' with you ($permission level).",
-                    type = "VEHICLE_SHARED"
+                    title = "DriveCare",
+                    message = "A vehicle has been shared with you.",
+                    type = "VEHICLE_SHARING",
+                    targetTab = "GARAGE",
+                    targetSection = "MENU"
                 )
             }
 
@@ -1590,7 +1600,11 @@ class FirebaseSyncManager private constructor() {
         recipientUid: String,
         title: String,
         message: String,
-        type: String
+        type: String,
+        friendUid: String? = null,
+        friendName: String? = null,
+        targetTab: String? = null,
+        targetSection: String? = null
     ) = withContext(Dispatchers.IO) {
         if (recipientUid.isBlank()) return@withContext
         try {
@@ -1601,7 +1615,12 @@ class FirebaseSyncManager private constructor() {
                 "recipientUid" to recipientUid,
                 "title" to title,
                 "message" to message,
+                "body" to message,
                 "type" to type,
+                "friendUid" to (friendUid ?: ""),
+                "friendName" to (friendName ?: ""),
+                "targetTab" to (targetTab ?: ""),
+                "targetSection" to (targetSection ?: ""),
                 "isRead" to false,
                 "createdAt" to System.currentTimeMillis()
             )
