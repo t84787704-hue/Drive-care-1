@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.drivecare.app.R
@@ -77,23 +78,23 @@ fun DriveCareSplashScreen(
                     .scale(scale)
                     .alpha(alpha)
             ) {
-                // Logo Emblem Container
+                // Logo Emblem Container (Enlarged by ~18%)
                 Box(
                     modifier = Modifier
-                        .size(130.dp)
+                        .size(154.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.primaryContainer)
-                        .padding(16.dp),
+                        .padding(18.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
                         painter = painterResource(id = R.drawable.ic_drivecare_emblem),
                         contentDescription = "DriveCare Emblem",
-                        modifier = Modifier.size(90.dp)
+                        modifier = Modifier.size(106.dp)
                     )
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(26.dp))
 
                 Text(
                     text = "DriveCare",
@@ -103,21 +104,17 @@ fun DriveCareSplashScreen(
                     letterSpacing = 1.5.sp
                 )
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                ) {
-                    Text(
-                        text = "COMPLETE VEHICLE MANAGEMENT PLATFORM",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-                        letterSpacing = 2.sp
-                    )
-                }
+                Text(
+                    text = "Smart Vehicle Management\nfor Families & Fleets",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 20.sp,
+                    letterSpacing = 0.5.sp
+                )
             }
 
             // Bottom Global Version Tag
@@ -130,8 +127,9 @@ fun DriveCareSplashScreen(
             ) {
                 Text(
                     text = "Official Global Edition • v3.5.0",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    letterSpacing = 0.5.sp
                 )
             }
         }
