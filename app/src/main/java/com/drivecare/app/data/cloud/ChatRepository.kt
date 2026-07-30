@@ -249,9 +249,7 @@ class ChatRepository(private val firestore: FirebaseFirestore = FirebaseFirestor
                 val existingNames = convDoc.get("participantNames") as? Map<String, String> ?: emptyMap()
                 val updatedNames = existingNames.toMutableMap().apply {
                     if (senderName.isNotBlank() && senderName != "DriveCare User") put(senderUid, senderName)
-                    if (receiverName.isNotBlank() && receiverName != "DriveCare User" && !receiverName.equals(senderName, ignoreCase = true)) {
-                        put(receiverUid, receiverName)
-                    }
+                    if (receiverName.isNotBlank() && receiverName != "DriveCare User") put(receiverUid, receiverName)
                 }
 
                 val existingEmails = convDoc.get("participantEmails") as? Map<String, String> ?: emptyMap()

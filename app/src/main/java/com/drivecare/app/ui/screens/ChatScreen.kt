@@ -67,7 +67,7 @@ fun ChatScreen(
     var recordingSeconds by remember { mutableIntStateOf(0) }
     var selectedImageForPreview by remember { mutableStateOf<ImageBitmap?>(null) }
 
-    val currentUid = currentUser?.uid ?: ""
+    val currentUid = (currentUser?.uid ?: "").ifBlank { com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: "" }
 
     // Detect IME (soft keyboard) bottom padding changes
     val imeBottomPadding = WindowInsets.ime.asPaddingValues().calculateBottomPadding()

@@ -2149,7 +2149,9 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun startListeningConversations() {
-        val uid = currentUser.value?.uid ?: ""
+        val uid = currentUser.value?.uid
+            ?: com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+            ?: ""
         conversationsJob?.cancel()
         if (uid.isNotBlank()) {
             conversationsJob = viewModelScope.launch {
@@ -2180,11 +2182,27 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
             ?: ""
 
         activeChatFriendUid.value = friendUid
-        activeChatFriendName.value = if (friendName.isNotBlank() && !friendName.equals(myName, ignoreCase = true)) {
+
+        var initialFriendName = if (friendName.isNotBlank() && !friendName.equals(myName, ignoreCase = true) && friendName != "DriveCare User") {
             friendName
         } else {
-            friendEmail.ifBlank { "Friend" }
+            ""
         }
+
+        // Search in local friendships
+        if (initialFriendName.isBlank()) {
+            val fship = _friendships.value.find {
+                (it.user1Uid.equals(friendUid, ignoreCase = true) || it.user2Uid.equals(friendUid, ignoreCase = true))
+            }
+            if (fship != null) {
+                val fname = if (fship.user1Uid.equals(friendUid, ignoreCase = true)) fship.user1Name else fship.user2Name
+                if (fname.isNotBlank() && !fname.equals(myName, ignoreCase = true) && fname != "DriveCare User") {
+                    initialFriendName = fname
+                }
+            }
+        }
+
+        activeChatFriendName.value = initialFriendName.ifBlank { friendEmail.ifBlank { "Friend" } }
         activeChatFriendEmail.value = friendEmail
         activeChatFriendPhotoUrl.value = ""
         com.drivecare.app.utils.FcmNotificationManager.activeChatFriendUid = friendUid
@@ -2194,7 +2212,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
             try {
                 val friendProfile = syncManager.fetchPublicUserProfile(friendUid)
                 if (friendProfile != null) {
-                    if (friendProfile.displayName.isNotBlank() && !friendProfile.displayName.equals(myName, ignoreCase = true)) {
+                    if (friendProfile.displayName.isNotBlank() && friendProfile.displayName != "DriveCare User" && !friendProfile.displayName.equals(myName, ignoreCase = true)) {
                         activeChatFriendName.value = friendProfile.displayName
                     }
                     if (friendProfile.email.isNotBlank()) {

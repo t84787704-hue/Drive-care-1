@@ -36,7 +36,7 @@ fun ConversationsListScreen(
     var searchQuery by remember { mutableStateOf("") }
     var showNewChatDialog by remember { mutableStateOf(false) }
 
-    val validConversations = remember(conversations, activeUid) {
+    val validConversations = remember(conversations, activeUid, friendships) {
         conversations.filter { conv ->
             val parts = conv.conversationId.split("_")
             val otherUidFromId = parts.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) } ?: ""
@@ -50,21 +50,49 @@ fun ConversationsListScreen(
         }
     }
 
-    val filteredConversations = remember(validConversations, searchQuery, activeUid) {
+    val myName = currentUser?.displayName ?: ""
+
+    fun resolveOtherDetails(conversation: Conversation): Triple<String, String, String> {
+        val parts = conversation.conversationId.split("_")
+        val otherUidFromId = parts.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) } ?: ""
+        val otherUid = if (otherUidFromId.isNotBlank()) otherUidFromId else {
+            conversation.participants.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
+                ?: conversation.participantNames.keys.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
+                ?: conversation.participantEmails.keys.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
+                ?: ""
+        }
+        if (otherUid.isBlank() || otherUid.equals(activeUid, ignoreCase = true)) {
+            return Triple("", "", "")
+        }
+
+        var name = conversation.participantNames[otherUid] ?: ""
+        var email = conversation.participantEmails[otherUid] ?: ""
+
+        if (name.isBlank() || (myName.isNotBlank() && name.equals(myName, ignoreCase = true)) || name == "DriveCare User") {
+            val fship = friendships.find {
+                it.user1Uid.equals(otherUid, ignoreCase = true) || it.user2Uid.equals(otherUid, ignoreCase = true)
+            }
+            if (fship != null) {
+                val fname = if (fship.user1Uid.equals(otherUid, ignoreCase = true)) fship.user1Name else fship.user2Name
+                val femail = if (fship.user1Uid.equals(otherUid, ignoreCase = true)) fship.user1Email else fship.user2Email
+                if (fname.isNotBlank() && (myName.isBlank() || !fname.equals(myName, ignoreCase = true)) && fname != "DriveCare User") {
+                    name = fname
+                }
+                if (femail.isNotBlank()) {
+                    email = femail
+                }
+            }
+        }
+
+        return Triple(otherUid, name, email)
+    }
+
+    val filteredConversations = remember(validConversations, searchQuery, activeUid, friendships, myName) {
         if (searchQuery.isBlank()) {
             validConversations
         } else {
             validConversations.filter { conv ->
-                val parts = conv.conversationId.split("_")
-                val otherUidFromId = parts.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) } ?: ""
-                val otherUid = if (otherUidFromId.isNotBlank()) otherUidFromId else {
-                    conv.participants.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
-                        ?: conv.participantNames.keys.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
-                        ?: conv.participantEmails.keys.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
-                        ?: ""
-                }
-                val otherName = conv.participantNames[otherUid] ?: ""
-                val otherEmail = conv.participantEmails[otherUid] ?: ""
+                val (_, otherName, otherEmail) = resolveOtherDetails(conv)
                 otherName.contains(searchQuery, ignoreCase = true) ||
                         otherEmail.contains(searchQuery, ignoreCase = true) ||
                         conv.lastMessage.contains(searchQuery, ignoreCase = true)
@@ -155,21 +183,14 @@ fun ConversationsListScreen(
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(filteredConversations, key = { it.conversationId }) { conversation ->
+                    val (otherUid, otherName, otherEmail) = resolveOtherDetails(conversation)
                     ConversationItemCard(
                         conversation = conversation,
                         currentUid = activeUid,
+                        displayName = otherName,
+                        displayEmail = otherEmail,
                         onClick = {
-                            val parts = conversation.conversationId.split("_")
-                            val otherUidFromId = parts.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) } ?: ""
-                            val otherUid = if (otherUidFromId.isNotBlank()) otherUidFromId else {
-                                conversation.participants.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
-                                    ?: conversation.participantNames.keys.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
-                                    ?: conversation.participantEmails.keys.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
-                                    ?: ""
-                            }
                             if (otherUid.isNotBlank() && !otherUid.equals(activeUid, ignoreCase = true)) {
-                                val otherName = conversation.participantNames[otherUid] ?: ""
-                                val otherEmail = conversation.participantEmails[otherUid] ?: ""
                                 onOpenChat(otherUid, otherName, otherEmail)
                             }
                         }
@@ -278,6 +299,8 @@ fun ConversationsListScreen(
 fun ConversationItemCard(
     conversation: Conversation,
     currentUid: String,
+    displayName: String = "",
+    displayEmail: String = "",
     onClick: () -> Unit
 ) {
     val activeUid = currentUid.ifBlank { com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: "" }
@@ -289,8 +312,8 @@ fun ConversationItemCard(
             ?: conversation.participantEmails.keys.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
             ?: ""
     }
-    val otherName = conversation.participantNames[otherUid] ?: ""
-    val otherEmail = conversation.participantEmails[otherUid] ?: ""
+    val otherName = displayName.ifBlank { conversation.participantNames[otherUid] ?: "" }
+    val otherEmail = displayEmail.ifBlank { conversation.participantEmails[otherUid] ?: "" }
     val unreadCount = conversation.unreadCounts[activeUid] ?: 0L
 
     val timeFormat = remember { SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()) }
