@@ -319,7 +319,6 @@ object FcmNotificationManager {
         activeUid = uid
         notificationListener = db.collection("users").document(uid)
             .collection("notifications")
-            .whereGreaterThan("createdAt", listenTime)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     Log.e(TAG, "Error listening to user notifications: ${error.message}")
@@ -330,30 +329,33 @@ object FcmNotificationManager {
                     for (docChange in snapshot.documentChanges) {
                         if (docChange.type == com.google.firebase.firestore.DocumentChange.Type.ADDED) {
                             val doc = docChange.document
-                            val isRead = doc.getBoolean("isRead") ?: false
-                            if (!isRead) {
-                                val title = doc.getString("title") ?: "DriveCare"
-                                val body = doc.getString("body") ?: doc.getString("message") ?: ""
-                                val type = doc.getString("type") ?: "GENERAL"
-                                val friendUid = doc.getString("friendUid")
-                                val friendName = doc.getString("friendName")
-                                val targetTab = doc.getString("targetTab")
-                                val targetSection = doc.getString("targetSection")
+                            val createdAt = doc.getLong("createdAt") ?: 0L
+                            if (createdAt >= listenTime) {
+                                val isRead = doc.getBoolean("isRead") ?: false
+                                if (!isRead) {
+                                    val title = doc.getString("title") ?: "DriveCare"
+                                    val body = doc.getString("body") ?: doc.getString("message") ?: ""
+                                    val type = doc.getString("type") ?: "GENERAL"
+                                    val friendUid = doc.getString("friendUid")
+                                    val friendName = doc.getString("friendName")
+                                    val targetTab = doc.getString("targetTab")
+                                    val targetSection = doc.getString("targetSection")
 
-                                showNotification(
-                                    context = context,
-                                    title = title,
-                                    body = body,
-                                    type = type,
-                                    friendUid = friendUid,
-                                    friendName = friendName,
-                                    targetTab = targetTab,
-                                    targetSection = targetSection,
-                                    notificationId = doc.id.hashCode()
-                                )
+                                    showNotification(
+                                        context = context,
+                                        title = title,
+                                        body = body,
+                                        type = type,
+                                        friendUid = friendUid,
+                                        friendName = friendName,
+                                        targetTab = targetTab,
+                                        targetSection = targetSection,
+                                        notificationId = doc.id.hashCode()
+                                    )
 
-                                // Mark as read locally processed
-                                doc.reference.update("isRead", true)
+                                    // Mark as read locally processed
+                                    doc.reference.update("isRead", true)
+                                }
                             }
                         }
                     }
