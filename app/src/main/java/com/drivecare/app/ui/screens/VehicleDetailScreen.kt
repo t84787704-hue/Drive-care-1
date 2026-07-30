@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -969,13 +970,12 @@ private fun InsuranceTabContent(
                 }
             }
 
-            items(
+            itemsIndexed(
                 items = vInsurance,
-                key = { pol ->
-                    if (pol.id != 0L) "vdetail_ins_${pol.id}"
-                    else "vdetail_ins_0_${pol.policyNumber}_${pol.providerName}_${pol.createdAt}_${pol.hashCode()}"
+                key = { index, pol ->
+                    "vdetail_ins_${pol.id}_${index}_${pol.policyNumber.hashCode()}_${pol.createdAt}"
                 }
-            ) { pol ->
+            ) { _, pol ->
                 InsurancePolicyCard(
                     policy = pol,
                     currencySymbol = currencySymbol,

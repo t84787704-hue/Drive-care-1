@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -472,7 +473,7 @@ fun MaintenanceScreen(
                     }
                 }
             } else if (viewMode == MaintenanceViewMode.LIST) {
-                items(filteredLogs, key = { log -> "${log.id}_${log.createdAt}_${log.serviceTitle}" }) { log ->
+                itemsIndexed(items = filteredLogs, key = { index, log -> "${log.id}_${index}_${log.createdAt}_${log.serviceTitle}" }) { _, log ->
                     MaintenanceCard(
                         log = log,
                         onEdit = { logToEdit = log },
@@ -482,7 +483,7 @@ fun MaintenanceScreen(
                 }
             } else {
                 // TIMELINE VIEW
-                items(filteredLogs, key = { log -> "${log.id}_${log.createdAt}_${log.serviceTitle}" }) { log ->
+                itemsIndexed(items = filteredLogs, key = { index, log -> "${log.id}_${index}_${log.createdAt}_${log.serviceTitle}" }) { _, log ->
                     TimelineMaintenanceCard(
                         log = log,
                         onEdit = { logToEdit = log },
@@ -701,9 +702,7 @@ fun TimelineMaintenanceCard(
     onViewReceipt: (String) -> Unit
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(IntrinsicSize.Min),
+        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         // Timeline axis
@@ -725,10 +724,11 @@ fun TimelineMaintenanceCard(
                     modifier = Modifier.size(14.dp)
                 )
             }
+            Spacer(modifier = Modifier.height(4.dp))
             Box(
                 modifier = Modifier
                     .width(2.dp)
-                    .fillMaxHeight()
+                    .heightIn(min = 40.dp)
                     .background(MaterialTheme.colorScheme.outlineVariant)
             )
         }

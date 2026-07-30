@@ -33,7 +33,8 @@ data class InsurancePolicy(
     val insuranceCompany: String get() = providerName
 
     fun calculateDaysUntilExpiry(): Long? {
-        if (expiryDate.isBlank()) return null
+        val trimmed = expiryDate.trim().lowercase(Locale.ROOT)
+        if (trimmed.isBlank() || trimmed == "null" || trimmed == "undefined" || trimmed == "n/a") return null
         return try {
             val cleanStr = expiryDate.trim().take(10)
             val formats = arrayOf("yyyy-MM-dd", "yyyy/MM/dd", "dd-MM-yyyy", "dd/MM/yyyy")
@@ -60,8 +61,8 @@ data class InsurancePolicy(
     }
 
     fun getExpiryCountdownText(): String {
-        val days = calculateDaysUntilExpiry() ?: return "No Expiry Date"
         return try {
+            val days = calculateDaysUntilExpiry() ?: return "No Expiry Date"
             when {
                 days < 0 -> {
                     val absDays = if (days == Long.MIN_VALUE) Long.MAX_VALUE else -days
@@ -86,6 +87,14 @@ data class InsurancePolicy(
             }
         } catch (e: Exception) {
             "ACTIVE"
+        }
+    }
+
+    fun isValidRecord(): Boolean {
+        return try {
+            providerName.isNotBlank() || policyNumber.isNotBlank() || vehicleName.isNotBlank() || vehicleId != 0L
+        } catch (e: Exception) {
+            false
         }
     }
 }

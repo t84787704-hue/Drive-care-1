@@ -654,18 +654,18 @@ fun SummaryDashboardScreen(
 
         // SECTION 5: 📄 Documents & Insurance
         val activeInsCount = remember(insurancePolicies) { 
-            try { insurancePolicies.count { it.getPolicyStatus() == "ACTIVE" } } catch (e: Exception) { 0 } 
+            try { insurancePolicies.count { it.isValidRecord() && it.getPolicyStatus() == "ACTIVE" } } catch (e: Exception) { 0 } 
         }
         val expiringInsCount = remember(insurancePolicies) { 
-            try { insurancePolicies.count { it.getPolicyStatus() == "EXPIRING_SOON" } } catch (e: Exception) { 0 } 
+            try { insurancePolicies.count { it.isValidRecord() && it.getPolicyStatus() == "EXPIRING_SOON" } } catch (e: Exception) { 0 } 
         }
         val expiredInsCount = remember(insurancePolicies) { 
-            try { insurancePolicies.count { it.getPolicyStatus() == "EXPIRED" } } catch (e: Exception) { 0 } 
+            try { insurancePolicies.count { it.isValidRecord() && it.getPolicyStatus() == "EXPIRED" } } catch (e: Exception) { 0 } 
         }
-        val urgentInsuranceList = remember(insurancePolicies) {
+        val urgentInsuranceList = remember(insurancePolicies, vehicles) {
             try {
                 insurancePolicies
-                    .toList()
+                    .filter { it.isValidRecord() }
                     .filter { it.getPolicyStatus() != "ACTIVE" || (it.calculateDaysUntilExpiry() ?: 999) <= 60 }
                     .sortedBy { it.calculateDaysUntilExpiry() ?: 999 }
             } catch (e: Exception) {
@@ -733,10 +733,16 @@ fun SummaryDashboardScreen(
                     Text("Upcoming Renewals & Expiry Alerts", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         urgentInsuranceList.take(3).forEach { pol ->
-                            val status = pol.getPolicyStatus()
+                            val status = try { pol.getPolicyStatus() } catch (e: Exception) { "ACTIVE" }
                             val isExp = status == "EXPIRED"
                             val isWarn = status == "EXPIRING_SOON"
-                            val vehicleLabel = pol.vehicleName.ifBlank { "Unassigned Vehicle" }
+                            val foundVehicle = vehicles.find { it.id == pol.vehicleId }
+                            val vehicleLabel = when {
+                                foundVehicle != null -> foundVehicle.vehicleName.ifBlank { "Vehicle #${foundVehicle.id}" }
+                                pol.vehicleName.isNotBlank() -> pol.vehicleName
+                                pol.vehicleId != 0L -> "Unassigned Vehicle (#${pol.vehicleId})"
+                                else -> "Unassigned Vehicle"
+                            }
                             val providerLabel = pol.providerName.ifBlank { "Insurance Provider" }
                             val policyNoLabel = pol.policyNumber.ifBlank { "N/A" }
                             Row(
