@@ -68,14 +68,14 @@ fun ConversationsListScreen(
         var name = conversation.participantNames[otherUid] ?: ""
         var email = conversation.participantEmails[otherUid] ?: ""
 
-        if (name.isBlank() || (myName.isNotBlank() && name.equals(myName, ignoreCase = true)) || name == "DriveCare User") {
+        if (name.isBlank() || name == "DriveCare User" || name == "Friend" || name.contains("@")) {
             val fship = friendships.find {
                 it.user1Uid.equals(otherUid, ignoreCase = true) || it.user2Uid.equals(otherUid, ignoreCase = true)
             }
             if (fship != null) {
                 val fname = if (fship.user1Uid.equals(otherUid, ignoreCase = true)) fship.user1Name else fship.user2Name
                 val femail = if (fship.user1Uid.equals(otherUid, ignoreCase = true)) fship.user1Email else fship.user2Email
-                if (fname.isNotBlank() && (myName.isBlank() || !fname.equals(myName, ignoreCase = true)) && fname != "DriveCare User") {
+                if (fname.isNotBlank() && fname != "DriveCare User" && fname != "Friend" && !fname.contains("@")) {
                     name = fname
                 }
                 if (femail.isNotBlank()) {

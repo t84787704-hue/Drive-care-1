@@ -2183,7 +2183,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
 
         activeChatFriendUid.value = friendUid
 
-        var initialFriendName = if (friendName.isNotBlank() && !friendName.equals(myName, ignoreCase = true) && friendName != "DriveCare User") {
+        var initialFriendName = if (friendName.isNotBlank() && friendName != "DriveCare User" && friendName != "Friend" && !friendName.contains("@")) {
             friendName
         } else {
             ""
@@ -2196,8 +2196,20 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
             }
             if (fship != null) {
                 val fname = if (fship.user1Uid.equals(friendUid, ignoreCase = true)) fship.user1Name else fship.user2Name
-                if (fname.isNotBlank() && !fname.equals(myName, ignoreCase = true) && fname != "DriveCare User") {
+                if (fname.isNotBlank() && fname != "DriveCare User" && fname != "Friend" && !fname.contains("@")) {
                     initialFriendName = fname
+                }
+            }
+        }
+
+        // Search in existing conversations
+        if (initialFriendName.isBlank()) {
+            val convId = com.drivecare.app.data.cloud.ChatRepository.getConversationId(currentUid, friendUid)
+            val existingConv = _conversations.value.find { it.conversationId == convId }
+            if (existingConv != null) {
+                val convName = existingConv.participantNames[friendUid] ?: ""
+                if (convName.isNotBlank() && convName != "DriveCare User" && convName != "Friend" && !convName.contains("@")) {
+                    initialFriendName = convName
                 }
             }
         }
@@ -2212,8 +2224,11 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
             try {
                 val friendProfile = syncManager.fetchPublicUserProfile(friendUid)
                 if (friendProfile != null) {
-                    if (friendProfile.displayName.isNotBlank() && friendProfile.displayName != "DriveCare User" && !friendProfile.displayName.equals(myName, ignoreCase = true)) {
-                        activeChatFriendName.value = friendProfile.displayName
+                    val currentActiveName = activeChatFriendName.value
+                    if (currentActiveName.isBlank() || currentActiveName == "Friend" || currentActiveName.contains("@")) {
+                        if (friendProfile.displayName.isNotBlank() && friendProfile.displayName != "DriveCare User") {
+                            activeChatFriendName.value = friendProfile.displayName
+                        }
                     }
                     if (friendProfile.email.isNotBlank()) {
                         activeChatFriendEmail.value = friendProfile.email
@@ -2307,10 +2322,12 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         val senderName = myProfile?.fullName?.ifBlank { user.displayName } ?: user.displayName ?: user.email ?: "DriveCare User"
         val senderEmail = user.email ?: ""
 
-        val cleanReceiverName = if (fName.isNotBlank() && !fName.equals(senderName, ignoreCase = true)) {
+        val cleanReceiverName = if (fName.isNotBlank() && fName != "Friend" && !fName.contains("@")) {
             fName
+        } else if (fEmail.isNotBlank()) {
+            fEmail
         } else {
-            fEmail.ifBlank { "Friend" }
+            "Friend"
         }
 
         viewModelScope.launch {
