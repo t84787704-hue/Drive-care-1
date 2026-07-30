@@ -472,7 +472,7 @@ fun MaintenanceScreen(
                     }
                 }
             } else if (viewMode == MaintenanceViewMode.LIST) {
-                items(filteredLogs, key = { it.id }) { log ->
+                items(filteredLogs, key = { log -> "${log.id}_${log.createdAt}_${log.serviceTitle}" }) { log ->
                     MaintenanceCard(
                         log = log,
                         onEdit = { logToEdit = log },
@@ -482,7 +482,7 @@ fun MaintenanceScreen(
                 }
             } else {
                 // TIMELINE VIEW
-                items(filteredLogs, key = { it.id }) { log ->
+                items(filteredLogs, key = { log -> "${log.id}_${log.createdAt}_${log.serviceTitle}" }) { log ->
                     TimelineMaintenanceCard(
                         log = log,
                         onEdit = { logToEdit = log },
@@ -701,7 +701,9 @@ fun TimelineMaintenanceCard(
     onViewReceipt: (String) -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         // Timeline axis
@@ -1473,21 +1475,23 @@ fun ReceiptPreviewDialog(
 }
 
 private fun loadLocalBitmap(context: Context, uriString: String): ImageBitmap? {
+    if (uriString.isBlank()) return null
     return try {
         val uri = Uri.parse(uriString)
         if (uri.scheme == "file") {
-            val file = File(uri.path ?: return null)
-            if (file.exists()) {
+            val path = uri.path ?: return null
+            val file = File(path)
+            if (file.exists() && file.isFile) {
                 BitmapFactory.decodeFile(file.absolutePath)?.asImageBitmap()
             } else null
         } else {
-            val inputStream = context.contentResolver.openInputStream(uri)
+            val inputStream = context.contentResolver.openInputStream(uri) ?: return null
             val bitmap = BitmapFactory.decodeStream(inputStream)
-            inputStream?.close()
+            inputStream.close()
             bitmap?.asImageBitmap()
         }
-    } catch (e: Exception) {
-        e.printStackTrace()
+    } catch (t: Throwable) {
+        t.printStackTrace()
         null
     }
 }
