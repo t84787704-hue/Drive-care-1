@@ -2,6 +2,7 @@ package com.drivecare.app.ui
 
 import android.app.Application
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.drivecare.app.data.cloud.CloudUser
@@ -169,6 +170,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     val activeChatFriendUid = MutableStateFlow<String?>(null)
     val activeChatFriendName = MutableStateFlow<String>("")
     val activeChatFriendEmail = MutableStateFlow<String>("")
+    val activeChatFriendPhotoUrl = MutableStateFlow<String>("")
 
     private val _isSendingMessage = MutableStateFlow(false)
     val isSendingMessage: StateFlow<Boolean> = _isSendingMessage.asStateFlow()
@@ -2164,10 +2166,37 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         val currentUid = currentUser.value?.uid ?: ""
         if (currentUid.isBlank() || friendUid.isBlank()) return
 
+        // Guard against opening chat with self
+        if (friendUid.equals(currentUid, ignoreCase = true)) {
+            Log.e("DriveCareViewModel", "Attempted to open chat with current user UID. Ignoring.")
+            return
+        }
+
         activeChatFriendUid.value = friendUid
         activeChatFriendName.value = friendName
         activeChatFriendEmail.value = friendEmail
+        activeChatFriendPhotoUrl.value = ""
         com.drivecare.app.utils.FcmNotificationManager.activeChatFriendUid = friendUid
+
+        // Fetch friend's public profile from Firestore users/{friendUid} to ensure header displays selected friend's real name, email & photoUrl
+        viewModelScope.launch {
+            try {
+                val friendProfile = syncManager.fetchPublicUserProfile(friendUid)
+                if (friendProfile != null) {
+                    if (friendProfile.displayName.isNotBlank()) {
+                        activeChatFriendName.value = friendProfile.displayName
+                    }
+                    if (friendProfile.email.isNotBlank()) {
+                        activeChatFriendEmail.value = friendProfile.email
+                    }
+                    if (friendProfile.photoUrl.isNotBlank()) {
+                        activeChatFriendPhotoUrl.value = friendProfile.photoUrl
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("DriveCareViewModel", "Error fetching friend public profile: ${e.message}")
+            }
+        }
 
         val conversationId = com.drivecare.app.data.cloud.ChatRepository.getConversationId(currentUid, friendUid)
 
@@ -2202,6 +2231,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         activeChatFriendUid.value = null
         activeChatFriendName.value = ""
         activeChatFriendEmail.value = ""
+        activeChatFriendPhotoUrl.value = ""
         com.drivecare.app.utils.FcmNotificationManager.activeChatFriendUid = null
         activeChatMessagesJob?.cancel()
         activeFriendPresenceJob?.cancel()

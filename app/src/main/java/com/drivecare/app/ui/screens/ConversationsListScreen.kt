@@ -40,7 +40,10 @@ fun ConversationsListScreen(
             conversations
         } else {
             conversations.filter { conv ->
-                val otherUid = conv.participants.firstOrNull { it != currentUid } ?: ""
+                val otherUid = conv.participants.find { currentUid.isNotBlank() && !it.equals(currentUid, ignoreCase = true) }
+                    ?: conv.participantNames.keys.find { currentUid.isNotBlank() && !it.equals(currentUid, ignoreCase = true) }
+                    ?: conv.participants.lastOrNull { !it.equals(currentUid, ignoreCase = true) }
+                    ?: ""
                 val otherName = conv.participantNames[otherUid] ?: ""
                 val otherEmail = conv.participantEmails[otherUid] ?: ""
                 otherName.contains(searchQuery, ignoreCase = true) ||
@@ -137,7 +140,10 @@ fun ConversationsListScreen(
                         conversation = conversation,
                         currentUid = currentUid,
                         onClick = {
-                            val otherUid = conversation.participants.firstOrNull { it != currentUid } ?: ""
+                            val otherUid = conversation.participants.find { currentUid.isNotBlank() && !it.equals(currentUid, ignoreCase = true) }
+                                ?: conversation.participantNames.keys.find { currentUid.isNotBlank() && !it.equals(currentUid, ignoreCase = true) }
+                                ?: conversation.participants.lastOrNull { !it.equals(currentUid, ignoreCase = true) }
+                                ?: ""
                             val otherName = conversation.participantNames[otherUid] ?: ""
                             val otherEmail = conversation.participantEmails[otherUid] ?: ""
                             onOpenChat(otherUid, otherName, otherEmail)
@@ -175,9 +181,10 @@ fun ConversationsListScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(friendships) { friendship ->
-                            val friendUid = if (friendship.user1Uid == currentUid) friendship.user2Uid else friendship.user1Uid
-                            val friendName = if (friendship.user1Uid == currentUid) friendship.user2Name else friendship.user1Name
-                            val friendEmail = if (friendship.user1Uid == currentUid) friendship.user2Email else friendship.user1Email
+                            val isUser1Current = currentUid.isNotBlank() && friendship.user1Uid.equals(currentUid, ignoreCase = true)
+                            val friendUid = if (isUser1Current) friendship.user2Uid else friendship.user1Uid
+                            val friendName = if (isUser1Current) friendship.user2Name else friendship.user1Name
+                            val friendEmail = if (isUser1Current) friendship.user2Email else friendship.user1Email
 
                             Card(
                                 modifier = Modifier
@@ -235,7 +242,10 @@ fun ConversationItemCard(
     currentUid: String,
     onClick: () -> Unit
 ) {
-    val otherUid = conversation.participants.firstOrNull { it != currentUid } ?: ""
+    val otherUid = conversation.participants.find { currentUid.isNotBlank() && !it.equals(currentUid, ignoreCase = true) }
+        ?: conversation.participantNames.keys.find { currentUid.isNotBlank() && !it.equals(currentUid, ignoreCase = true) }
+        ?: conversation.participants.lastOrNull { !it.equals(currentUid, ignoreCase = true) }
+        ?: ""
     val otherName = conversation.participantNames[otherUid] ?: ""
     val otherEmail = conversation.participantEmails[otherUid] ?: ""
     val unreadCount = conversation.unreadCounts[currentUid] ?: 0L

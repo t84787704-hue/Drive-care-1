@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import coil.compose.AsyncImage
 import com.drivecare.app.data.model.ChatMessage
 import com.drivecare.app.ui.DriveCareViewModel
 import kotlinx.coroutines.delay
@@ -56,6 +57,7 @@ fun ChatScreen(
     val friendUid by viewModel.activeChatFriendUid.collectAsState()
     val friendName by viewModel.activeChatFriendName.collectAsState()
     val friendEmail by viewModel.activeChatFriendEmail.collectAsState()
+    val friendPhotoUrl by viewModel.activeChatFriendPhotoUrl.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
     val isSending by viewModel.isSendingMessage.collectAsState()
     val friendPresence by viewModel.activeFriendPresence.collectAsState()
@@ -174,11 +176,30 @@ fun ChatScreen(
                         modifier = Modifier.size(40.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                Icons.Default.Person,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
+                            if (friendPhotoUrl.isNotBlank()) {
+                                AsyncImage(
+                                    model = friendPhotoUrl,
+                                    contentDescription = "Friend Profile Photo",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else {
+                                val initial = friendName.ifBlank { friendEmail }.take(1).uppercase(Locale.getDefault())
+                                if (initial.isNotBlank() && initial != "F") {
+                                    Text(
+                                        text = initial,
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                } else {
+                                    Icon(
+                                        Icons.Default.Person,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
                         }
                     }
 

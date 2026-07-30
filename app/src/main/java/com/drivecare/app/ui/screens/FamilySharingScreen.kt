@@ -272,9 +272,10 @@ fun FamilySharingScreen(
 
                             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 items(friendships) { friendship ->
-                                    val friendUid = if (friendship.user1Uid == currentUid) friendship.user2Uid else friendship.user1Uid
-                                    val friendName = if (friendship.user1Uid == currentUid) friendship.user2Name else friendship.user1Name
-                                    val friendEmail = if (friendship.user1Uid == currentUid) friendship.user2Email else friendship.user1Email
+                                    val isUser1Current = currentUid.isNotBlank() && friendship.user1Uid.equals(currentUid, ignoreCase = true)
+                                    val friendUid = if (isUser1Current) friendship.user2Uid else friendship.user1Uid
+                                    val friendName = if (isUser1Current) friendship.user2Name else friendship.user1Name
+                                    val friendEmail = if (isUser1Current) friendship.user2Email else friendship.user1Email
 
                                     val convId = com.drivecare.app.data.cloud.ChatRepository.getConversationId(currentUid, friendUid)
                                     val conv = conversations.find { it.conversationId == convId }
@@ -937,7 +938,8 @@ fun ShareVehicleDialogV2(
                     Text("Or Select Friend:", style = MaterialTheme.typography.labelMedium)
                     LazyColumn(modifier = Modifier.heightIn(max = 120.dp)) {
                         items(friends) { f ->
-                            val fEmail = if (f.user1Uid == currentUid) f.user2Email else f.user1Email
+                            val isUser1Current = currentUid.isNotBlank() && f.user1Uid.equals(currentUid, ignoreCase = true)
+                            val fEmail = if (isUser1Current) f.user2Email else f.user1Email
                             TextButton(onClick = { recipientEmail = fEmail }) {
                                 Text(fEmail, style = MaterialTheme.typography.bodySmall)
                             }
