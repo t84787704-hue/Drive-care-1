@@ -970,12 +970,13 @@ private fun InsuranceTabContent(
                 }
             }
 
-            itemsIndexed(
+            items(
                 items = vInsurance,
-                key = { index, pol ->
-                    "vdetail_ins_${pol.id}_${index}_${pol.policyNumber.hashCode()}_${pol.createdAt}"
+                key = { pol ->
+                    if (pol.id != 0L) "vdetail_ins_${pol.id}"
+                    else "vdetail_ins_0_${pol.policyNumber.hashCode()}_${pol.createdAt}"
                 }
-            ) { _, pol ->
+            ) { pol ->
                 InsurancePolicyCard(
                     policy = pol,
                     currencySymbol = currencySymbol,

@@ -193,7 +193,10 @@ fun InsuranceRenewalScreen(
                                 label = { Text(AppStrings.get("all_vehicles", lang)) }
                             )
                         }
-                        itemsIndexed(vehicles, key = { index, v -> "v_chip_${v.id}_${index}_${v.hashCode()}" }) { _, v ->
+                        items(
+                            items = vehicles,
+                            key = { v -> "v_chip_${v.id}" }
+                        ) { v ->
                             FilterChip(
                                 selected = selectedVehicleFilter == v.id,
                                 onClick = { selectedVehicleFilter = v.id },
@@ -333,12 +336,13 @@ fun InsuranceRenewalScreen(
                     }
                 }
             } else {
-                itemsIndexed(
+                items(
                     items = filteredPolicies,
-                    key = { index, policy ->
-                        "policy_${policy.id}_${index}_${policy.policyNumber.hashCode()}_${policy.createdAt}"
+                    key = { policy ->
+                        if (policy.id != 0L) "policy_${policy.id}"
+                        else "policy_0_${policy.policyNumber.hashCode()}_${policy.createdAt}"
                     }
-                ) { _, policy ->
+                ) { policy ->
                     InsurancePolicyCard(
                         policy = policy,
                         vehicles = vehicles,
