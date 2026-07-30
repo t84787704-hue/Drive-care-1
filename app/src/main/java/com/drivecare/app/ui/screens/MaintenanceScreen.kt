@@ -175,7 +175,7 @@ fun MaintenanceScreen(
                                 label = { Text(AppStrings.get("all_vehicles", lang)) }
                             )
                         }
-                        items(vehicles, key = { it.id }) { v ->
+                        items(vehicles, key = { v -> if (v.id != 0L) "m_v_chip_${v.id}" else "m_v_chip_0_${v.vehicleName.hashCode()}_${v.hashCode()}" }) { v ->
                             FilterChip(
                                 selected = selectedFilterVehicleId == v.id,
                                 onClick = { selectedFilterVehicleId = v.id },
@@ -259,7 +259,7 @@ fun MaintenanceScreen(
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                items(vehicleCostBreakdown) { (veh, costSum) ->
+                                items(vehicleCostBreakdown, key = { (v, _) -> if (v.id != 0L) "m_v_cost_${v.id}" else "m_v_cost_0_${v.vehicleName.hashCode()}_${v.hashCode()}" }) { (veh, costSum) ->
                                     Surface(
                                         shape = RoundedCornerShape(8.dp),
                                         color = MaterialTheme.colorScheme.surface,
@@ -363,7 +363,7 @@ fun MaintenanceScreen(
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(categories) { cat ->
+                    items(categories, key = { cat -> "m_cat_$cat" }) { cat ->
                         FilterChip(
                             selected = (selectedCategory == cat),
                             onClick = { selectedCategory = cat },
@@ -473,7 +473,13 @@ fun MaintenanceScreen(
                     }
                 }
             } else if (viewMode == MaintenanceViewMode.LIST) {
-                itemsIndexed(items = filteredLogs, key = { index, log -> "${log.id}_${index}_${log.createdAt}_${log.serviceTitle}" }) { _, log ->
+                items(
+                    items = filteredLogs,
+                    key = { log ->
+                        if (log.id != 0L) "m_log_${log.id}"
+                        else "m_log_0_${log.serviceTitle.hashCode()}_${log.createdAt}_${log.hashCode()}"
+                    }
+                ) { log ->
                     MaintenanceCard(
                         log = log,
                         onEdit = { logToEdit = log },
@@ -483,7 +489,13 @@ fun MaintenanceScreen(
                 }
             } else {
                 // TIMELINE VIEW
-                itemsIndexed(items = filteredLogs, key = { index, log -> "${log.id}_${index}_${log.createdAt}_${log.serviceTitle}" }) { _, log ->
+                items(
+                    items = filteredLogs,
+                    key = { log ->
+                        if (log.id != 0L) "m_tl_${log.id}"
+                        else "m_tl_0_${log.serviceTitle.hashCode()}_${log.createdAt}_${log.hashCode()}"
+                    }
+                ) { log ->
                     TimelineMaintenanceCard(
                         log = log,
                         onEdit = { logToEdit = log },
