@@ -2163,7 +2163,9 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun openChat(friendUid: String, friendName: String, friendEmail: String) {
-        val currentUid = currentUser.value?.uid ?: ""
+        val currentUid = currentUser.value?.uid
+            ?: com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+            ?: ""
         if (currentUid.isBlank() || friendUid.isBlank()) return
 
         // Guard against opening chat with self
@@ -2172,8 +2174,17 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
             return
         }
 
+        val myName = userProfile.value?.fullName?.ifBlank { currentUser.value?.displayName }
+            ?: currentUser.value?.displayName
+            ?: com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.displayName
+            ?: ""
+
         activeChatFriendUid.value = friendUid
-        activeChatFriendName.value = friendName
+        activeChatFriendName.value = if (friendName.isNotBlank() && !friendName.equals(myName, ignoreCase = true)) {
+            friendName
+        } else {
+            friendEmail.ifBlank { "Friend" }
+        }
         activeChatFriendEmail.value = friendEmail
         activeChatFriendPhotoUrl.value = ""
         com.drivecare.app.utils.FcmNotificationManager.activeChatFriendUid = friendUid
@@ -2183,7 +2194,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
             try {
                 val friendProfile = syncManager.fetchPublicUserProfile(friendUid)
                 if (friendProfile != null) {
-                    if (friendProfile.displayName.isNotBlank()) {
+                    if (friendProfile.displayName.isNotBlank() && !friendProfile.displayName.equals(myName, ignoreCase = true)) {
                         activeChatFriendName.value = friendProfile.displayName
                     }
                     if (friendProfile.email.isNotBlank()) {
@@ -2257,7 +2268,9 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun sendMessage(messageText: String, onResult: (Boolean, String?) -> Unit) {
-        val user = currentUser.value
+        val user = currentUser.value ?: com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.let {
+            CloudUser(it.uid, it.email ?: "", it.displayName ?: "")
+        }
         val fUid = activeChatFriendUid.value
         val fName = activeChatFriendName.value
         val fEmail = activeChatFriendEmail.value
@@ -2267,9 +2280,20 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
             return
         }
 
+        if (fUid.equals(user.uid, ignoreCase = true)) {
+            onResult(false, "Cannot send message to yourself")
+            return
+        }
+
         val myProfile = userProfile.value
         val senderName = myProfile?.fullName?.ifBlank { user.displayName } ?: user.displayName ?: user.email ?: "DriveCare User"
         val senderEmail = user.email ?: ""
+
+        val cleanReceiverName = if (fName.isNotBlank() && !fName.equals(senderName, ignoreCase = true)) {
+            fName
+        } else {
+            fEmail.ifBlank { "Friend" }
+        }
 
         viewModelScope.launch {
             _isSendingMessage.value = true
@@ -2278,7 +2302,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
                 senderName = senderName,
                 senderEmail = senderEmail,
                 receiverUid = fUid,
-                receiverName = fName,
+                receiverName = cleanReceiverName,
                 receiverEmail = fEmail,
                 messageText = messageText
             )

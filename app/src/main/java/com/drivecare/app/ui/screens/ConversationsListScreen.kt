@@ -32,17 +32,18 @@ fun ConversationsListScreen(
     val currentUser by viewModel.currentUser.collectAsState()
 
     val currentUid = currentUser?.uid ?: ""
+    val activeUid = currentUid.ifBlank { com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: "" }
     var searchQuery by remember { mutableStateOf("") }
     var showNewChatDialog by remember { mutableStateOf(false) }
 
-    val filteredConversations = remember(conversations, searchQuery, currentUid) {
+    val filteredConversations = remember(conversations, searchQuery, activeUid) {
         if (searchQuery.isBlank()) {
             conversations
         } else {
             conversations.filter { conv ->
-                val otherUid = conv.participants.find { currentUid.isNotBlank() && !it.equals(currentUid, ignoreCase = true) }
-                    ?: conv.participantNames.keys.find { currentUid.isNotBlank() && !it.equals(currentUid, ignoreCase = true) }
-                    ?: conv.participants.lastOrNull { !it.equals(currentUid, ignoreCase = true) }
+                val otherUid = conv.participants.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
+                    ?: conv.participantNames.keys.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
+                    ?: conv.participants.firstOrNull { !it.equals(activeUid, ignoreCase = true) }
                     ?: ""
                 val otherName = conv.participantNames[otherUid] ?: ""
                 val otherEmail = conv.participantEmails[otherUid] ?: ""
@@ -138,11 +139,11 @@ fun ConversationsListScreen(
                 items(filteredConversations, key = { it.conversationId }) { conversation ->
                     ConversationItemCard(
                         conversation = conversation,
-                        currentUid = currentUid,
+                        currentUid = activeUid,
                         onClick = {
-                            val otherUid = conversation.participants.find { currentUid.isNotBlank() && !it.equals(currentUid, ignoreCase = true) }
-                                ?: conversation.participantNames.keys.find { currentUid.isNotBlank() && !it.equals(currentUid, ignoreCase = true) }
-                                ?: conversation.participants.lastOrNull { !it.equals(currentUid, ignoreCase = true) }
+                            val otherUid = conversation.participants.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
+                                ?: conversation.participantNames.keys.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
+                                ?: conversation.participants.firstOrNull { !it.equals(activeUid, ignoreCase = true) }
                                 ?: ""
                             val otherName = conversation.participantNames[otherUid] ?: ""
                             val otherEmail = conversation.participantEmails[otherUid] ?: ""
@@ -181,10 +182,23 @@ fun ConversationsListScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(friendships) { friendship ->
-                            val isUser1Current = currentUid.isNotBlank() && friendship.user1Uid.equals(currentUid, ignoreCase = true)
-                            val friendUid = if (isUser1Current) friendship.user2Uid else friendship.user1Uid
-                            val friendName = if (isUser1Current) friendship.user2Name else friendship.user1Name
-                            val friendEmail = if (isUser1Current) friendship.user2Email else friendship.user1Email
+                            val isUser1Current = activeUid.isNotBlank() && friendship.user1Uid.equals(activeUid, ignoreCase = true)
+                            val isUser2Current = activeUid.isNotBlank() && friendship.user2Uid.equals(activeUid, ignoreCase = true)
+                            val friendUid = when {
+                                isUser1Current -> friendship.user2Uid
+                                isUser2Current -> friendship.user1Uid
+                                else -> friendship.user2Uid.ifBlank { friendship.user1Uid }
+                            }
+                            val friendName = when {
+                                isUser1Current -> friendship.user2Name
+                                isUser2Current -> friendship.user1Name
+                                else -> friendship.user2Name.ifBlank { friendship.user1Name }
+                            }
+                            val friendEmail = when {
+                                isUser1Current -> friendship.user2Email
+                                isUser2Current -> friendship.user1Email
+                                else -> friendship.user2Email.ifBlank { friendship.user1Email }
+                            }
 
                             Card(
                                 modifier = Modifier
@@ -242,13 +256,15 @@ fun ConversationItemCard(
     currentUid: String,
     onClick: () -> Unit
 ) {
-    val otherUid = conversation.participants.find { currentUid.isNotBlank() && !it.equals(currentUid, ignoreCase = true) }
-        ?: conversation.participantNames.keys.find { currentUid.isNotBlank() && !it.equals(currentUid, ignoreCase = true) }
-        ?: conversation.participants.lastOrNull { !it.equals(currentUid, ignoreCase = true) }
+    val activeUid = currentUid.ifBlank { com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: "" }
+    val otherUid = conversation.participants.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
+        ?: conversation.participantNames.keys.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
+        ?: conversation.participantEmails.keys.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
+        ?: conversation.participants.firstOrNull { !it.equals(activeUid, ignoreCase = true) }
         ?: ""
     val otherName = conversation.participantNames[otherUid] ?: ""
     val otherEmail = conversation.participantEmails[otherUid] ?: ""
-    val unreadCount = conversation.unreadCounts[currentUid] ?: 0L
+    val unreadCount = conversation.unreadCounts[activeUid] ?: 0L
 
     val timeFormat = remember { SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()) }
     val formattedTime = remember(conversation.lastMessageTimestamp) {

@@ -268,14 +268,28 @@ fun FamilySharingScreen(
                             }
                         } else {
                             val currentUid = viewModel.currentUser.collectAsState().value?.uid ?: ""
+                            val activeUid = currentUid.ifBlank { com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: "" }
                             val conversations by viewModel.conversations.collectAsState()
 
                             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 items(friendships) { friendship ->
-                                    val isUser1Current = currentUid.isNotBlank() && friendship.user1Uid.equals(currentUid, ignoreCase = true)
-                                    val friendUid = if (isUser1Current) friendship.user2Uid else friendship.user1Uid
-                                    val friendName = if (isUser1Current) friendship.user2Name else friendship.user1Name
-                                    val friendEmail = if (isUser1Current) friendship.user2Email else friendship.user1Email
+                                    val isUser1Current = activeUid.isNotBlank() && friendship.user1Uid.equals(activeUid, ignoreCase = true)
+                                    val isUser2Current = activeUid.isNotBlank() && friendship.user2Uid.equals(activeUid, ignoreCase = true)
+                                    val friendUid = when {
+                                        isUser1Current -> friendship.user2Uid
+                                        isUser2Current -> friendship.user1Uid
+                                        else -> friendship.user2Uid.ifBlank { friendship.user1Uid }
+                                    }
+                                    val friendName = when {
+                                        isUser1Current -> friendship.user2Name
+                                        isUser2Current -> friendship.user1Name
+                                        else -> friendship.user2Name.ifBlank { friendship.user1Name }
+                                    }
+                                    val friendEmail = when {
+                                        isUser1Current -> friendship.user2Email
+                                        isUser2Current -> friendship.user1Email
+                                        else -> friendship.user2Email.ifBlank { friendship.user1Email }
+                                    }
 
                                     val convId = com.drivecare.app.data.cloud.ChatRepository.getConversationId(currentUid, friendUid)
                                     val conv = conversations.find { it.conversationId == convId }

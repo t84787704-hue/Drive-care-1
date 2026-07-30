@@ -240,14 +240,28 @@ class ChatRepository(private val firestore: FirebaseFirestore = FirebaseFirestor
                     put(receiverUid, newUnreadForReceiver)
                 }
 
+                val existingNames = convDoc.get("participantNames") as? Map<String, String> ?: emptyMap()
+                val updatedNames = existingNames.toMutableMap().apply {
+                    if (senderName.isNotBlank() && senderName != "DriveCare User") put(senderUid, senderName)
+                    if (receiverName.isNotBlank() && receiverName != "DriveCare User" && !receiverName.equals(senderName, ignoreCase = true)) {
+                        put(receiverUid, receiverName)
+                    }
+                }
+
+                val existingEmails = convDoc.get("participantEmails") as? Map<String, String> ?: emptyMap()
+                val updatedEmails = existingEmails.toMutableMap().apply {
+                    if (senderEmail.isNotBlank()) put(senderUid, senderEmail)
+                    if (receiverEmail.isNotBlank()) put(receiverUid, receiverEmail)
+                }
+
                 val updateMap = mapOf(
                     "lastMessage" to chatMessage.messageText,
                     "lastMessageTimestamp" to timestamp,
                     "lastSenderUid" to senderUid,
                     "unreadCounts" to updatedUnreadCounts,
                     "updatedAt" to timestamp,
-                    "participantNames" to mapOf(senderUid to senderName, receiverUid to receiverName),
-                    "participantEmails" to mapOf(senderUid to senderEmail, receiverUid to receiverEmail)
+                    "participantNames" to updatedNames,
+                    "participantEmails" to updatedEmails
                 )
                 convRef.set(updateMap, SetOptions.merge()).await()
             }
