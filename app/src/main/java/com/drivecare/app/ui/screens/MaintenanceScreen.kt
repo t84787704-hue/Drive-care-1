@@ -1486,24 +1486,45 @@ fun ReceiptPreviewDialog(
     }
 }
 
-private fun loadLocalBitmap(context: Context, uriString: String): ImageBitmap? {
+private fun loadLocalBitmap(context: Context, uriString: String, maxDim: Int = 400): ImageBitmap? {
     if (uriString.isBlank()) return null
     return try {
         val uri = Uri.parse(uriString)
+        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         if (uri.scheme == "file") {
             val path = uri.path ?: return null
             val file = File(path)
-            if (file.exists() && file.isFile) {
-                BitmapFactory.decodeFile(file.absolutePath)?.asImageBitmap()
-            } else null
+            if (!file.exists() || !file.isFile) return null
+            BitmapFactory.decodeFile(file.absolutePath, options)
+            options.inSampleSize = calculateInSampleSize(options, maxDim, maxDim)
+            options.inJustDecodeBounds = false
+            BitmapFactory.decodeFile(file.absolutePath, options)?.asImageBitmap()
         } else {
-            val inputStream = context.contentResolver.openInputStream(uri) ?: return null
-            val bitmap = BitmapFactory.decodeStream(inputStream)
-            inputStream.close()
-            bitmap?.asImageBitmap()
+            context.contentResolver.openInputStream(uri)?.use { stream ->
+                BitmapFactory.decodeStream(stream, null, options)
+            }
+            options.inSampleSize = calculateInSampleSize(options, maxDim, maxDim)
+            options.inJustDecodeBounds = false
+            context.contentResolver.openInputStream(uri)?.use { stream ->
+                BitmapFactory.decodeStream(stream, null, options)?.asImageBitmap()
+            }
         }
     } catch (t: Throwable) {
         t.printStackTrace()
         null
     }
+}
+
+private fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
+    val height = options.outHeight
+    val width = options.outWidth
+    var inSampleSize = 1
+    if (height > reqHeight || width > reqWidth) {
+        val halfHeight = height / 2
+        val halfWidth = width / 2
+        while (halfHeight / inSampleSize >= reqHeight && halfWidth / inSampleSize >= reqWidth) {
+            inSampleSize *= 2
+        }
+    }
+    return inSampleSize
 }
