@@ -2167,6 +2167,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         activeChatFriendUid.value = friendUid
         activeChatFriendName.value = friendName
         activeChatFriendEmail.value = friendEmail
+        com.drivecare.app.utils.FcmNotificationManager.activeChatFriendUid = friendUid
 
         val conversationId = com.drivecare.app.data.cloud.ChatRepository.getConversationId(currentUid, friendUid)
 
@@ -2201,6 +2202,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         activeChatFriendUid.value = null
         activeChatFriendName.value = ""
         activeChatFriendEmail.value = ""
+        com.drivecare.app.utils.FcmNotificationManager.activeChatFriendUid = null
         activeChatMessagesJob?.cancel()
         activeFriendPresenceJob?.cancel()
         _activeChatMessages.value = emptyList()

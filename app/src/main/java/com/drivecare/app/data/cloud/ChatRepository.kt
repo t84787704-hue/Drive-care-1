@@ -254,13 +254,13 @@ class ChatRepository(private val firestore: FirebaseFirestore = FirebaseFirestor
 
             // Trigger FCM / Firestore push notification to recipient
             val previewText = when {
-                chatMessage.messageText.contains("Voice Message") || chatMessage.messageText.startsWith("[Voice]") || chatMessage.messageText.startsWith("[Audio]") -> "🎤 Voice Message"
-                chatMessage.messageText.contains("Image") || chatMessage.messageText.startsWith("[Image]") || chatMessage.messageText.startsWith("[Photo]") -> "📷 Image"
+                chatMessage.messageText.contains("📷 Image") || chatMessage.messageText.startsWith("[Image]") || chatMessage.messageText.startsWith("[Photo]") || chatMessage.messageText.contains("image_picker") || chatMessage.messageText.contains(".jpg") || chatMessage.messageText.contains(".png") -> "📷 Image"
+                chatMessage.messageText.contains("🎤 Voice Message") || chatMessage.messageText.startsWith("[Voice]") || chatMessage.messageText.startsWith("[Audio]") -> "🎤 Voice Message"
                 else -> chatMessage.messageText
             }
-            val notifType = when {
-                previewText.contains("Voice") -> "CHAT_VOICE"
-                previewText.contains("Image") -> "CHAT_IMAGE"
+            val notifType = when (previewText) {
+                "🎤 Voice Message" -> "CHAT_VOICE"
+                "📷 Image" -> "CHAT_IMAGE"
                 else -> "CHAT_TEXT"
             }
 
@@ -271,7 +271,7 @@ class ChatRepository(private val firestore: FirebaseFirestore = FirebaseFirestor
                 type = notifType,
                 friendUid = senderUid,
                 friendName = senderName,
-                targetTab = "MORE",
+                targetTab = "CHAT",
                 targetSection = "CHAT"
             )
 

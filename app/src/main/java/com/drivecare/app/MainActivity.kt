@@ -21,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.core.content.ContextCompat
@@ -147,6 +148,7 @@ class MainActivity : ComponentActivity() {
                             if (targetDest != NavDestination(NavTab.SUMMARY)) {
                                 backStack.add(targetDest)
                             }
+                            pendingNavigationExtra = null
                         }
                     }
 
@@ -248,6 +250,9 @@ class MainActivity : ComponentActivity() {
                             )
                         },
                         bottomBar = {
+                            val totalUnreadMessageCount by viewModel.totalUnreadMessageCount.collectAsState()
+                            val activeChatFriendUid by viewModel.activeChatFriendUid.collectAsState()
+
                             NavigationBar {
                                 NavTab.entries.forEach { tab ->
                                     val localizedTitle = AppStrings.get(tab.stringKey, currentLang)
@@ -267,14 +272,39 @@ class MainActivity : ComponentActivity() {
                                             }
                                         },
                                         label = {
+                                            val labelText = if (tab == NavTab.CHAT && totalUnreadMessageCount > 0) {
+                                                "$localizedTitle ($totalUnreadMessageCount)"
+                                            } else {
+                                                localizedTitle
+                                            }
                                             Text(
-                                                text = localizedTitle,
+                                                text = labelText,
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis,
                                                 softWrap = false
                                             )
                                         },
-                                        icon = { Icon(tab.icon, contentDescription = localizedTitle) }
+                                        icon = {
+                                            if (tab == NavTab.CHAT && totalUnreadMessageCount > 0) {
+                                                BadgedBox(
+                                                    badge = {
+                                                        Badge(
+                                                            containerColor = MaterialTheme.colorScheme.error,
+                                                            contentColor = MaterialTheme.colorScheme.onError
+                                                        ) {
+                                                            Text(
+                                                                text = if (totalUnreadMessageCount > 99) "99+" else "$totalUnreadMessageCount",
+                                                                fontWeight = FontWeight.Bold
+                                                            )
+                                                        }
+                                                    }
+                                                ) {
+                                                    Icon(tab.icon, contentDescription = localizedTitle)
+                                                }
+                                            } else {
+                                                Icon(tab.icon, contentDescription = localizedTitle)
+                                            }
+                                        }
                                     )
                                 }
                             }
@@ -283,6 +313,8 @@ class MainActivity : ComponentActivity() {
                         val modifier = Modifier
                             .fillMaxSize()
                             .padding(innerPadding)
+
+                        val activeChatFriendUid by viewModel.activeChatFriendUid.collectAsState()
 
                         when (currentTab) {
                             NavTab.SUMMARY -> SummaryDashboardScreen(
@@ -325,9 +357,12 @@ class MainActivity : ComponentActivity() {
                             NavTab.CHAT -> MoreScreen(
                                 viewModel = viewModel,
                                 modifier = modifier,
-                                subSection = MoreSubSection.CONVERSATIONS,
+                                subSection = if (!activeChatFriendUid.isNullOrBlank()) MoreSubSection.CHAT else MoreSubSection.CONVERSATIONS,
                                 highlightRecordId = currentHighlightId,
                                 onSubSectionSelect = { sub ->
+                                    if (sub == MoreSubSection.CONVERSATIONS) {
+                                        viewModel.closeChat()
+                                    }
                                     val dest = NavDestination(NavTab.MORE, sub)
                                     if (currentDestination != dest) {
                                         backStack.add(dest)
@@ -525,6 +560,5 @@ class MainActivity : ComponentActivity() {
     override fun onPause() {
         super.onPause()
         viewModel.setUserOnlineStatus(false)
-        com.drivecare.app.utils.FcmNotificationManager.stopRealtimeNotificationListener()
     }
 }

@@ -34,6 +34,10 @@ object FcmNotificationManager {
 
     private var notificationListener: ListenerRegistration? = null
     private var isListenerActive = false
+    private var activeUid: String? = null
+
+    @Volatile
+    var activeChatFriendUid: String? = null
 
     /**
      * Feature 7: Initialize all FCM & Application Notification Channels
@@ -194,6 +198,12 @@ object FcmNotificationManager {
             return
         }
 
+        // Feature 4: If app is open and user is currently viewing the SAME conversation, do not show notification
+        if (type.uppercase().startsWith("CHAT") && !friendUid.isNullOrBlank() && friendUid == activeChatFriendUid) {
+            Log.d(TAG, "User is currently viewing active conversation with $friendUid; suppressing notification alert.")
+            return
+        }
+
         val channelId = when (type.uppercase()) {
             "CHAT", "CHAT_TEXT", "CHAT_VOICE", "CHAT_IMAGE" -> CHANNEL_CHAT_MESSAGES
             "FRIEND_REQUEST", "FRIEND_ACCEPTED" -> CHANNEL_FRIEND_REQUESTS
@@ -204,8 +214,8 @@ object FcmNotificationManager {
 
         // Determine destination tab & section for tap action
         val (finalTab, finalSection) = when {
+            type.uppercase().startsWith("CHAT") -> Pair("CHAT", "CHAT")
             !targetTab.isNullOrBlank() -> Pair(targetTab, targetSection ?: "")
-            type.startsWith("CHAT") -> Pair("MORE", "CHAT")
             type.startsWith("FRIEND") -> Pair("MORE", "FAMILY_SHARING")
             type.startsWith("VEHICLE") -> Pair("GARAGE", "MENU")
             else -> Pair("MORE", "MENU")
@@ -298,13 +308,15 @@ object FcmNotificationManager {
      * Feature 9: Realtime listener on user's notifications collection to deliver push alerts when app is active or in background
      */
     fun startRealtimeNotificationListener(context: Context, uid: String) {
-        if (uid.isBlank() || isListenerActive) return
+        if (uid.isBlank()) return
+        if (isListenerActive && activeUid == uid) return
         stopRealtimeNotificationListener()
 
         val db = FirebaseFirestore.getInstance()
         val listenTime = System.currentTimeMillis() - 5000L // 5 seconds window
 
         isListenerActive = true
+        activeUid = uid
         notificationListener = db.collection("users").document(uid)
             .collection("notifications")
             .whereGreaterThan("createdAt", listenTime)
@@ -354,5 +366,6 @@ object FcmNotificationManager {
         notificationListener?.remove()
         notificationListener = null
         isListenerActive = false
+        activeUid = null
     }
 }
