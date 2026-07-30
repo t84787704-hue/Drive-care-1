@@ -36,15 +36,33 @@ fun ConversationsListScreen(
     var searchQuery by remember { mutableStateOf("") }
     var showNewChatDialog by remember { mutableStateOf(false) }
 
-    val filteredConversations = remember(conversations, searchQuery, activeUid) {
-        if (searchQuery.isBlank()) {
-            conversations
-        } else {
-            conversations.filter { conv ->
-                val otherUid = conv.participants.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
+    val validConversations = remember(conversations, activeUid) {
+        conversations.filter { conv ->
+            val parts = conv.conversationId.split("_")
+            val otherUidFromId = parts.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) } ?: ""
+            val otherUid = if (otherUidFromId.isNotBlank()) otherUidFromId else {
+                conv.participants.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
                     ?: conv.participantNames.keys.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
-                    ?: conv.participants.firstOrNull { !it.equals(activeUid, ignoreCase = true) }
+                    ?: conv.participantEmails.keys.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
                     ?: ""
+            }
+            otherUid.isNotBlank() && !otherUid.equals(activeUid, ignoreCase = true)
+        }
+    }
+
+    val filteredConversations = remember(validConversations, searchQuery, activeUid) {
+        if (searchQuery.isBlank()) {
+            validConversations
+        } else {
+            validConversations.filter { conv ->
+                val parts = conv.conversationId.split("_")
+                val otherUidFromId = parts.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) } ?: ""
+                val otherUid = if (otherUidFromId.isNotBlank()) otherUidFromId else {
+                    conv.participants.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
+                        ?: conv.participantNames.keys.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
+                        ?: conv.participantEmails.keys.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
+                        ?: ""
+                }
                 val otherName = conv.participantNames[otherUid] ?: ""
                 val otherEmail = conv.participantEmails[otherUid] ?: ""
                 otherName.contains(searchQuery, ignoreCase = true) ||
@@ -141,13 +159,19 @@ fun ConversationsListScreen(
                         conversation = conversation,
                         currentUid = activeUid,
                         onClick = {
-                            val otherUid = conversation.participants.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
-                                ?: conversation.participantNames.keys.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
-                                ?: conversation.participants.firstOrNull { !it.equals(activeUid, ignoreCase = true) }
-                                ?: ""
-                            val otherName = conversation.participantNames[otherUid] ?: ""
-                            val otherEmail = conversation.participantEmails[otherUid] ?: ""
-                            onOpenChat(otherUid, otherName, otherEmail)
+                            val parts = conversation.conversationId.split("_")
+                            val otherUidFromId = parts.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) } ?: ""
+                            val otherUid = if (otherUidFromId.isNotBlank()) otherUidFromId else {
+                                conversation.participants.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
+                                    ?: conversation.participantNames.keys.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
+                                    ?: conversation.participantEmails.keys.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
+                                    ?: ""
+                            }
+                            if (otherUid.isNotBlank() && !otherUid.equals(activeUid, ignoreCase = true)) {
+                                val otherName = conversation.participantNames[otherUid] ?: ""
+                                val otherEmail = conversation.participantEmails[otherUid] ?: ""
+                                onOpenChat(otherUid, otherName, otherEmail)
+                            }
                         }
                     )
                 }
@@ -257,11 +281,14 @@ fun ConversationItemCard(
     onClick: () -> Unit
 ) {
     val activeUid = currentUid.ifBlank { com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: "" }
-    val otherUid = conversation.participants.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
-        ?: conversation.participantNames.keys.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
-        ?: conversation.participantEmails.keys.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
-        ?: conversation.participants.firstOrNull { !it.equals(activeUid, ignoreCase = true) }
-        ?: ""
+    val parts = conversation.conversationId.split("_")
+    val otherUidFromId = parts.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) } ?: ""
+    val otherUid = if (otherUidFromId.isNotBlank()) otherUidFromId else {
+        conversation.participants.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
+            ?: conversation.participantNames.keys.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
+            ?: conversation.participantEmails.keys.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
+            ?: ""
+    }
     val otherName = conversation.participantNames[otherUid] ?: ""
     val otherEmail = conversation.participantEmails[otherUid] ?: ""
     val unreadCount = conversation.unreadCounts[activeUid] ?: 0L

@@ -60,6 +60,12 @@ class ChatRepository(private val firestore: FirebaseFirestore = FirebaseFirestor
                         try {
                             val id = doc.id
                             val participants = doc.get("participants") as? List<String> ?: emptyList()
+                            val partsFromId = id.split("_")
+                            val otherUidFromId = partsFromId.find { !it.equals(currentUid, ignoreCase = true) } ?: ""
+                            val otherParticipants = participants.filter { !it.equals(currentUid, ignoreCase = true) }
+                            if (otherUidFromId.isBlank() && otherParticipants.isEmpty()) {
+                                return@mapNotNull null
+                            }
                             val participantNames = doc.get("participantNames") as? Map<String, String> ?: emptyMap()
                             val participantEmails = doc.get("participantEmails") as? Map<String, String> ?: emptyMap()
                             val lastMessage = doc.getString("lastMessage") ?: ""

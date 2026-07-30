@@ -1312,11 +1312,14 @@ class FirebaseSyncManager private constructor() {
             for (doc in allDocs) {
                 if (doc.id in seenIds) continue
                 seenIds.add(doc.id)
+                val u1 = doc.getString("user1Uid") ?: ""
+                val u2 = doc.getString("user2Uid") ?: ""
+                if (u1.isNotBlank() && u1.equals(u2, ignoreCase = true)) continue
                 list.add(
                     Friendship(
                         id = doc.id,
-                        user1Uid = doc.getString("user1Uid") ?: "",
-                        user2Uid = doc.getString("user2Uid") ?: "",
+                        user1Uid = u1,
+                        user2Uid = u2,
                         user1Name = doc.getString("user1Name") ?: "",
                         user1Email = doc.getString("user1Email") ?: "",
                         user1Photo = doc.getString("user1Photo") ?: "",
