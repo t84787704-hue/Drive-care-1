@@ -158,39 +158,6 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
     private val _selectedPublicProfile = MutableStateFlow<com.drivecare.app.data.model.PublicUserProfile?>(null)
     val selectedPublicProfile: StateFlow<com.drivecare.app.data.model.PublicUserProfile?> = _selectedPublicProfile.asStateFlow()
 
-    // --- Real-time 1-to-1 Chat StateFlows ---
-    private val chatRepository = com.drivecare.app.data.cloud.ChatRepository()
-
-    private val _chats = MutableStateFlow<List<com.drivecare.app.data.model.UserChat>>(emptyList())
-    val chats: StateFlow<List<com.drivecare.app.data.model.UserChat>> = _chats.asStateFlow()
-
-    private val _activeChatMessages = MutableStateFlow<List<com.drivecare.app.data.model.ChatMessage>>(emptyList())
-    val activeChatMessages: StateFlow<List<com.drivecare.app.data.model.ChatMessage>> = _activeChatMessages.asStateFlow()
-
-    val activeChatId = MutableStateFlow<String?>(null)
-    val activeChatFriendUid = MutableStateFlow<String?>(null)
-    val activeChatFriendName = MutableStateFlow<String>("")
-    val activeChatFriendEmail = MutableStateFlow<String>("")
-    val activeChatFriendPhotoUrl = MutableStateFlow<String>("")
-
-    private val _isSendingMessage = MutableStateFlow(false)
-    val isSendingMessage: StateFlow<Boolean> = _isSendingMessage.asStateFlow()
-
-    val totalUnreadMessageCount: StateFlow<Int> = _chats.map { chatList ->
-        val uid = currentUser.value?.uid ?: ""
-        if (uid.isBlank()) 0
-        else {
-            var sum = 0
-            for (chat in chatList) {
-                sum += (chat.unreadCounts[uid] ?: 0L).toInt()
-            }
-            sum
-        }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
-
-    private var chatsJob: kotlinx.coroutines.Job? = null
-    private var activeChatMessagesJob: kotlinx.coroutines.Job? = null
-
     private val _deletionProgress = MutableStateFlow(DeletionProgressState())
     val deletionProgress: StateFlow<DeletionProgressState> = _deletionProgress.asStateFlow()
 
@@ -2137,219 +2104,8 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
             _sharedVehiclesV2.value = syncManager.getSharedVehiclesForUser()
             _familyGroups.value = syncManager.getMyFamilyGroups()
             _appNotifications.value = syncManager.getUserNotifications()
-            startListeningChats()
         }
     }
-
-    fun startListeningChats() {
-        val uid = currentUser.value?.uid
-            ?: com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
-            ?: ""
-        chatsJob?.cancel()
-        if (uid.isNotBlank()) {
-            chatsJob = viewModelScope.launch {
-                chatRepository.getUserChatsFlow(uid.trim()).collect { chatList ->
-                    _chats.value = chatList
-                }
-            }
-        } else {
-            _chats.value = emptyList()
-        }
-    }
-
-    fun openChat(friendUid: String, friendName: String, friendEmail: String) {
-        val currentUid = currentUser.value?.uid
-            ?: com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
-            ?: ""
-        val fUid = friendUid.trim()
-        val cUid = currentUid.trim()
-        if (cUid.isBlank() || fUid.isBlank() || fUid.equals(cUid, ignoreCase = true)) {
-            Log.e("DriveCareViewModel", "Invalid user or friend ID in openChat: friendUid='$fUid', currentUid='$cUid'")
-            closeChat()
-            return
-        }
-
-        val chatId = com.drivecare.app.data.cloud.ChatRepository.getChatId(cUid, fUid)
-        activeChatId.value = chatId
-        activeChatFriendUid.value = fUid
-
-        var initialFriendName = if (friendName.isNotBlank() && friendName != "DriveCare User" && friendName != "Friend" && !friendName.contains("@")) {
-            friendName
-        } else {
-            ""
-        }
-
-        if (initialFriendName.isBlank()) {
-            val fship = _friendships.value.find {
-                (it.user1Uid.equals(fUid, ignoreCase = true) || it.user2Uid.equals(fUid, ignoreCase = true))
-            }
-            if (fship != null) {
-                val fname = if (fship.user1Uid.equals(fUid, ignoreCase = true)) fship.user1Name else fship.user2Name
-                if (fname.isNotBlank() && fname != "DriveCare User" && fname != "Friend" && !fname.contains("@")) {
-                    initialFriendName = fname
-                }
-            }
-        }
-
-        if (initialFriendName.isBlank()) {
-            val existingChat = _chats.value.find { it.chatId == chatId }
-            if (existingChat != null) {
-                val convName = existingChat.participantNames[fUid] ?: ""
-                if (convName.isNotBlank() && convName != "DriveCare User" && convName != "Friend" && !convName.contains("@")) {
-                    initialFriendName = convName
-                }
-            }
-        }
-
-        activeChatFriendName.value = initialFriendName.ifBlank { friendEmail.ifBlank { "Friend" } }
-        activeChatFriendEmail.value = friendEmail
-        activeChatFriendPhotoUrl.value = ""
-
-        viewModelScope.launch {
-            try {
-                val friendProfile = syncManager.fetchPublicUserProfile(fUid)
-                if (friendProfile != null) {
-                    val currentActiveName = activeChatFriendName.value
-                    if (currentActiveName.isBlank() || currentActiveName == "Friend" || currentActiveName.contains("@")) {
-                        if (friendProfile.displayName.isNotBlank() && friendProfile.displayName != "DriveCare User") {
-                            activeChatFriendName.value = friendProfile.displayName
-                        }
-                    }
-                    if (friendProfile.email.isNotBlank()) {
-                        activeChatFriendEmail.value = friendProfile.email
-                    }
-                    if (friendProfile.photoUrl.isNotBlank()) {
-                        activeChatFriendPhotoUrl.value = friendProfile.photoUrl
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("DriveCareViewModel", "Error fetching friend public profile: ${e.message}")
-            }
-        }
-
-        // Listen ONLY to this chatId's messages sub-collection!
-        activeChatMessagesJob?.cancel()
-        activeChatMessagesJob = viewModelScope.launch {
-            chatRepository.getChatMessagesFlow(chatId).collect { msgList ->
-                _activeChatMessages.value = msgList
-                if (msgList.isNotEmpty() && activeChatFriendUid.value == fUid) {
-                    chatRepository.markMessagesAsRead(chatId, cUid)
-                }
-            }
-        }
-
-        markActiveChatAsRead()
-        setUserOnlineStatus(true)
-    }
-
-    fun closeChat() {
-        val currentUid = currentUser.value?.uid ?: ""
-        val chatId = activeChatId.value ?: ""
-        if (currentUid.isNotBlank() && chatId.isNotBlank()) {
-            viewModelScope.launch {
-                chatRepository.updatePresenceAndTyping(chatId, currentUserId = currentUid, isOnline = true, isTyping = false)
-            }
-        }
-        activeChatId.value = null
-        activeChatFriendUid.value = null
-        activeChatFriendName.value = ""
-        activeChatFriendEmail.value = ""
-        activeChatFriendPhotoUrl.value = ""
-        activeChatMessagesJob?.cancel()
-        _activeChatMessages.value = emptyList()
-    }
-
-    fun setTypingStatus(isTyping: Boolean) {
-        val currentUid = currentUser.value?.uid ?: return
-        val chatId = activeChatId.value ?: return
-        if (currentUid.isBlank() || chatId.isBlank()) return
-        viewModelScope.launch {
-            chatRepository.updatePresenceAndTyping(chatId, currentUserId = currentUid, isOnline = true, isTyping = isTyping)
-        }
-    }
-
-    fun setUserOnlineStatus(isOnline: Boolean) {
-        val currentUid = currentUser.value?.uid ?: return
-        val chatId = activeChatId.value ?: return
-        if (currentUid.isBlank() || chatId.isBlank()) return
-        viewModelScope.launch {
-            chatRepository.updatePresenceAndTyping(chatId, currentUserId = currentUid, isOnline = isOnline, isTyping = false)
-        }
-    }
-
-    fun sendMessage(
-        messageText: String,
-        mediaUrl: String? = null,
-        mediaType: String = "TEXT",
-        durationMs: Long? = null,
-        onResult: (Boolean, String?) -> Unit
-    ) {
-        val user = currentUser.value ?: com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.let {
-            CloudUser(it.uid, it.email ?: "", it.displayName ?: "")
-        }
-        val fUid = activeChatFriendUid.value
-        val fName = activeChatFriendName.value
-        val fEmail = activeChatFriendEmail.value
-
-        if (user == null || user.uid.isBlank() || fUid.isNullOrBlank()) {
-            onResult(false, "User or friend is not logged in")
-            return
-        }
-
-        if (fUid.equals(user.uid, ignoreCase = true)) {
-            onResult(false, "Cannot send message to yourself")
-            return
-        }
-
-        val myProfile = userProfile.value
-        val senderName = myProfile?.fullName?.ifBlank { user.displayName }
-            ?: user.displayName
-            ?: user.email
-            ?: "DriveCare User"
-        val senderEmail = user.email ?: ""
-
-        val cleanReceiverName = if (fName.isNotBlank() && fName != "Friend" && !fName.contains("@")) {
-            fName
-        } else if (fEmail.isNotBlank()) {
-            fEmail
-        } else {
-            "Friend"
-        }
-
-        viewModelScope.launch {
-            _isSendingMessage.value = true
-            val res = chatRepository.sendMessage(
-                senderUid = user.uid,
-                senderName = senderName,
-                senderEmail = senderEmail,
-                receiverUid = fUid,
-                receiverName = cleanReceiverName,
-                receiverEmail = fEmail,
-                text = messageText,
-                mediaUrl = mediaUrl,
-                mediaType = mediaType,
-                durationMs = durationMs
-            )
-            _isSendingMessage.value = false
-            res.onSuccess {
-                onResult(true, null)
-            }.onFailure {
-                onResult(false, it.message ?: "Failed to send message")
-            }
-        }
-    }
-
-    fun markActiveChatAsRead() {
-        val currentUid = currentUser.value?.uid ?: ""
-        val chatId = activeChatId.value ?: return
-        if (currentUid.isNotBlank() && chatId.isNotBlank()) {
-            viewModelScope.launch {
-                chatRepository.markMessagesAsRead(chatId, currentUid)
-            }
-        }
-    }
-
-
 
     fun shareVehicleWithUser(
         vehicle: Vehicle,
@@ -2429,6 +2185,12 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             _selectedPublicProfile.value = syncManager.fetchPublicUserProfile(targetUid)
         }
+    }
+
+    suspend fun getOwnerPhone(targetUid: String): String {
+        if (targetUid.isBlank()) return ""
+        val profile = syncManager.fetchPublicUserProfile(targetUid)
+        return profile?.phone ?: ""
     }
 
     fun clearSelectedPublicProfile() {

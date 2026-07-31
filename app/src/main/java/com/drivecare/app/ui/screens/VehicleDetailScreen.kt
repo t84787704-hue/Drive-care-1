@@ -37,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 import coil.compose.AsyncImage
 import com.drivecare.app.NavTab
 import com.drivecare.app.data.model.*
@@ -269,7 +270,10 @@ fun VehicleDetailScreen(
                         )
 
                         Spacer(modifier = Modifier.height(4.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
                                 color = MaterialTheme.colorScheme.surface
@@ -294,6 +298,27 @@ fun VehicleDetailScreen(
                                 )
                             }
                         }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                        val coroutineScope = rememberCoroutineScope()
+                        com.drivecare.app.utils.WhatsAppButton(
+                            onClick = {
+                                coroutineScope.launch {
+                                    val ownerUid = vehicle.ownerUserId.ifBlank { viewModel.currentUser.value?.uid ?: "" }
+                                    var phone = viewModel.getOwnerPhone(ownerUid)
+                                    if (phone.isBlank()) {
+                                        phone = viewModel.selectedPublicProfile.value?.phone ?: ""
+                                    }
+                                    com.drivecare.app.utils.WhatsAppHelper.openWhatsAppChat(
+                                        context = context,
+                                        rawPhoneNumber = phone,
+                                        vehicleName = vehicle.vehicleName
+                                    )
+                                }
+                            },
+                            text = "Chat on WhatsApp",
+                            modifier = Modifier.height(36.dp)
+                        )
                     }
                 }
             }

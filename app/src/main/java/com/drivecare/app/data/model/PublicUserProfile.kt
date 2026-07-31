@@ -4,6 +4,7 @@ data class PublicUserProfile(
     val uid: String = "",
     val displayName: String = "",
     val email: String = "",
+    val phone: String = "",
     val country: String = "",
     val preferredCurrency: String = "",
     val photoUrl: String = "",

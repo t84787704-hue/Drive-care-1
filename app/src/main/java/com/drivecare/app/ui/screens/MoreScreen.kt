@@ -38,8 +38,6 @@ import com.drivecare.app.utils.LocalAppLanguage
 
 enum class MoreSubSection {
     MENU,
-    CHAT,
-    CONVERSATIONS,
     INSURANCE,
     EXPENSES,
     TIMELINE,
@@ -80,20 +78,6 @@ fun MoreScreen(
     if (subSection != MoreSubSection.MENU) {
         Box(modifier = modifier.fillMaxSize()) {
             when (subSection) {
-                MoreSubSection.CHAT -> ChatScreen(
-                    viewModel = viewModel,
-                    onBackClick = {
-                        viewModel.closeChat()
-                        onSubSectionSelect(MoreSubSection.CONVERSATIONS)
-                    }
-                )
-                MoreSubSection.CONVERSATIONS -> ConversationsListScreen(
-                    viewModel = viewModel,
-                    onOpenChat = { friendUid, friendName, friendEmail ->
-                        viewModel.openChat(friendUid, friendName, friendEmail)
-                        onSubSectionSelect(MoreSubSection.CHAT)
-                    }
-                )
                 MoreSubSection.INSURANCE -> InsuranceRenewalScreen(viewModel = viewModel, highlightRecordId = highlightRecordId)
                 MoreSubSection.EXPENSES -> ExpenseManagerScreen(viewModel = viewModel, highlightRecordId = highlightRecordId)
                 MoreSubSection.TIMELINE -> VehicleTimelineScreen(viewModel = viewModel)

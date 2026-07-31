@@ -1087,6 +1087,7 @@ class FirebaseSyncManager private constructor() {
                     if (uid == currentUid) continue
                     val email = doc.getString("email") ?: ""
                     val name = doc.getString("fullName") ?: doc.getString("displayName") ?: doc.getString("name") ?: ""
+                    val phone = doc.getString("phone") ?: doc.getString("phoneNumber") ?: doc.getString("mobile") ?: ""
                     val country = doc.getString("country") ?: ""
                     val currency = doc.getString("preferredCurrency") ?: "PKR"
                     val photo = doc.getString("photoUrl") ?: ""
@@ -1098,6 +1099,7 @@ class FirebaseSyncManager private constructor() {
                                 uid = uid,
                                 displayName = name.ifBlank { email.substringBefore("@") },
                                 email = email,
+                                phone = phone,
                                 country = country,
                                 preferredCurrency = currency,
                                 photoUrl = photo,
@@ -1678,6 +1680,7 @@ class FirebaseSyncManager private constructor() {
             if (doc != null && doc.exists()) {
                 val email = doc.getString("email") ?: ""
                 val name = doc.getString("fullName") ?: doc.getString("displayName") ?: doc.getString("name") ?: ""
+                val phone = doc.getString("phone") ?: doc.getString("phoneNumber") ?: doc.getString("mobile") ?: ""
                 val country = doc.getString("country") ?: ""
                 val currency = doc.getString("preferredCurrency") ?: "PKR"
                 val photo = doc.getString("photoUrl") ?: ""
@@ -1690,6 +1693,7 @@ class FirebaseSyncManager private constructor() {
                     uid = targetUid,
                     displayName = name.ifBlank { email.substringBefore("@") },
                     email = email,
+                    phone = phone,
                     country = country,
                     preferredCurrency = currency,
                     photoUrl = photo,

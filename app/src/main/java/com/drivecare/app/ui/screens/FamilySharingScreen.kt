@@ -8,7 +8,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -319,11 +318,6 @@ fun FamilySharingScreen(
                                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
-                                                IconButton(onClick = {
-                                                    viewModel.openChat(friendUid, friendName, friendEmail)
-                                                }) {
-                                                    Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "Chat", tint = MaterialTheme.colorScheme.primary)
-                                                }
                                                 IconButton(onClick = { viewModel.fetchPublicUserProfile(friendUid) }) {
                                                     Icon(Icons.Default.AccountBox, contentDescription = "Public Profile")
                                                 }
@@ -745,6 +739,24 @@ fun PublicProfileDialog(
                     Text("Registered Vehicles:", fontWeight = FontWeight.SemiBold)
                     Text("${profile.vehicleCount}")
                 }
+                if (profile.phone.isNotBlank()) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Phone:", fontWeight = FontWeight.SemiBold)
+                        Text(profile.phone)
+                    }
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                val context = LocalContext.current
+                com.drivecare.app.utils.WhatsAppButton(
+                    onClick = {
+                        com.drivecare.app.utils.WhatsAppHelper.openWhatsAppChat(
+                            context = context,
+                            rawPhoneNumber = profile.phone
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    text = "Chat on WhatsApp"
+                )
             }
         },
         confirmButton = {
@@ -971,34 +983,47 @@ fun ShareVehicleDialogV2(
 
 @Composable
 fun DriverProfileCard(profile: DriverProfile, onDelete: () -> Unit) {
+    val context = LocalContext.current
     Card(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    shape = CircleShape,
-                    modifier = Modifier.size(44.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        shape = CircleShape,
+                        modifier = Modifier.size(44.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                    Column {
+                        Text(profile.name, fontWeight = FontWeight.Bold)
+                        Text(profile.email.ifBlank { profile.phone.ifBlank { "Driver Profile" } }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (profile.licenseNumber.isNotBlank()) {
+                            Text("License: ${profile.licenseNumber}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                        }
                     }
                 }
-                Column {
-                    Text(profile.name, fontWeight = FontWeight.Bold)
-                    Text(profile.email.ifBlank { profile.phone.ifBlank { "Driver Profile" } }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (profile.licenseNumber.isNotBlank()) {
-                        Text("License: ${profile.licenseNumber}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
-                    }
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
                 }
             }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+            if (profile.phone.isNotBlank()) {
+                com.drivecare.app.utils.WhatsAppButton(
+                    onClick = {
+                        com.drivecare.app.utils.WhatsAppHelper.openWhatsAppChat(
+                            context = context,
+                            rawPhoneNumber = profile.phone
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth().height(36.dp),
+                    text = "Chat on WhatsApp"
+                )
             }
         }
     }
