@@ -14,7 +14,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Chat
+
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -39,7 +39,6 @@ import com.drivecare.app.utils.LocaleManager
 enum class NavTab(val stringKey: String, val icon: ImageVector) {
     SUMMARY("tab_dashboard", Icons.Default.Dashboard),
     GARAGE("tab_garage", Icons.Default.DirectionsCar),
-    CHAT("tab_chat", Icons.AutoMirrored.Filled.Chat),
     SERVICE("tab_services", Icons.Default.Build),
     MORE("tab_more", Icons.Default.MoreHoriz)
 }
@@ -179,7 +178,6 @@ class MainActivity : ComponentActivity() {
                         val primary = when (currentTab) {
                             NavTab.SUMMARY -> AppFeature.DASHBOARD
                             NavTab.GARAGE -> AppFeature.GARAGE
-                            NavTab.CHAT -> AppFeature.FAMILY_SHARING
                             NavTab.SERVICE -> AppFeature.SERVICES
                             NavTab.MORE -> when (currentSubSection) {
                                 MoreSubSection.EXPENSES -> AppFeature.EXPENSES
@@ -229,8 +227,6 @@ class MainActivity : ComponentActivity() {
                             MoreSubSection.SETTINGS -> AppStrings.get("settings_title", currentLang)
                             MoreSubSection.PROFILE -> AppStrings.get("user_profile_title", currentLang)
                             MoreSubSection.AUTH -> AppStrings.get("cloud_signin_title", currentLang)
-                            MoreSubSection.CHAT -> "Direct Chat"
-                            MoreSubSection.CONVERSATIONS -> "Messages & Chat"
                             else -> AppStrings.get("tab_more", currentLang)
                         }
                     } else {
@@ -250,9 +246,6 @@ class MainActivity : ComponentActivity() {
                             )
                         },
                         bottomBar = {
-                            val totalUnreadMessageCount by viewModel.totalUnreadMessageCount.collectAsState()
-                            val activeChatFriendUid by viewModel.activeChatFriendUid.collectAsState()
-
                             NavigationBar {
                                 NavTab.entries.forEach { tab ->
                                     val localizedTitle = AppStrings.get(tab.stringKey, currentLang)
@@ -272,38 +265,15 @@ class MainActivity : ComponentActivity() {
                                             }
                                         },
                                         label = {
-                                            val labelText = if (tab == NavTab.CHAT && totalUnreadMessageCount > 0) {
-                                                "$localizedTitle ($totalUnreadMessageCount)"
-                                            } else {
-                                                localizedTitle
-                                            }
                                             Text(
-                                                text = labelText,
+                                                text = localizedTitle,
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis,
                                                 softWrap = false
                                             )
                                         },
                                         icon = {
-                                            if (tab == NavTab.CHAT && totalUnreadMessageCount > 0) {
-                                                BadgedBox(
-                                                    badge = {
-                                                        Badge(
-                                                            containerColor = MaterialTheme.colorScheme.error,
-                                                            contentColor = MaterialTheme.colorScheme.onError
-                                                        ) {
-                                                            Text(
-                                                                text = if (totalUnreadMessageCount > 99) "99+" else "$totalUnreadMessageCount",
-                                                                fontWeight = FontWeight.Bold
-                                                            )
-                                                        }
-                                                    }
-                                                ) {
-                                                    Icon(tab.icon, contentDescription = localizedTitle)
-                                                }
-                                            } else {
-                                                Icon(tab.icon, contentDescription = localizedTitle)
-                                            }
+                                            Icon(tab.icon, contentDescription = localizedTitle)
                                         }
                                     )
                                 }
@@ -314,8 +284,6 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
                             .padding(innerPadding)
 
-                        val activeChatFriendUid by viewModel.activeChatFriendUid.collectAsState()
-
                         when (currentTab) {
                             NavTab.SUMMARY -> SummaryDashboardScreen(
                                 viewModel = viewModel,
@@ -323,7 +291,6 @@ class MainActivity : ComponentActivity() {
                                 onNavigateTab = { target ->
                                     val dest = when (target) {
                                         "GARAGE" -> NavDestination(NavTab.GARAGE)
-                                        "CHAT", "CONVERSATIONS" -> NavDestination(NavTab.CHAT)
                                         "SERVICES", "SERVICE" -> NavDestination(NavTab.SERVICE)
                                         "INSURANCE" -> NavDestination(NavTab.MORE, MoreSubSection.INSURANCE)
                                         "DOCUMENTS" -> NavDestination(NavTab.MORE, MoreSubSection.DOCUMENTS)
@@ -354,28 +321,6 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             )
-                            NavTab.CHAT -> {
-                                val cUid = viewModel.currentUser.collectAsState().value?.uid ?: ""
-                                val currentActiveFriend = activeChatFriendUid ?: ""
-                                if (currentActiveFriend.isNotBlank() && cUid.isNotBlank() && currentActiveFriend.equals(cUid, ignoreCase = true)) {
-                                    viewModel.closeChat()
-                                }
-                                MoreScreen(
-                                    viewModel = viewModel,
-                                    modifier = modifier,
-                                    subSection = if (!viewModel.activeChatFriendUid.collectAsState().value.isNullOrBlank() && !viewModel.activeChatFriendUid.collectAsState().value.equals(cUid, ignoreCase = true)) MoreSubSection.CHAT else MoreSubSection.CONVERSATIONS,
-                                    highlightRecordId = currentHighlightId,
-                                    onSubSectionSelect = { sub ->
-                                        if (sub == MoreSubSection.CONVERSATIONS) {
-                                            viewModel.closeChat()
-                                        }
-                                        val dest = NavDestination(NavTab.MORE, sub)
-                                        if (currentDestination != dest) {
-                                            backStack.add(dest)
-                                        }
-                                    }
-                                )
-                            }
                             NavTab.SERVICE -> MaintenanceScreen(
                                 viewModel = viewModel,
                                 modifier = modifier,
@@ -414,12 +359,6 @@ class MainActivity : ComponentActivity() {
         val recId = intent.getLongExtra(com.drivecare.app.utils.DriveCareNotificationReceiver.EXTRA_RECORD_ID, -1L).let {
             if (it != -1L) it else null
         }
-        val friendUid = intent.getStringExtra("friend_uid")
-        val friendName = intent.getStringExtra("friend_name") ?: ""
-        if (!friendUid.isNullOrBlank()) {
-            viewModel.openChat(friendUid, friendName, "")
-        }
-
         val dest = mapToDestination(tab, section)
         if (dest != null) {
             pendingNavigationExtra = Pair(dest, recId)
@@ -433,8 +372,6 @@ class MainActivity : ComponentActivity() {
             "DOCUMENTS" -> NavDestination(NavTab.MORE, MoreSubSection.DOCUMENTS)
             "EXPENSES" -> NavDestination(NavTab.MORE, MoreSubSection.EXPENSES)
             "SERVICE", "SERVICES", "MAINTENANCE" -> NavDestination(NavTab.SERVICE)
-            "FUEL" -> NavDestination(NavTab.MORE, MoreSubSection.EXPENSES)
-            "CHAT", "CONVERSATIONS" -> NavDestination(NavTab.CHAT)
             "GARAGE" -> NavDestination(NavTab.GARAGE)
             "SUMMARY", "DASHBOARD" -> NavDestination(NavTab.SUMMARY)
             "MORE" -> {
@@ -451,8 +388,6 @@ class MainActivity : ComponentActivity() {
                     "SETTINGS" -> MoreSubSection.SETTINGS
                     "PROFILE" -> MoreSubSection.PROFILE
                     "AUTH" -> MoreSubSection.AUTH
-                    "CHAT" -> MoreSubSection.CHAT
-                    "CONVERSATIONS" -> MoreSubSection.CONVERSATIONS
                     else -> MoreSubSection.MENU
                 }
                 NavDestination(NavTab.MORE, sub)
@@ -557,7 +492,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        viewModel.setUserOnlineStatus(true)
         val uid = viewModel.currentUser.value?.uid ?: ""
         if (uid.isNotBlank()) {
             com.drivecare.app.utils.FcmNotificationManager.startRealtimeNotificationListener(this, uid)
@@ -566,6 +500,5 @@ class MainActivity : ComponentActivity() {
 
     override fun onPause() {
         super.onPause()
-        viewModel.setUserOnlineStatus(false)
     }
 }

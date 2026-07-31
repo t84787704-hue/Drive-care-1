@@ -51,9 +51,7 @@ enum class MoreSubSection {
     ACHIEVEMENTS,
     SETTINGS,
     PROFILE,
-    AUTH,
-    CHAT,
-    CONVERSATIONS
+    AUTH
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -92,11 +90,7 @@ fun MoreScreen(
                 MoreSubSection.GPS_LIVE_TRACKING -> LiveTrackingScreen(viewModel = viewModel)
                 MoreSubSection.GPS_LOCATION_HISTORY -> LocationHistoryScreen(viewModel = viewModel)
                 MoreSubSection.FAMILY_SHARING -> FamilySharingScreen(
-                    viewModel = viewModel,
-                    onOpenChat = { friendUid, friendName, friendEmail ->
-                        viewModel.openChat(friendUid, friendName, friendEmail)
-                        onSubSectionSelect(MoreSubSection.CHAT)
-                    }
+                    viewModel = viewModel
                 )
                 MoreSubSection.DOCUMENTS -> DocumentsScreen(viewModel = viewModel, highlightRecordId = highlightRecordId)
                 MoreSubSection.EMERGENCY -> EmergencyScreen(viewModel = viewModel)
@@ -109,17 +103,6 @@ fun MoreScreen(
                 MoreSubSection.AUTH -> AuthScreen(
                     viewModel = viewModel,
                     onAuthSuccess = { onSubSectionSelect(MoreSubSection.PROFILE) }
-                )
-                MoreSubSection.CHAT -> ChatScreen(
-                    viewModel = viewModel,
-                    onBackClick = { onSubSectionSelect(MoreSubSection.CONVERSATIONS) }
-                )
-                MoreSubSection.CONVERSATIONS -> ConversationsListScreen(
-                    viewModel = viewModel,
-                    onOpenChat = { friendUid, friendName, friendEmail ->
-                        viewModel.openChat(friendUid, friendName, friendEmail)
-                        onSubSectionSelect(MoreSubSection.CHAT)
-                    }
                 )
                 else -> {}
             }
@@ -143,7 +126,7 @@ fun MoreScreen(
             val userProfile by viewModel.userProfile.collectAsState()
             val syncState by viewModel.syncState.collectAsState()
             val lastSyncTime by viewModel.lastSyncTime.collectAsState()
-            val totalUnreadMessageCount by viewModel.totalUnreadMessageCount.collectAsState()
+
 
             val formattedLastSync = remember(lastSyncTime) {
                 if (lastSyncTime <= 0L) {
@@ -310,16 +293,6 @@ fun MoreScreen(
                         title = AppStrings.get("family_sharing_menu", lang),
                         subtitle = AppStrings.get("family_sharing_sub", lang),
                         onClick = { onSubSectionSelect(MoreSubSection.FAMILY_SHARING) }
-                    )
-
-                    Divider()
-
-                    MoreMenuItem(
-                        icon = Icons.Default.Chat,
-                        title = "Direct Messaging & Chat",
-                        subtitle = "Real-time 1-on-1 messaging with connected friends",
-                        badgeCount = totalUnreadMessageCount,
-                        onClick = { onSubSectionSelect(MoreSubSection.CONVERSATIONS) }
                     )
 
                     Divider()

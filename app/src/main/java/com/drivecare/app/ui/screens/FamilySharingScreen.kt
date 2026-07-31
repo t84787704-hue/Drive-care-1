@@ -28,8 +28,7 @@ import java.util.*
 @Composable
 fun FamilySharingScreen(
     viewModel: DriveCareViewModel,
-    modifier: Modifier = Modifier,
-    onOpenChat: ((friendUid: String, friendName: String, friendEmail: String) -> Unit)? = null
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val vehicles by viewModel.vehicles.collectAsState()
@@ -269,7 +268,6 @@ fun FamilySharingScreen(
                         } else {
                             val currentUid = viewModel.currentUser.collectAsState().value?.uid ?: ""
                             val activeUid = currentUid.ifBlank { com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: "" }
-                            val conversations by viewModel.conversations.collectAsState()
 
                             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 items(friendships) { friendship ->
@@ -290,10 +288,6 @@ fun FamilySharingScreen(
                                         isUser2Current -> friendship.user1Email
                                         else -> friendship.user2Email.ifBlank { friendship.user1Email }
                                     }
-
-                                    val convId = com.drivecare.app.data.cloud.ChatRepository.getConversationId(currentUid, friendUid)
-                                    val conv = conversations.find { it.conversationId == convId }
-                                    val friendUnreadCount = conv?.unreadCounts?.get(currentUid) ?: 0L
 
                                     Card(modifier = Modifier.fillMaxWidth()) {
                                         Row(
@@ -316,17 +310,7 @@ fun FamilySharingScreen(
                                                     }
                                                 }
                                                 Column {
-                                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                                        Text(friendName.ifBlank { friendEmail }, fontWeight = FontWeight.Bold)
-                                                        if (friendUnreadCount > 0) {
-                                                            Badge(
-                                                                containerColor = MaterialTheme.colorScheme.primary,
-                                                                contentColor = MaterialTheme.colorScheme.onPrimary
-                                                            ) {
-                                                                Text("($friendUnreadCount)", fontWeight = FontWeight.Bold)
-                                                            }
-                                                        }
-                                                    }
+                                                    Text(friendName.ifBlank { friendEmail }, fontWeight = FontWeight.Bold)
                                                     Text(friendEmail, style = MaterialTheme.typography.bodySmall)
                                                 }
                                             }
@@ -334,19 +318,6 @@ fun FamilySharingScreen(
                                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
-                                                FilledTonalButton(
-                                                    onClick = {
-                                                        if (friendUid.isNotBlank() && !friendUid.equals(activeUid, ignoreCase = true)) {
-                                                            viewModel.openChat(friendUid, friendName, friendEmail)
-                                                            onOpenChat?.invoke(friendUid, friendName, friendEmail)
-                                                        }
-                                                    },
-                                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
-                                                ) {
-                                                    Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(16.dp))
-                                                    Spacer(modifier = Modifier.width(4.dp))
-                                                    Text("Message", style = MaterialTheme.typography.labelMedium)
-                                                }
                                                 IconButton(onClick = { viewModel.fetchPublicUserProfile(friendUid) }) {
                                                     Icon(Icons.Default.AccountBox, contentDescription = "Public Profile")
                                                 }

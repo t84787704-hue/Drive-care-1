@@ -54,7 +54,7 @@ fun SettingsScreen(
     val notifyInsurance by viewModel.notifyInsurance.collectAsState()
     val notifyDocuments by viewModel.notifyDocuments.collectAsState()
     val notifyExpenses by viewModel.notifyExpenses.collectAsState()
-    val notifyChat by viewModel.notifyChat.collectAsState()
+
     val notifyFriendRequests by viewModel.notifyFriendRequests.collectAsState()
     val notifyVehicleSharing by viewModel.notifyVehicleSharing.collectAsState()
     val notifyGeneral by viewModel.notifyGeneral.collectAsState()
@@ -360,17 +360,7 @@ fun SettingsScreen(
                     )
                 }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Chat Message Notifications", style = MaterialTheme.typography.bodyMedium)
-                    Switch(
-                        checked = notifyChat,
-                        onCheckedChange = { viewModel.setNotificationPreference("chat", it) }
-                    )
-                }
+
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),

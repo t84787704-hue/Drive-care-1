@@ -8,7 +8,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -450,104 +449,7 @@ fun SummaryDashboardScreen(
             }
         }
 
-        // SECTION 2: 💬 Family & Fleet Chat
-        val totalUnreadMessageCount by viewModel.totalUnreadMessageCount.collectAsState()
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Text(
-                    text = "Family & Fleet Chat",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-            TextButton(onClick = { onNavigateTab?.invoke("CHAT") }) {
-                Text("Open Chat")
-            }
-        }
 
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                            modifier = Modifier.size(40.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.Group, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
-                            }
-                        }
-                        Column {
-                            Text(
-                                text = "Family Sharing & Fleet Messaging",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "Coordinate maintenance, fuel logs & vehicle access in real time",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-
-                    if (totalUnreadMessageCount > 0) {
-                        Badge(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        ) {
-                            Text("$totalUnreadMessageCount New", fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Button(
-                        onClick = { onNavigateTab?.invoke("CHAT") },
-                        modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(vertical = 10.dp, horizontal = 12.dp)
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Group & Direct Chat", style = MaterialTheme.typography.labelMedium)
-                    }
-
-                    OutlinedButton(
-                        onClick = { onNavigateTab?.invoke("SHARING") },
-                        modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(vertical = 10.dp, horizontal = 12.dp)
-                    ) {
-                        Icon(Icons.Default.Group, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Family Access", style = MaterialTheme.typography.labelMedium)
-                    }
-                }
-            }
-        }
 
         // SECTION 3: ⛽ Fuel Tracker
         Row(
@@ -1172,11 +1074,7 @@ fun VehicleHealthCard(
                         label = { Text("Insurance", style = MaterialTheme.typography.labelSmall) },
                         leadingIcon = { Icon(Icons.Default.VerifiedUser, contentDescription = null, modifier = Modifier.size(14.dp)) }
                     )
-                    AssistChip(
-                        onClick = { onNavigateTab.invoke("CHAT") },
-                        label = { Text("Chat", style = MaterialTheme.typography.labelSmall) },
-                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null, modifier = Modifier.size(14.dp)) }
-                    )
+
                 }
             }
         }

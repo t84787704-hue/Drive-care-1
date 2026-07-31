@@ -27,7 +27,6 @@ object AppStrings {
         "app_name" to "DriveCare",
         "tab_dashboard" to "Dashboard",
         "tab_garage" to "Vehicles",
-        "tab_chat" to "Chat",
         "tab_fuel" to "Fuel",
         "tab_services" to "Services",
         "tab_service" to "Services",

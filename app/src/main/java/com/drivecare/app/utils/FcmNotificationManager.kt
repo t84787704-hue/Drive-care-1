@@ -26,7 +26,6 @@ object FcmNotificationManager {
     private const val TAG = "FcmNotificationManager"
 
     // Feature 7 Notification Channels
-    const val CHANNEL_CHAT_MESSAGES = "drivecare_chat_messages"
     const val CHANNEL_FRIEND_REQUESTS = "drivecare_friend_requests"
     const val CHANNEL_VEHICLE_SHARING = "drivecare_vehicle_sharing"
     const val CHANNEL_GENERAL_NOTIFICATIONS = "drivecare_general_notifications"
@@ -36,9 +35,6 @@ object FcmNotificationManager {
     private var isListenerActive = false
     private var activeUid: String? = null
 
-    @Volatile
-    var activeChatFriendUid: String? = null
-
     /**
      * Feature 7: Initialize all FCM & Application Notification Channels
      */
@@ -47,14 +43,6 @@ object FcmNotificationManager {
             val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
             val channels = listOf(
-                NotificationChannel(
-                    CHANNEL_CHAT_MESSAGES,
-                    "Chat Messages",
-                    NotificationManager.IMPORTANCE_HIGH
-                ).apply {
-                    description = "Notifications for incoming real-time chat messages, voice notes, and images"
-                    enableVibration(true)
-                },
                 NotificationChannel(
                     CHANNEL_FRIEND_REQUESTS,
                     "Friend Requests",
@@ -171,9 +159,6 @@ object FcmNotificationManager {
     fun isNotificationEnabled(context: Context, type: String): Boolean {
         val prefs = context.getSharedPreferences("drivecare_prefs", Context.MODE_PRIVATE)
         return when (type.uppercase()) {
-            "CHAT", "CHAT_TEXT", "CHAT_VOICE", "CHAT_IMAGE" -> {
-                prefs.getBoolean("notify_chat", true)
-            }
             "FRIEND_REQUEST", "FRIEND_ACCEPTED" -> {
                 prefs.getBoolean("notify_friend_requests", true)
             }
@@ -205,14 +190,7 @@ object FcmNotificationManager {
             return
         }
 
-        // Feature 4: If app is open and user is currently viewing the SAME conversation, do not show notification
-        if (type.uppercase().startsWith("CHAT") && !friendUid.isNullOrBlank() && friendUid == activeChatFriendUid) {
-            Log.d(TAG, "User is currently viewing active conversation with $friendUid; suppressing notification alert.")
-            return
-        }
-
         val channelId = when (type.uppercase()) {
-            "CHAT", "CHAT_TEXT", "CHAT_VOICE", "CHAT_IMAGE" -> CHANNEL_CHAT_MESSAGES
             "FRIEND_REQUEST", "FRIEND_ACCEPTED" -> CHANNEL_FRIEND_REQUESTS
             "VEHICLE_SHARING", "VEHICLE_SHARED" -> CHANNEL_VEHICLE_SHARING
             "SERVICE", "INSURANCE", "DOCUMENTS", "EXPENSES" -> CHANNEL_VEHICLE_ALERTS
@@ -221,7 +199,6 @@ object FcmNotificationManager {
 
         // Determine destination tab & section for tap action
         val (finalTab, finalSection) = when {
-            type.uppercase().startsWith("CHAT") -> Pair("CHAT", "CHAT")
             !targetTab.isNullOrBlank() -> Pair(targetTab, targetSection ?: "")
             type.startsWith("FRIEND") -> Pair("MORE", "FAMILY_SHARING")
             type.startsWith("VEHICLE") -> Pair("GARAGE", "MENU")
