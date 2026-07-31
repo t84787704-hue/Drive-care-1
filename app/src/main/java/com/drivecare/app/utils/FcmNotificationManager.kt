@@ -101,6 +101,13 @@ object FcmNotificationManager {
         val targetUid = uid ?: FirebaseAuth.getInstance().currentUser?.uid ?: return
         if (targetUid.isBlank()) return
 
+        // Explicitly unsubscribe from global 'all' topic so push notifications send only to user-specific tokens
+        try {
+            FirebaseMessaging.getInstance().unsubscribeFromTopic("all")
+        } catch (e: Exception) {
+            Log.w(TAG, "Unsubscribe from 'all' topic failed: ${e.message}")
+        }
+
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
             if (task.isSuccessful && task.result != null) {
                 val token = task.result

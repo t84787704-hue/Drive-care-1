@@ -281,8 +281,17 @@ class ChatRepository(private val firestore: FirebaseFirestore = FirebaseFirestor
             // 1. Write message to conversations/{conversationId}/messages/{messageId}
             msgRef.set(msgData).await()
 
-            // 2. Write message to root collection messages/{messageId} for top-level indexing
-            firestore.collection("messages").document(messageId).set(msgData, SetOptions.merge()).await()
+            // 2. Write message to chats/{conversationId}/messages/{messageId} as well
+            try {
+                firestore.collection("chats")
+                    .document(conversationId)
+                    .collection("messages")
+                    .document(messageId)
+                    .set(msgData, SetOptions.merge())
+                    .await()
+            } catch (e: Exception) {
+                Log.w("ChatRepository", "Failed to sync message to chats collection: ${e.message}")
+            }
 
             // 3. Update conversation root metadata
             val convRef = firestore.collection("conversations").document(conversationId)
@@ -383,9 +392,9 @@ class ChatRepository(private val firestore: FirebaseFirestore = FirebaseFirestor
                 val batch = firestore.batch()
                 for (doc in unreadDocs.documents) {
                     batch.update(doc.reference, mapOf("isRead" to true, "isDelivered" to true, "readAt" to now))
-                    // Also update in root messages collection if present
-                    val rootMsgRef = firestore.collection("messages").document(doc.id)
-                    batch.update(rootMsgRef, mapOf("isRead" to true, "isDelivered" to true, "readAt" to now))
+                    // Also update in chats/{conversationId}/messages if present
+                    val chatMsgRef = firestore.collection("chats").document(conversationId).collection("messages").document(doc.id)
+                    batch.set(chatMsgRef, mapOf("isRead" to true, "isDelivered" to true, "readAt" to now), SetOptions.merge())
                 }
                 batch.commit().await()
             }
