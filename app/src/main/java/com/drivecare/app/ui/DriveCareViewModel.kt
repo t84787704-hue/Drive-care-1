@@ -2154,9 +2154,21 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
             ?: ""
         conversationsJob?.cancel()
         if (uid.isNotBlank()) {
+            viewModelScope.launch {
+                val deleted = chatRepository.cleanupSelfConversations()
+                if (deleted > 0) {
+                    Log.i("CHAT_BUG", "Cleaned up $deleted invalid self-chat conversations from Firestore.")
+                }
+            }
             conversationsJob = viewModelScope.launch {
-                chatRepository.getConversationsFlow(uid).collect { convList ->
-                    _conversations.value = convList
+                chatRepository.getConversationsFlow(uid.trim()).collect { convList ->
+                    val validList = convList.filter { conv ->
+                        val parts = conv.conversationId.split("_")
+                        val isSelfId = parts.size >= 2 && parts[0].equals(parts[1], ignoreCase = true)
+                        val distinctParticipants = conv.participants.map { it.trim() }.filter { it.isNotBlank() }.distinctBy { it.lowercase() }
+                        !isSelfId && distinctParticipants.size >= 2 && !distinctParticipants.all { it.equals(uid.trim(), ignoreCase = true) }
+                    }
+                    _conversations.value = validList
                 }
             }
         } else {
@@ -2168,11 +2180,11 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         val currentUid = currentUser.value?.uid
             ?: com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
             ?: ""
-        if (currentUid.isBlank() || friendUid.isBlank()) return
-
-        // Guard against opening chat with self
-        if (friendUid.equals(currentUid, ignoreCase = true)) {
-            Log.e("DriveCareViewModel", "Attempted to open chat with current user UID. Ignoring.")
+        val fUid = friendUid.trim()
+        val cUid = currentUid.trim()
+        if (cUid.isBlank() || fUid.isBlank() || fUid.equals(cUid, ignoreCase = true)) {
+            Log.e("CHAT_BUG", "Self chat prevented in openChat: friendUid='$fUid', currentUid='$cUid'")
+            closeChat()
             return
         }
 
@@ -2181,7 +2193,7 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
             ?: com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.displayName
             ?: ""
 
-        activeChatFriendUid.value = friendUid
+        activeChatFriendUid.value = fUid
 
         var initialFriendName = if (friendName.isNotBlank() && friendName != "DriveCare User" && friendName != "Friend" && !friendName.contains("@")) {
             friendName

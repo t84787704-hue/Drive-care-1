@@ -336,8 +336,10 @@ fun FamilySharingScreen(
                                             ) {
                                                 FilledTonalButton(
                                                     onClick = {
-                                                        viewModel.openChat(friendUid, friendName, friendEmail)
-                                                        onOpenChat?.invoke(friendUid, friendName, friendEmail)
+                                                        if (friendUid.isNotBlank() && !friendUid.equals(activeUid, ignoreCase = true)) {
+                                                            viewModel.openChat(friendUid, friendName, friendEmail)
+                                                            onOpenChat?.invoke(friendUid, friendName, friendEmail)
+                                                        }
                                                     },
                                                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                                                 ) {

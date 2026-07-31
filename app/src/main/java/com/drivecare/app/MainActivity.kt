@@ -354,21 +354,28 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             )
-                            NavTab.CHAT -> MoreScreen(
-                                viewModel = viewModel,
-                                modifier = modifier,
-                                subSection = if (!activeChatFriendUid.isNullOrBlank()) MoreSubSection.CHAT else MoreSubSection.CONVERSATIONS,
-                                highlightRecordId = currentHighlightId,
-                                onSubSectionSelect = { sub ->
-                                    if (sub == MoreSubSection.CONVERSATIONS) {
-                                        viewModel.closeChat()
-                                    }
-                                    val dest = NavDestination(NavTab.MORE, sub)
-                                    if (currentDestination != dest) {
-                                        backStack.add(dest)
-                                    }
+                            NavTab.CHAT -> {
+                                val cUid = viewModel.currentUser.collectAsState().value?.uid ?: ""
+                                val currentActiveFriend = activeChatFriendUid ?: ""
+                                if (currentActiveFriend.isNotBlank() && cUid.isNotBlank() && currentActiveFriend.equals(cUid, ignoreCase = true)) {
+                                    viewModel.closeChat()
                                 }
-                            )
+                                MoreScreen(
+                                    viewModel = viewModel,
+                                    modifier = modifier,
+                                    subSection = if (!viewModel.activeChatFriendUid.collectAsState().value.isNullOrBlank() && !viewModel.activeChatFriendUid.collectAsState().value.equals(cUid, ignoreCase = true)) MoreSubSection.CHAT else MoreSubSection.CONVERSATIONS,
+                                    highlightRecordId = currentHighlightId,
+                                    onSubSectionSelect = { sub ->
+                                        if (sub == MoreSubSection.CONVERSATIONS) {
+                                            viewModel.closeChat()
+                                        }
+                                        val dest = NavDestination(NavTab.MORE, sub)
+                                        if (currentDestination != dest) {
+                                            backStack.add(dest)
+                                        }
+                                    }
+                                )
+                            }
                             NavTab.SERVICE -> MaintenanceScreen(
                                 viewModel = viewModel,
                                 modifier = modifier,

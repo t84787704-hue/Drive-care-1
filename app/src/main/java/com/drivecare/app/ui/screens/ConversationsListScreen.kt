@@ -39,9 +39,16 @@ fun ConversationsListScreen(
     val validConversations = remember(conversations, activeUid, friendships) {
         conversations.filter { conv ->
             val parts = conv.conversationId.split("_")
+            if (parts.size >= 2 && parts[0].equals(parts[1], ignoreCase = true)) {
+                return@filter false
+            }
+            val distinctParticipants = conv.participants.map { it.trim() }.filter { it.isNotBlank() }.distinctBy { it.lowercase() }
+            if (distinctParticipants.size < 2 || (activeUid.isNotBlank() && distinctParticipants.all { it.equals(activeUid.trim(), ignoreCase = true) })) {
+                return@filter false
+            }
             val otherUidFromId = parts.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) } ?: ""
             val otherUid = if (otherUidFromId.isNotBlank()) otherUidFromId else {
-                conv.participants.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
+                distinctParticipants.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
                     ?: conv.participantNames.keys.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
                     ?: conv.participantEmails.keys.find { activeUid.isNotBlank() && !it.equals(activeUid, ignoreCase = true) }
                     ?: ""

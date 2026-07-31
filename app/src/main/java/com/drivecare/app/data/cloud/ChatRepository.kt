@@ -32,9 +32,50 @@ class ChatRepository(private val firestore: FirebaseFirestore = FirebaseFirestor
         fun getConversationId(uid1: String, uid2: String): String {
             val u1 = uid1.trim()
             val u2 = uid2.trim()
+            if (u1.isBlank() || u2.isBlank() || u1.equals(u2, ignoreCase = true)) {
+                Log.e("CHAT_BUG", "Self chat prevented in getConversationId: u1='$u1', u2='$u2'")
+                return ""
+            }
             return if (u1 < u2) "${u1}_${u2}" else "${u2}_${u1}"
         }
+
+        suspend fun cleanupSelfConversations(firestore: FirebaseFirestore = FirebaseFirestore.getInstance()): Int = withContext(Dispatchers.IO) {
+            var deletedCount = 0
+            try {
+                val snapshot = firestore.collection("conversations").get().await()
+                for (doc in snapshot.documents) {
+                    val id = doc.id
+                    val parts = id.split("_")
+                    val participants = (doc.get("participants") as? List<String> ?: emptyList()).map { it.trim() }.filter { it.isNotBlank() }
+                    val distinctParticipants = participants.distinctBy { it.lowercase() }
+
+                    val isSelfChat = (parts.size >= 2 && parts[0].equals(parts[1], ignoreCase = true)) ||
+                            (distinctParticipants.isNotEmpty() && distinctParticipants.size < 2) ||
+                            (parts.size == 1 && id.isNotBlank())
+
+                    if (isSelfChat) {
+                        Log.w("CHAT_CLEANUP", "Deleting self-chat conversation from Firestore: $id")
+                        try {
+                            val messagesSnap = firestore.collection("conversations").document(id).collection("messages").get().await()
+                            for (msgDoc in messagesSnap.documents) {
+                                firestore.collection("conversations").document(id).collection("messages").document(msgDoc.id).delete().await()
+                            }
+                        } catch (e: Exception) {
+                            Log.e("CHAT_CLEANUP", "Error deleting messages subcollection for $id: ${e.message}")
+                        }
+                        firestore.collection("conversations").document(id).delete().await()
+                        deletedCount++
+                    }
+                }
+                Log.i("CHAT_CLEANUP", "Self-chat cleanup complete. Total deleted: $deletedCount")
+            } catch (e: Exception) {
+                Log.e("CHAT_CLEANUP", "Failed to cleanup self-chat conversations: ${e.message}", e)
+            }
+            return@withContext deletedCount
+        }
     }
+
+    suspend fun cleanupSelfConversations(): Int = Companion.cleanupSelfConversations(firestore)
 
     /**
      * Real-time listener for all conversations where currentUid is a participant.
@@ -47,7 +88,7 @@ class ChatRepository(private val firestore: FirebaseFirestore = FirebaseFirestor
         }
 
         val listener = firestore.collection("conversations")
-            .whereArrayContains("participants", currentUid)
+            .whereArrayContains("participants", currentUid.trim())
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     Log.e("ChatRepository", "Error fetching conversations: ${error.message}")
@@ -59,13 +100,25 @@ class ChatRepository(private val firestore: FirebaseFirestore = FirebaseFirestor
                     val conversations = snapshot.documents.mapNotNull { doc ->
                         try {
                             val id = doc.id
-                            val participants = doc.get("participants") as? List<String> ?: emptyList()
                             val partsFromId = id.split("_")
-                            val otherUidFromId = partsFromId.find { !it.equals(currentUid, ignoreCase = true) } ?: ""
-                            val otherParticipants = participants.filter { !it.equals(currentUid, ignoreCase = true) }
-                            if (otherUidFromId.isBlank() && otherParticipants.isEmpty()) {
+                            if (partsFromId.size >= 2 && partsFromId[0].equals(partsFromId[1], ignoreCase = true)) {
+                                Log.e("CHAT_BUG", "Filtered out self-chat conversation doc: $id")
                                 return@mapNotNull null
                             }
+
+                            val rawParticipants = doc.get("participants") as? List<String> ?: emptyList()
+                            val participants = rawParticipants.map { it.trim() }.filter { it.isNotBlank() }
+                            val distinctParticipants = participants.distinctBy { it.lowercase() }
+                            if (distinctParticipants.size < 2) {
+                                Log.e("CHAT_BUG", "Filtered out conversation $id (< 2 distinct participants)")
+                                return@mapNotNull null
+                            }
+
+                            val otherParticipants = distinctParticipants.filter { !it.equals(currentUid.trim(), ignoreCase = true) }
+                            if (otherParticipants.isEmpty()) {
+                                return@mapNotNull null
+                            }
+
                             val participantNames = doc.get("participantNames") as? Map<String, String> ?: emptyMap()
                             val participantEmails = doc.get("participantEmails") as? Map<String, String> ?: emptyMap()
                             val lastMessage = doc.getString("lastMessage") ?: ""
@@ -178,11 +231,22 @@ class ChatRepository(private val firestore: FirebaseFirestore = FirebaseFirestor
         messageText: String
     ): Result<ChatMessage> = withContext(Dispatchers.IO) {
         try {
-            if (senderUid.isBlank() || receiverUid.isBlank() || messageText.isBlank()) {
+            val sUid = senderUid.trim()
+            val rUid = receiverUid.trim()
+            if (sUid.isBlank() || rUid.isBlank() || messageText.isBlank()) {
                 return@withContext Result.failure(Exception("Invalid message params"))
             }
 
-            val conversationId = getConversationId(senderUid, receiverUid)
+            if (sUid.equals(rUid, ignoreCase = true)) {
+                Log.e("CHAT_BUG", "Self chat prevented in ChatRepository.sendMessage: senderUid=$sUid, receiverUid=$rUid")
+                return@withContext Result.failure(IllegalArgumentException("Self chat is strictly prohibited"))
+            }
+
+            val conversationId = getConversationId(sUid, rUid)
+            if (conversationId.isBlank()) {
+                Log.e("CHAT_BUG", "Invalid conversationId in ChatRepository.sendMessage")
+                return@withContext Result.failure(IllegalArgumentException("Invalid conversation ID"))
+            }
             val timestamp = System.currentTimeMillis()
             val msgRef = firestore.collection("conversations")
                 .document(conversationId)
