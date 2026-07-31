@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -318,6 +319,11 @@ fun FamilySharingScreen(
                                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
+                                                IconButton(onClick = {
+                                                    viewModel.openChat(friendUid, friendName, friendEmail)
+                                                }) {
+                                                    Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "Chat", tint = MaterialTheme.colorScheme.primary)
+                                                }
                                                 IconButton(onClick = { viewModel.fetchPublicUserProfile(friendUid) }) {
                                                     Icon(Icons.Default.AccountBox, contentDescription = "Public Profile")
                                                 }
