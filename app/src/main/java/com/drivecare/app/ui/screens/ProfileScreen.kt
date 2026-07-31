@@ -73,6 +73,7 @@ fun ProfileScreen(
     var isEditing by remember { mutableStateOf(false) }
 
     var fullName by remember { mutableStateOf(userProfile?.fullName ?: "") }
+    var phone by remember { mutableStateOf(userProfile?.phone ?: "") }
     var country by remember { mutableStateOf(userProfile?.country ?: "Pakistan") }
     var preferredCurrency by remember { mutableStateOf(userProfile?.preferredCurrency ?: "PKR") }
 
@@ -95,6 +96,7 @@ fun ProfileScreen(
     LaunchedEffect(userProfile) {
         userProfile?.let {
             fullName = it.fullName
+            phone = it.phone
             country = it.country
             preferredCurrency = it.preferredCurrency
         }
@@ -287,6 +289,16 @@ fun ProfileScreen(
                         supportingText = nameError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
                         singleLine = true,
                         leadingIcon = { Icon(Icons.Default.Person, contentDescription = "Full Name") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    // WhatsApp / Phone Number Field
+                    OutlinedTextField(
+                        value = phone,
+                        onValueChange = { phone = it },
+                        label = { Text("WhatsApp Number (e.g. +923001234567)") },
+                        singleLine = true,
+                        leadingIcon = { Icon(Icons.Default.Phone, contentDescription = "WhatsApp Number") },
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -489,6 +501,7 @@ fun ProfileScreen(
                                 uid = currentUser?.uid ?: userProfile?.uid ?: "",
                                 fullName = cleanName,
                                 email = currentUser?.email ?: userProfile?.email ?: "",
+                                phone = phone.trim(),
                                 country = cleanCountry,
                                 preferredCurrency = cleanCurrency,
                                 createdAt = userProfile?.createdAt ?: System.currentTimeMillis()
@@ -513,6 +526,8 @@ fun ProfileScreen(
                     ProfileItemRow(icon = Icons.Default.Person, title = "Full Name", value = userProfile?.fullName?.ifBlank { null } ?: "Not set")
                     HorizontalDivider()
                     ProfileItemRow(icon = Icons.Default.Email, title = "Email Address", value = currentUser?.email ?: userProfile?.email ?: "Not signed in")
+                    HorizontalDivider()
+                    ProfileItemRow(icon = Icons.Default.Phone, title = "WhatsApp / Phone", value = userProfile?.phone?.ifBlank { null } ?: "Not set")
                     HorizontalDivider()
 
                     val currentCountryName = userProfile?.country ?: "Pakistan"

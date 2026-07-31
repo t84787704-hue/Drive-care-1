@@ -44,6 +44,7 @@ fun AuthScreen(
     var isRegisterMode by remember { mutableStateOf(false) }
 
     var fullName by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
@@ -251,18 +252,32 @@ fun AuthScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 AnimatedVisibility(visible = isRegisterMode) {
-                    OutlinedTextField(
-                        value = fullName,
-                        onValueChange = { fullName = it; errorMessage = null },
-                        label = { Text("Full Name") },
-                        leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Text,
-                            imeAction = ImeAction.Next
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        OutlinedTextField(
+                            value = fullName,
+                            onValueChange = { fullName = it; errorMessage = null },
+                            label = { Text("Full Name") },
+                            leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Text,
+                                imeAction = ImeAction.Next
+                            )
                         )
-                    )
+                        OutlinedTextField(
+                            value = phone,
+                            onValueChange = { phone = it; errorMessage = null },
+                            label = { Text("WhatsApp Number (e.g. +923001234567)") },
+                            leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Phone,
+                                imeAction = ImeAction.Next
+                            )
+                        )
+                    }
                 }
 
                 OutlinedTextField(
@@ -330,7 +345,7 @@ fun AuthScreen(
                         isLoading = true
                         errorMessage = null
                         if (isRegisterMode) {
-                            viewModel.signUpWithEmail(cleanEmail, cleanPass, cleanName) { success, msg ->
+                            viewModel.signUpWithEmail(cleanEmail, cleanPass, cleanName, phone.trim()) { success, msg ->
                                 isLoading = false
                                 if (success) {
                                     Toast.makeText(context, "Account created successfully!", Toast.LENGTH_SHORT).show()

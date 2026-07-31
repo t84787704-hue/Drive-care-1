@@ -305,13 +305,16 @@ fun VehicleDetailScreen(
                             onClick = {
                                 coroutineScope.launch {
                                     val ownerUid = vehicle.ownerUserId.ifBlank { viewModel.currentUser.value?.uid ?: "" }
-                                    var phone = viewModel.getOwnerPhone(ownerUid)
+                                    val ownerProfile = viewModel.getOwnerProfile(ownerUid)
+                                    var phone = ownerProfile?.phone ?: ""
                                     if (phone.isBlank()) {
                                         phone = viewModel.selectedPublicProfile.value?.phone ?: ""
                                     }
+                                    val ownerEmail = ownerProfile?.email ?: viewModel.selectedPublicProfile.value?.email ?: viewModel.currentUser.value?.email ?: ""
                                     com.drivecare.app.utils.WhatsAppHelper.openWhatsAppChat(
                                         context = context,
                                         rawPhoneNumber = phone,
+                                        email = ownerEmail,
                                         vehicleName = vehicle.vehicleName
                                     )
                                 }

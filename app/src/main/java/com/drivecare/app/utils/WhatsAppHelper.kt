@@ -20,12 +20,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 object WhatsAppHelper {
-    fun openWhatsAppChat(
-        context: Context,
-        rawPhoneNumber: String,
-        vehicleName: String = ""
-    ) {
-        val cleanPhone = rawPhoneNumber
+
+    fun formatPhoneNumberForWhatsApp(rawPhoneNumber: String): String {
+        var clean = rawPhoneNumber
             .replace("+", "")
             .replace(" ", "")
             .replace("-", "")
@@ -33,15 +30,32 @@ object WhatsAppHelper {
             .replace(")", "")
             .trim()
 
+        if (clean.startsWith("0")) {
+            clean = "92" + clean.substring(1)
+        } else if (clean.length == 10 && clean.startsWith("3")) {
+            clean = "92" + clean
+        }
+        return clean
+    }
+
+    fun openWhatsAppChat(
+        context: Context,
+        rawPhoneNumber: String,
+        email: String = "",
+        vehicleName: String = "",
+        customText: String = "Hi"
+    ) {
+        val cleanPhone = formatPhoneNumberForWhatsApp(rawPhoneNumber)
+
         if (cleanPhone.isBlank()) {
-            Toast.makeText(context, "Owner phone number is not available", Toast.LENGTH_SHORT).show()
+            showNoWhatsAppDialog(context, email)
             return
         }
 
         val message = if (vehicleName.isNotBlank()) {
-            "Hello, regarding vehicle $vehicleName on DriveCare app."
+            "Hi, regarding vehicle $vehicleName on DriveCare app."
         } else {
-            "Hello, regarding vehicle on DriveCare app."
+            customText.ifBlank { "Hi" }
         }
 
         val encodedText = Uri.encode(message)
@@ -53,6 +67,15 @@ object WhatsAppHelper {
         } catch (e: Exception) {
             Toast.makeText(context, "Could not open WhatsApp: ${e.message}", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    fun showNoWhatsAppDialog(context: Context, email: String) {
+        val emailDisplay = if (email.isNotBlank()) email else "Not provided"
+        android.app.AlertDialog.Builder(context)
+            .setTitle("WhatsApp Not Available")
+            .setMessage("This user hasn't added WhatsApp number yet. Contact via Email: $emailDisplay")
+            .setPositiveButton("OK", null)
+            .show()
     }
 }
 
@@ -84,3 +107,4 @@ fun WhatsAppButton(
         )
     }
 }
+

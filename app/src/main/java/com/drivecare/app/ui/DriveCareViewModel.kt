@@ -13,6 +13,7 @@ import com.drivecare.app.data.db.AppDatabase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.first
+import com.drivecare.app.data.model.PublicUserProfile
 import com.drivecare.app.data.model.Document
 import com.drivecare.app.data.model.DriverProfile
 import com.drivecare.app.data.model.EmergencyContact
@@ -1916,9 +1917,9 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun signUpWithEmail(email: String, pass: String, fullName: String, onResult: (Boolean, String?) -> Unit) {
+    fun signUpWithEmail(email: String, pass: String, fullName: String, phone: String = "", onResult: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
-            val result = syncManager.signUpWithEmail(email, pass, fullName)
+            val result = syncManager.signUpWithEmail(email, pass, fullName, phone)
             result.fold(
                 onSuccess = {
                     triggerManualSync()
@@ -2185,6 +2186,11 @@ class DriveCareViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             _selectedPublicProfile.value = syncManager.fetchPublicUserProfile(targetUid)
         }
+    }
+
+    suspend fun getOwnerProfile(targetUid: String): PublicUserProfile? {
+        if (targetUid.isBlank()) return null
+        return syncManager.fetchPublicUserProfile(targetUid)
     }
 
     suspend fun getOwnerPhone(targetUid: String): String {

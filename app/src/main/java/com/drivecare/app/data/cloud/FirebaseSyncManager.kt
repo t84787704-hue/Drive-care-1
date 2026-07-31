@@ -38,6 +38,7 @@ data class UserProfile(
     val uid: String = "",
     val fullName: String = "",
     val email: String = "",
+    val phone: String = "",
     val photoUrl: String = "",
     val country: String = "Pakistan",
     val preferredLanguage: String = "en",
@@ -345,10 +346,11 @@ class FirebaseSyncManager private constructor() {
         }
     }
 
-    suspend fun signUpWithEmail(email: String, pass: String, fullName: String): Result<CloudUser> = withContext(Dispatchers.IO) {
+    suspend fun signUpWithEmail(email: String, pass: String, fullName: String, phone: String = ""): Result<CloudUser> = withContext(Dispatchers.IO) {
         val cleanEmail = email.trim()
         val cleanPass = pass.trim()
         val cleanName = fullName.trim().ifBlank { cleanEmail.substringBefore("@") }
+        val cleanPhone = phone.trim()
 
         if (cleanEmail.isBlank()) {
             return@withContext Result.failure(IllegalArgumentException("Please enter a valid email address"))
@@ -372,8 +374,9 @@ class FirebaseSyncManager private constructor() {
                     displayName = cleanName
                 )
                 _currentUser.value = user
-                val profile = UserProfile(uid = user.uid, fullName = cleanName, email = cleanEmail)
+                val profile = UserProfile(uid = user.uid, fullName = cleanName, email = cleanEmail, phone = cleanPhone)
                 _userProfile.value = profile
+                saveUserProfile(profile)
                 saveUserToPrefs(user, cleanName)
                 val authSuccessLog = "[AUTH SUCCESS]\nUID=${user.uid}\nEMAIL=${user.email}"
                 Log.i("FIREBASE_AUTH", authSuccessLog)
@@ -454,6 +457,9 @@ class FirebaseSyncManager private constructor() {
                         "uid" to profile.uid,
                         "fullName" to profile.fullName,
                         "email" to profile.email,
+                        "phone" to profile.phone,
+                        "phoneNumber" to profile.phone,
+                        "whatsappNumber" to profile.phone,
                         "photoUrl" to profile.photoUrl,
                         "country" to profile.country,
                         "preferredLanguage" to profile.preferredLanguage,
@@ -524,6 +530,7 @@ class FirebaseSyncManager private constructor() {
                 if (profDoc.exists()) {
                     val pName = profDoc.getString("fullName") ?: profDoc.getString("displayName") ?: user.displayName ?: ""
                     val pPhoto = profDoc.getString("photoUrl") ?: user.photoUrl ?: ""
+                    val pPhone = profDoc.getString("phone") ?: profDoc.getString("phoneNumber") ?: profDoc.getString("whatsappNumber") ?: profDoc.getString("mobile") ?: profDoc.getString("contact") ?: ""
                     val pCountry = profDoc.getString("country") ?: "Pakistan"
                     val pLang = profDoc.getString("preferredLanguage") ?: "en"
                     val pCurr = profDoc.getString("preferredCurrency") ?: "PKR"
@@ -532,6 +539,7 @@ class FirebaseSyncManager private constructor() {
                         uid = user.uid,
                         fullName = pName,
                         email = user.email,
+                        phone = pPhone,
                         photoUrl = pPhoto,
                         country = pCountry,
                         preferredLanguage = pLang,
@@ -1087,7 +1095,7 @@ class FirebaseSyncManager private constructor() {
                     if (uid == currentUid) continue
                     val email = doc.getString("email") ?: ""
                     val name = doc.getString("fullName") ?: doc.getString("displayName") ?: doc.getString("name") ?: ""
-                    val phone = doc.getString("phone") ?: doc.getString("phoneNumber") ?: doc.getString("mobile") ?: ""
+                    val phone = doc.getString("phone") ?: doc.getString("phoneNumber") ?: doc.getString("whatsappNumber") ?: doc.getString("mobile") ?: doc.getString("contact") ?: ""
                     val country = doc.getString("country") ?: ""
                     val currency = doc.getString("preferredCurrency") ?: "PKR"
                     val photo = doc.getString("photoUrl") ?: ""
@@ -1680,7 +1688,7 @@ class FirebaseSyncManager private constructor() {
             if (doc != null && doc.exists()) {
                 val email = doc.getString("email") ?: ""
                 val name = doc.getString("fullName") ?: doc.getString("displayName") ?: doc.getString("name") ?: ""
-                val phone = doc.getString("phone") ?: doc.getString("phoneNumber") ?: doc.getString("mobile") ?: ""
+                val phone = doc.getString("phone") ?: doc.getString("phoneNumber") ?: doc.getString("whatsappNumber") ?: doc.getString("mobile") ?: doc.getString("contact") ?: ""
                 val country = doc.getString("country") ?: ""
                 val currency = doc.getString("preferredCurrency") ?: "PKR"
                 val photo = doc.getString("photoUrl") ?: ""
