@@ -44,11 +44,12 @@ class ChatRepository {
             return@callbackFlow
         }
 
-        val listener = firestore.collection("user_chats")
+        val listener = firestore.collection("conversations")
             .whereArrayContains("participants", uid)
+            .orderBy("updatedAt", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    Log.e(TAG, "Error listening to user_chats for $uid: ${error.message}")
+                    Log.e(TAG, "Error listening to conversations for $uid: ${error.message}")
                     trySend(emptyList())
                     return@addSnapshotListener
                 }
@@ -60,8 +61,8 @@ class ChatRepository {
                         val participantNames = (doc.get("participantNames") as? Map<*, *>)?.mapKeys { it.key.toString() }?.mapValues { it.value.toString() } ?: emptyMap()
                         val participantEmails = (doc.get("participantEmails") as? Map<*, *>)?.mapKeys { it.key.toString() }?.mapValues { it.value.toString() } ?: emptyMap()
                         val lastMessage = doc.getString("lastMessage") ?: ""
-                        val lastMessageTime = doc.getLong("lastMessageTime") ?: 0L
-                        val lastSenderId = doc.getString("lastSenderId") ?: ""
+                        val updatedAt = doc.getLong("updatedAt") ?: doc.getLong("lastMessageTime") ?: 0L
+                        val lastSenderId = doc.getString("lastSenderId") ?: doc.getString("lastSender") ?: ""
                         val unreadCounts = (doc.get("unreadCounts") as? Map<*, *>)?.mapKeys { it.key.toString() }?.mapValues { (it.value as? Number)?.toLong() ?: 0L } ?: emptyMap()
                         val typingStatus = (doc.get("typingStatus") as? Map<*, *>)?.mapKeys { it.key.toString() }?.mapValues { it.value as? Boolean ?: false } ?: emptyMap()
                         val onlineStatus = (doc.get("onlineStatus") as? Map<*, *>)?.mapKeys { it.key.toString() }?.mapValues { it.value as? Boolean ?: false } ?: emptyMap()
@@ -73,7 +74,7 @@ class ChatRepository {
                             participantNames = participantNames,
                             participantEmails = participantEmails,
                             lastMessage = lastMessage,
-                            lastMessageTime = lastMessageTime,
+                            lastMessageTime = updatedAt,
                             lastSenderId = lastSenderId,
                             unreadCounts = unreadCounts,
                             typingStatus = typingStatus,
@@ -93,7 +94,7 @@ class ChatRepository {
     }
 
     /**
-     * Listens ONLY to specific chatId's messages sub-collection: user_chats/{chatId}/messages
+     * Listens ONLY to specific chatId's messages sub-collection: conversations/{chatId}/messages
      */
     fun getChatMessagesFlow(chatId: String): Flow<List<ChatMessage>> = callbackFlow {
         if (chatId.isBlank()) {
@@ -102,7 +103,7 @@ class ChatRepository {
             return@callbackFlow
         }
 
-        val listener = firestore.collection("user_chats")
+        val listener = firestore.collection("conversations")
             .document(chatId)
             .collection("messages")
             .orderBy("timestamp", Query.Direction.ASCENDING)
@@ -140,7 +141,7 @@ class ChatRepository {
     }
 
     /**
-     * Sends a 1-to-1 message inside user_chats/{chatId}/messages
+     * Sends a 1-to-1 message inside conversations/{chatId}/messages
      */
     suspend fun sendMessage(
         senderUid: String,
@@ -164,7 +165,7 @@ class ChatRepository {
             val chatId = getChatId(sUid, rUid)
             val now = System.currentTimeMillis()
 
-            val msgRef = firestore.collection("user_chats")
+            val msgRef = firestore.collection("conversations")
                 .document(chatId)
                 .collection("messages")
                 .document()
@@ -183,11 +184,11 @@ class ChatRepository {
             if (mediaUrl != null) messageData["mediaUrl"] = mediaUrl
             if (durationMs != null) messageData["durationMs"] = durationMs
 
-            // 1. Write message to user_chats/{chatId}/messages/{messageId}
+            // 1. Write message to conversations/{chatId}/messages/{messageId}
             msgRef.set(messageData).await()
 
-            // 2. Update parent user_chats/{chatId} metadata
-            val chatDocRef = firestore.collection("user_chats").document(chatId)
+            // 2. Update parent conversations/{chatId} metadata
+            val chatDocRef = firestore.collection("conversations").document(chatId)
             val chatSnapshot = chatDocRef.get().await()
 
             val existingUnreadCounts = (chatSnapshot.get("unreadCounts") as? Map<*, *>)
@@ -205,6 +206,7 @@ class ChatRepository {
                 "participantEmails" to mapOf(sUid to senderEmail, rUid to receiverEmail),
                 "lastMessage" to text,
                 "lastMessageTime" to now,
+                "updatedAt" to now,
                 "lastSenderId" to sUid,
                 "unreadCounts" to existingUnreadCounts
             )
@@ -240,7 +242,7 @@ class ChatRepository {
         if (chatId.isBlank() || uid.isBlank()) return
 
         try {
-            val messagesRef = firestore.collection("user_chats")
+            val messagesRef = firestore.collection("conversations")
                 .document(chatId)
                 .collection("messages")
 
@@ -258,8 +260,8 @@ class ChatRepository {
                 batch.commit().await()
             }
 
-            // Reset unread count for current user in user_chats/{chatId}
-            val chatDocRef = firestore.collection("user_chats").document(chatId)
+            // Reset unread count for current user in conversations/{chatId}
+            val chatDocRef = firestore.collection("conversations").document(chatId)
             val chatSnapshot = chatDocRef.get().await()
             if (chatSnapshot.exists()) {
                 val existingUnreadCounts = (chatSnapshot.get("unreadCounts") as? Map<*, *>)
@@ -278,7 +280,7 @@ class ChatRepository {
     }
 
     /**
-     * Updates user typing and online status in user_chats/{chatId}
+     * Updates user typing and online status in conversations/{chatId}
      */
     suspend fun updatePresenceAndTyping(
         chatId: String,
@@ -290,7 +292,7 @@ class ChatRepository {
         if (chatId.isBlank() || uid.isBlank()) return
 
         try {
-            val chatDocRef = firestore.collection("user_chats").document(chatId)
+            val chatDocRef = firestore.collection("conversations").document(chatId)
             val now = System.currentTimeMillis()
 
             val updates = mutableMapOf<String, Any>(
